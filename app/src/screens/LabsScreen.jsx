@@ -1,0 +1,89 @@
+import React from "react";
+import { AlertCircle, ChevronRight, Plus, TrendingUp } from "lucide-react";
+import { Card } from "../components/Card";
+import { SectionLabel } from "../components/SectionLabel";
+import { COLORS, SERIF } from "../theme/tokens";
+
+function LabsScreen({ setActive, goToMarket }) {
+  const markers = [
+    { name: "TSH", value: "2.1 mIU/L", status: "normal" },
+    { name: "TPO antibodies", value: "118 IU/mL", status: "watch" },
+    { name: "Vitamin D", value: "28 ng/mL", status: "low" },
+    { name: "Ferritin", value: "62 ng/mL", status: "normal" },
+  ];
+  const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger };
+  return (
+    <div style={{ padding: "24px 18px" }}>
+      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Labs</div>
+      <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
+        Tracked across every panel, not just your most recent one.
+      </div>
+
+      <button onClick={() => setActive("orderlabs")} style={{
+        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.tealLight}60`,
+        borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", cursor: "pointer", marginBottom: 18
+      }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <Plus size={18} color={COLORS.tealLight} />
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>Order bloodwork</div>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>At-home collection via Tasso</div>
+          </div>
+        </div>
+        <ChevronRight size={16} color={COLORS.textMuted} />
+      </button>
+
+      <Card>
+        {markers.map((m, i) => (
+          <div key={m.name} style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "11px 0", borderBottom: i < markers.length - 1 ? `1px solid ${COLORS.border}` : "none"
+          }}>
+            <span style={{ fontSize: 13 }}>{m.name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}</span>
+              <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor[m.status] }} />
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      <Card style={{ border: `1px solid ${COLORS.danger}40`, background: COLORS.badDim }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <AlertCircle size={18} color={COLORS.danger} style={{ marginTop: 2, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Vitamin D is low</div>
+            <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
+              28 ng/mL is below the recommended range of 30–50 ng/mL. Low vitamin D is common
+              and usually addressed with daily supplementation, typically 2,000–5,000 IU of
+              D3, ideally taken with a meal containing fat for better absorption. Worth
+              re-checking in 8–12 weeks to confirm levels are responding before assuming a
+              dose adjustment is needed.
+            </div>
+            <button onClick={() => goToMarket("vitd3")} style={{
+              background: "none", border: `1px solid ${COLORS.tealLight}`, color: COLORS.tealLight,
+              fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer"
+            }}>
+              Shop Vitamin D3 in Marketplace <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      <SectionLabel>Trend</SectionLabel>
+      <Card>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+          <TrendingUp size={16} color={COLORS.warning} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>TPO antibodies rising</span>
+        </div>
+        <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
+          Apr 2025: 64 IU/mL &rarr; Oct 2025: 91 IU/mL &rarr; Jan 2026: 118 IU/mL.
+          Each result alone was within range. The trend across all three is what matters.
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export { LabsScreen };

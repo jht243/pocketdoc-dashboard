@@ -1,0 +1,32 @@
+# --- Secrets / credentials -------------------------------------------------
+# Never commit these. Git history is permanent — a file removed in a later
+# commit still exists in the history of every clone.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# --- Business & client-confidential documents ------------------------------
+# Meeting transcripts contain client personal and financial details; the
+# proposal PDF contains live bank account and routing numbers.
+Transcripts/
+*.pdf
+
+# --- Dependencies / build output -------------------------------------------
+node_modules/
+dist/
+build/
+.vite/
+
+# --- Local tooling ---------------------------------------------------------
+*.log
+npm-debug.log*
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+
+# Preview harness generated from the mockup source
+Mockup/_preview_app.jsx

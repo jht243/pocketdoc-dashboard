@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f6f7f9">
+<title>PocketDoc — Your Health, Decoded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --bg-raise: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f2f5f8;
+    --stroke: rgba(15,23,42,0.08);
+    --stroke-strong: rgba(15,23,42,0.14);
+    --ink: #0f172a;
+    --ink-2: #55657a;
+    --ink-3: #8494a7;
+    --good: #16a34a;
+    --good-dim: rgba(22,163,74,0.10);
+    --warn: #d97706;
+    --warn-dim: rgba(217,119,6,0.10);
+    --bad: #dc2626;
+    --bad-dim: rgba(220,38,38,0.08);
+    --accent: #0284c7;
+    --accent-dim: rgba(2,132,199,0.08);
+    --violet: #6366f1;
+    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.06);
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "Inter", -apple-system, system-ui, sans-serif;
+    --r-lg: 22px;
+    --r-md: 16px;
+    --r-sm: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html { background: #eceff3; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Phone column — full-bleed on mobile, framed on desktop */
+  .app {
+    width: 100%;
+    max-width: 430px;
+    min-height: 100vh;
+    background: var(--bg);
+    position: relative;
+    overflow-x: hidden;
+    padding-bottom: 84px;
+  }
+  @media (min-width: 500px) {
+    body { padding: 24px 0; background: radial-gradient(1200px 800px at 50% -10%, #ffffff 0%, #e4e9ef 60%); }
+    .app {
+      border-radius: 40px;
+      border: 1px solid var(--stroke);
+      box-shadow: 0 40px 120px rgba(15,23,42,0.14);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .fab { right: auto; left: calc(50% + 141px); }
+  }
+
+  /* ambient glow behind hero */
+  .ambient {
+    position: absolute; top: -140px; left: 50%; transform: translateX(-50%);
+    width: 480px; height: 480px; pointer-events: none;
+    background: radial-gradient(circle, rgba(14,165,233,0.10) 0%, rgba(34,197,94,0.06) 40%, transparent 68%);
+    animation: breathe 6s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.85; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.06); }
+  }
+
+  .content { position: relative; padding: 0 20px; }
+
+  /* ---------- reveal-on-scroll ---------- */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.65s cubic-bezier(.22,.9,.3,1), transform 0.65s cubic-bezier(.22,.9,.3,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* ---------- brand bar + header ---------- */
+  .brandbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: max(16px, env(safe-area-inset-top)) 0 0;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--serif); font-weight: 600; font-size: 17px; letter-spacing: -0.01em;
+  }
+  .bmark {
+    width: 27px; height: 27px; border-radius: 9px;
+    background: linear-gradient(135deg, #0ea5e9, #22c55e);
+    display: grid; place-items: center;
+    box-shadow: 0 2px 8px rgba(14,165,233,0.3);
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0 4px;
+  }
+  .greet h1 { font-family: var(--serif); font-weight: 500; font-size: 26px; letter-spacing: -0.01em; }
+  .greet p { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+  .h-actions { display: flex; gap: 10px; align-items: center; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--stroke);
+    box-shadow: var(--shadow);
+    display: grid; place-items: center; position: relative; cursor: pointer;
+    transition: transform .15s ease, background .2s;
+  }
+  .icon-btn:active { transform: scale(0.92); }
+  .icon-btn .dot {
+    position: absolute; top: 9px; right: 10px; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(2,132,199,0.15);
+  }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(135deg, #0369a1, #15803d);
+    border: 1px solid var(--stroke-strong);
+    display: grid; place-items: center; font-weight: 700; font-size: 13px; letter-spacing: 0.02em;
+    color: #ffffff;
+    transition: transform .15s ease;
+  }
+  .avatar:active { transform: scale(0.92); }
+
+  /* ---------- hero score ---------- */
+  .hero { text-align: center; padding: 18px 0 6px; }
+  .ring-wrap { position: relative; width: 216px; height: 216px; margin: 0 auto; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: #e5eaf0; stroke-width: 13; }
+  .ring-fill {
+    fill: none; stroke: url(#scoreGrad); stroke-width: 13; stroke-linecap: round;
+    filter: drop-shadow(0 2px 8px rgba(22,163,74,0.25));
+    transition: stroke-dashoffset 1.4s cubic-bezier(.3,.75,.25,1);
+  }
+  .ring-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+  }
+  .crown {
+    height: 22px; opacity: 0; transform: scale(0.4) translateY(6px);
+    transition: opacity .45s ease .25s, transform .45s cubic-bezier(.2,1.6,.4,1) .25s;
+  }
+  .crown.pop { opacity: 1; transform: none; }
+  .score-num { font-size: 62px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: normal; }
+  .score-label { font-size: 12px; color: var(--ink-3); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  .tier-row { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 100px;
+    border: 1px solid var(--stroke);
+  }
+  .pill.optimal { color: var(--good); background: var(--good-dim); border-color: rgba(22,163,74,0.3); }
+  .pill.delta { color: var(--ink-2); background: var(--card); box-shadow: var(--shadow); }
+  .pill.delta b { color: var(--good); font-weight: 700; }
+
+  /* sub-scores */
+  .subscores { display: flex; justify-content: center; gap: 26px; padding: 20px 0 8px; }
+  .sub { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .sub .mini { position: relative; width: 58px; height: 58px; }
+  .sub .mini svg { transform: rotate(-90deg); }
+  .mini-track { fill: none; stroke: #e5eaf0; stroke-width: 5; }
+  .mini-fill { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 1.1s cubic-bezier(.3,.75,.25,1) .3s; }
+  .sub .mini span {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 16px; font-weight: 700;
+  }
+  .sub label { font-size: 11.5px; color: var(--ink-2); font-weight: 600; letter-spacing: 0.02em; }
+
+  /* ---------- section scaffolding ---------- */
+  section { margin-top: 26px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .sec-head h2 { font-family: var(--serif); font-weight: 500; font-size: 19px; letter-spacing: -0.01em; }
+  .sec-head a { color: var(--accent); font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--stroke);
+    border-radius: var(--r-lg); padding: 18px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---------- insight card ---------- */
+  .insight { position: relative; overflow: hidden; }
+  .insight::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(120deg, rgba(2,132,199,0.06), rgba(99,102,241,0.04) 55%, transparent);
+    pointer-events: none;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 9px;
+  }
+  .eyebrow .spark { animation: sparkle 2.4s ease-in-out infinite; }
+  @keyframes sparkle { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.25); opacity: 0.75; } }
+  .insight p { font-size: 14.5px; line-height: 1.55; color: #33445c; position: relative; }
+  .insight p b { color: var(--ink); }
+  .insight .cta-row { display: flex; gap: 8px; margin-top: 13px; position: relative; }
+  .chip-btn {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    color: var(--ink); background: rgba(15,23,42,0.04); border: 1px solid var(--stroke-strong);
+    padding: 8px 14px; border-radius: 100px; transition: transform .15s, background .2s;
+  }
+  .chip-btn:active { transform: scale(0.94); }
+  .chip-btn.primary { background: var(--accent-dim); border-color: rgba(2,132,199,0.3); color: var(--accent); }
+
+  /* ---------- lab triage ---------- */
+  .triage-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .triage-head .big { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; }
+  .triage-head .of { color: var(--ink-2); font-size: 14px; font-weight: 500; }
+  .triage-sub { color: var(--ink-3); font-size: 12.5px; margin-bottom: 14px; }
+  .seg-bar { display: flex; gap: 2px; height: 10px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; background: #eef1f5; }
+  .seg { height: 100%; width: 0; border-radius: 3px; transition: width 1.1s cubic-bezier(.3,.75,.25,1) .2s; }
+  .seg.g { background: var(--good); }
+  .seg.w { background: var(--warn); }
+  .seg.b { background: var(--bad); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); font-weight: 500; }
+  .swatch { width: 8px; height: 8px; border-radius: 3px; }
+
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .cat {
+    background: var(--card); border: 1px solid var(--stroke); border-radius: var(--r-md);
+    padding: 14px; cursor: pointer; box-shadow: var(--shadow);
+    transition: transform .15s, background .2s, border-color .2s;
+  }
+  .cat:active { transform: scale(0.97); }
+  .cat .ico {
+    width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 10px;
+  }
+  .cat h3 { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+  .cat .meta { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .cat .status { display: flex; gap: 5px; margin-top: 9px; align-items: center; }
+  .cat .status i {
+    font-style: normal; font-size: 11px; font-weight: 700;
+    padding: 2.5px 7px; border-radius: 100px;
+  }
+  .st-g { color: var(--good); background: var(--good-dim); }
+  .st-w { color: var(--warn); background: var(--warn-dim); }
+  .st-b { color: var(--bad); background: var(--bad-dim); }
+  .cat-extra { display: none; }
+  .cat-extra.open { display: contents; }
+
+  /* ---------- trend chart ---------- */
+  .trend-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .trend-title h3 { font-size: 15px; font-weight: 700; }
+  .trend-val { font-size: 22px; font-weight: 800; color: var(--good); letter-spacing: -0.02em; }
+  .trend-val small { font-size: 12px; font-weight: 600; color: var(--ink-3); margin-left: 3px; }
+  .trend-sub { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
+  .trend-sub b { color: var(--good); font-weight: 700; }
+  .chart { width: 100%; height: auto; display: block; }
+  .zone-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .axis-label { font-size: 10px; fill: var(--ink-3); font-weight: 500; }
+  #trendPath {
+    fill: none; stroke: url(#zoneGrad); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .pt { opacity: 0; transition: opacity .3s ease; }
+  .pt.on { opacity: 1; }
+
+  .spark-row { display: flex; gap: 10px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
+  .spark-row::-webkit-scrollbar { display: none; }
+  .spark-chip {
+    flex: 1; min-width: 108px; background: var(--card); border: 1px solid var(--stroke);
+    border-radius: var(--r-md); padding: 11px 12px; cursor: pointer; box-shadow: var(--shadow);
+    transition: transform .15s;
+  }
+  .spark-chip:active { transform: scale(0.96); }
+  .spark-chip .nm { font-size: 11px; color: var(--ink-2); font-weight: 600; }
+  .spark-chip .vl { font-size: 15px; font-weight: 800; margin-top: 1px; display: flex; align-items: center; gap: 5px; }
+  .spark-chip .vl .tag { font-size: 9.5px; font-weight: 700; padding: 1.5px 6px; border-radius: 100px; }
+  .spark-chip svg { margin-top: 6px; display: block; }
+
+  /* ---------- wearables ---------- */
+  .wear-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px rgba(22,163,74,0.15); animation: pulse 2.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+  .wear-head span { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--stroke); border-radius: var(--r-md);
+    padding: 12px 10px; text-align: center; box-shadow: var(--shadow);
+  }
+  .stat .v { font-size: 16.5px; font-weight: 800; letter-spacing: -0.02em; }
+  .stat .v small { font-size: 10.5px; font-weight: 600; color: var(--ink-3); }
+  .stat .k { font-size: 10px; color: var(--ink-3); font-weight: 600; margin-top: 3px; letter-spacing: 0.03em; }
+  .stat .d { font-size: 10px; font-weight: 700; margin-top: 3px; white-space: nowrap; }
+  .d.up { color: var(--good); } .d.flat { color: var(--ink-3); }
+
+  /* ---------- ask ---------- */
+  .ask-bar {
+    display: flex; align-items: center; gap: 11px;
+    background: var(--card); border: 1px solid var(--stroke-strong);
+    border-radius: 100px; padding: 8px 8px 8px 18px; cursor: text;
+    box-shadow: var(--shadow);
+    transition: border-color .25s, box-shadow .25s;
+  }
+  .ask-bar.lit { border-color: rgba(2,132,199,0.45); box-shadow: 0 0 0 4px rgba(2,132,199,0.10), var(--shadow); }
+  .ask-bar input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--ink); font-family: var(--sans); font-size: 14px; min-width: 0;
+  }
+  .ask-bar input::placeholder { color: var(--ink-3); }
+  .ask-orb {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #0ea5e9, var(--violet));
+    display: grid; place-items: center;
+    box-shadow: 0 4px 14px rgba(2,132,199,0.3);
+    transition: transform .15s;
+  }
+  .ask-orb:active { transform: scale(0.9); }
+  .ask-chips { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .ask-chip {
+    text-align: left; font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: #33445c;
+    background: var(--card); border: 1px solid var(--stroke); border-radius: var(--r-md);
+    padding: 12px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+    box-shadow: var(--shadow);
+    transition: transform .15s, background .2s, border-color .2s;
+  }
+  .ask-chip:active { transform: scale(0.97); background: var(--card-hover); }
+  .ask-chip .q-ico { flex-shrink: 0; opacity: 0.9; }
+
+  /* ---------- visit prep ---------- */
+  .visit { position: relative; overflow: hidden; }
+  .visit::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(22,163,74,0.05), transparent 60%);
+    pointer-events: none;
+  }
+  .visit-top { display: flex; gap: 12px; align-items: center; position: relative; }
+  .doc-av {
+    width: 46px; height: 46px; border-radius: 16px; flex-shrink: 0;
+    background: linear-gradient(135deg, #15803d, #0369a1);
+    border: 1px solid var(--stroke-strong);
+    display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #ffffff;
+  }
+  .visit-top h3 { font-size: 15px; font-weight: 700; }
+  .visit-top .meta { font-size: 12.5px; color: var(--ink-2); margin-top: 1px; }
+  .visit-when {
+    margin-left: auto; text-align: right; flex-shrink: 0;
+  }
+  .visit-when .day { font-size: 13px; font-weight: 700; color: var(--good); }
+  .visit-when .tm { font-size: 11.5px; color: var(--ink-3); }
+  .ready-row { display: flex; gap: 7px; margin: 13px 0; position: relative; flex-wrap: wrap; }
+  .ready {
+    font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+    background: rgba(15,23,42,0.04); border: 1px solid var(--stroke);
+    padding: 5px 10px; border-radius: 100px; display: inline-flex; gap: 5px; align-items: center;
+  }
+  .ready b { color: var(--ink); font-weight: 700; }
+  .gen-btn {
+    width: 100%; border: none; cursor: pointer; font-family: var(--sans);
+    background: linear-gradient(135deg, #16a34a, #059669);
+    color: #ffffff; font-size: 14.5px; font-weight: 800; letter-spacing: -0.01em;
+    padding: 14px; border-radius: var(--r-md); position: relative;
+    box-shadow: 0 6px 20px rgba(22,163,74,0.28);
+    transition: transform .15s, box-shadow .2s, background .3s;
+  }
+  .gen-btn:active { transform: scale(0.98); }
+  .gen-btn.done { background: #e7f6ec; color: #15803d; box-shadow: none; border: 1px solid rgba(22,163,74,0.3); }
+  .gen-sub { text-align: center; font-size: 11.5px; color: var(--ink-3); margin-top: 9px; position: relative; }
+
+  /* ---------- meds ---------- */
+  .med-list { display: flex; flex-direction: column; }
+  .med { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--stroke); }
+  .med:last-child { border-bottom: none; padding-bottom: 2px; }
+  .med:first-child { padding-top: 2px; }
+  .med .tick {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 13px;
+  }
+  .tick.done { background: var(--good-dim); color: var(--good); }
+  .tick.wait { background: rgba(15,23,42,0.05); color: var(--ink-3); border: 1px dashed var(--stroke-strong); }
+  .med .nm { font-size: 14px; font-weight: 600; }
+  .med .ds { font-size: 12px; color: var(--ink-3); }
+  .med .when { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-weight: 500; text-align: right; }
+  .adh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .adh .lbl { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .adh .pct { font-size: 12px; font-weight: 800; color: var(--good); }
+
+  /* ---------- activity ---------- */
+  .act { display: flex; gap: 12px; align-items: center; }
+  .act .f-ico {
+    width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0;
+    background: var(--accent-dim); display: grid; place-items: center;
+  }
+  .act h3 { font-size: 13.5px; font-weight: 700; }
+  .act .meta { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .act .tag {
+    margin-left: auto; flex-shrink: 0; font-size: 10.5px; font-weight: 700;
+    color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(2,132,199,0.3);
+    padding: 4px 9px; border-radius: 100px;
+  }
+
+  /* ---------- footer ---------- */
+  .foot {
+    text-align: center; color: var(--ink-3); font-size: 11px; line-height: 1.6;
+    padding: 26px 24px 8px;
+  }
+
+  /* ---------- recommended supplements ---------- */
+  .supp-row { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .supp-row::-webkit-scrollbar { display: none; }
+  .supp {
+    flex: 0 0 214px; background: var(--card); border: 1px solid var(--stroke);
+    border-radius: var(--r-md); padding: 14px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+  }
+  .supp-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .supp .ico { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; }
+  .supp-tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 100px; }
+  .supp h3 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .supp .ds { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .supp .why { font-size: 12px; color: var(--ink-2); line-height: 1.45; margin: 8px 0 12px; flex: 1; }
+  .supp .why b { color: var(--ink); }
+  .add-btn {
+    width: 100%; padding: 9px; border-radius: 10px; border: 1px solid rgba(2,132,199,0.3);
+    background: var(--accent-dim); color: var(--accent);
+    font-family: var(--sans); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    transition: transform .15s, background .2s, color .2s, border-color .2s;
+  }
+  .add-btn:active { transform: scale(0.96); }
+  .add-btn.added { background: var(--good-dim); color: var(--good); border-color: rgba(22,163,74,0.3); }
+  .supp-note { font-size: 11px; color: var(--ink-3); margin-top: 10px; line-height: 1.55; }
+  .supp-note b { color: var(--good); font-weight: 700; }
+  .supp-note a { color: var(--accent); font-weight: 600; cursor: pointer; }
+
+  /* ---------- care circle ---------- */
+  .mem { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--stroke); }
+  .mem:first-child { padding-top: 2px; }
+  .fam-av {
+    width: 36px; height: 36px; border-radius: 13px; flex-shrink: 0;
+    display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px;
+  }
+  .fam-av.m { background: linear-gradient(135deg, #7c3aed, #db2777); }
+  .fam-av.r { background: linear-gradient(135deg, #d97706, #b45309); }
+  .mem .nm { font-size: 14px; font-weight: 600; }
+  .mem .ds { font-size: 11.5px; color: var(--ink-3); }
+  .mem .end { margin-left: auto; flex-shrink: 0; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 100px; }
+  .acc-full { color: var(--good); background: var(--good-dim); }
+  .acc-labs { color: var(--ink-2); background: rgba(15,23,42,0.05); }
+  .invite-btn {
+    width: 100%; margin-top: 12px; padding: 11px; border-radius: var(--r-sm);
+    border: 1.5px dashed rgba(2,132,199,0.4); background: transparent;
+    color: var(--accent); font-family: var(--sans); font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: transform .15s, background .2s;
+  }
+  .invite-btn:active { transform: scale(0.98); background: var(--accent-dim); }
+  .suggest {
+    margin-top: 12px; padding: 13px 14px; border-radius: var(--r-md);
+    background: rgba(124,58,237,0.05); border: 1px solid rgba(124,58,237,0.18);
+  }
+  .suggest .s-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .suggest .s-head .fam-av { width: 22px; height: 22px; border-radius: 8px; font-size: 10px; }
+  .suggest .s-head span { font-size: 11.5px; font-weight: 700; color: #7c3aed; }
+  .suggest .s-head .tm { margin-left: auto; font-weight: 500; color: var(--ink-3); }
+  .suggest q { font-size: 13.5px; color: #33445c; line-height: 1.5; quotes: "\201C" "\201D"; }
+  .suggest .s-acts { display: flex; gap: 8px; margin-top: 11px; }
+  .q-by {
+    display: inline-flex; align-items: center; gap: 4px; margin-left: 6px;
+    font-size: 9.5px; font-weight: 700; color: #7c3aed;
+    background: rgba(124,58,237,0.08); padding: 2px 7px; border-radius: 100px;
+    white-space: nowrap; vertical-align: 1px;
+  }
+  .share-line { display: flex; align-items: center; gap: 7px; margin-bottom: 14px; font-size: 11.5px; color: var(--ink-3); }
+  .share-line .fam-av { width: 20px; height: 20px; border-radius: 7px; font-size: 9px; }
+  .share-line b { color: var(--ink-2); }
+  .share-line a { color: var(--accent); font-weight: 600; cursor: pointer; margin-left: auto; }
+
+  /* ---------- floating ask button ---------- */
+  .fab {
+    position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); right: 18px;
+    width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; z-index: 50;
+    background: linear-gradient(135deg, #0ea5e9, var(--violet));
+    display: grid; place-items: center;
+    box-shadow: 0 6px 22px rgba(2,132,199,0.35), 0 0 0 6px rgba(2,132,199,0.07);
+    animation: orbfloat 3.5s ease-in-out infinite;
+    transition: transform .15s;
+    will-change: transform;
+  }
+  .fab:active { transform: scale(0.9); animation: none; }
+  @keyframes orbfloat {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  /* ---------- slide-in pages ---------- */
+  .page {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; justify-content: center;
+    background: rgba(15,23,42,0);
+    pointer-events: none;
+    overflow: hidden;
+    transition: background .35s;
+  }
+  .page.open { background: rgba(15,23,42,0.28); pointer-events: auto; }
+  .page-inner {
+    width: 100%; max-width: 430px; height: 100%;
+    background: var(--bg); overflow-y: auto; overscroll-behavior: contain;
+    transform: translateX(calc(50vw + 50%));
+    transition: transform .38s cubic-bezier(.3,.8,.3,1);
+    box-shadow: -20px 0 60px rgba(15,23,42,0.18);
+  }
+  .page.open .page-inner { transform: none; }
+  .page-bar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 10px;
+    padding: max(14px, env(safe-area-inset-top)) 16px 12px;
+    background: rgba(246,247,249,0.92); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--stroke);
+  }
+  .page-bar h2 { font-family: var(--serif); font-weight: 500; font-size: 19px; flex: 1; }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 12px; border: 1px solid var(--stroke);
+    background: var(--card); cursor: pointer; display: grid; place-items: center;
+    box-shadow: var(--shadow); transition: transform .15s;
+  }
+  .back-btn:active { transform: scale(0.9); }
+  .bar-act {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--accent);
+    background: none; border: none; cursor: pointer; padding: 6px 4px;
+  }
+  .page-body { padding: 16px 20px 40px; }
+
+  /* notifications */
+  .n-day { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin: 18px 2px 8px; }
+  .n-day:first-child { margin-top: 2px; }
+  .nrow {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--card); border: 1px solid var(--stroke); border-radius: var(--r-md);
+    padding: 13px 14px; margin-bottom: 8px; box-shadow: var(--shadow); cursor: pointer;
+    transition: transform .15s;
+  }
+  .nrow:active { transform: scale(0.98); }
+  .nrow .ico { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; }
+  .nrow .tx { flex: 1; min-width: 0; }
+  .nrow .tt { font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+  .nrow .ts { font-size: 12px; color: var(--ink-2); margin-top: 2px; line-height: 1.45; }
+  .nrow .tm { font-size: 11px; color: var(--ink-3); flex-shrink: 0; margin-top: 1px; }
+  .nrow .unread { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 5px; }
+
+  /* profile */
+  .prof-hero { text-align: center; padding: 18px 0 6px; }
+  .prof-av {
+    width: 76px; height: 76px; border-radius: 26px; margin: 0 auto 12px;
+    background: linear-gradient(135deg, #0369a1, #15803d);
+    display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 26px;
+    box-shadow: 0 10px 30px rgba(3,105,161,0.25);
+  }
+  .prof-hero h3 { font-family: var(--serif); font-weight: 500; font-size: 22px; }
+  .prof-hero .sub { font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
+  .p-sec { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin: 20px 2px 8px; }
+  .p-card { background: var(--card); border: 1px solid var(--stroke); border-radius: var(--r-md); box-shadow: var(--shadow); overflow: hidden; }
+  .prow {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px;
+    border-bottom: 1px solid var(--stroke); cursor: pointer;
+  }
+  .prow:last-child { border-bottom: none; }
+  .prow .ico { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+  .prow .tx { flex: 1; min-width: 0; }
+  .prow .tt { font-size: 13.5px; font-weight: 600; }
+  .prow .ts { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prow .end { flex-shrink: 0; font-size: 11.5px; font-weight: 700; }
+  .conn { color: var(--good); background: var(--good-dim); padding: 4px 9px; border-radius: 100px; }
+  .notconn { color: var(--accent); background: var(--accent-dim); padding: 4px 9px; border-radius: 100px; }
+  .chev { color: var(--ink-3); flex-shrink: 0; }
+
+  /* discussion page (doctor-facing document) */
+  .doc-sheet {
+    background: #ffffff; border: 1px solid var(--stroke); border-radius: var(--r-lg);
+    padding: 20px 18px; box-shadow: var(--shadow);
+  }
+  .doc-head { border-bottom: 2px solid var(--ink); padding-bottom: 12px; margin-bottom: 14px; }
+  .doc-head .brand-line { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .doc-head h3 { font-family: var(--serif); font-weight: 600; font-size: 21px; letter-spacing: -0.01em; }
+  .doc-head .pt-meta { font-size: 12px; color: var(--ink-2); margin-top: 5px; line-height: 1.5; }
+  .doc-sec { margin-top: 16px; }
+  .doc-sec > h4 {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 8px;
+  }
+  .concern { display: flex; gap: 10px; padding: 8px 0; align-items: baseline; }
+  .concern .num {
+    width: 20px; height: 20px; border-radius: 7px; background: var(--accent-dim); color: var(--accent);
+    font-size: 11px; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; align-self: flex-start;
+  }
+  .concern p { font-size: 13px; line-height: 1.5; color: #33445c; }
+  .concern p b { color: var(--ink); }
+  .mrow {
+    display: flex; align-items: center; gap: 8px; padding: 9px 0;
+    border-bottom: 1px solid var(--stroke); font-size: 12.5px;
+  }
+  .mrow:last-child { border-bottom: none; }
+  .mrow .mk { flex: 1; font-weight: 600; min-width: 0; }
+  .mrow .mv { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mrow .mv small { font-weight: 600; color: var(--ink-3); font-size: 10.5px; }
+  .mrow .rng { font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+  .mrow .mtag { font-size: 9.5px; font-weight: 700; padding: 2.5px 7px; border-radius: 100px; white-space: nowrap; }
+  .q-item { display: flex; gap: 9px; padding: 7px 0; font-size: 13px; color: #33445c; line-height: 1.5; }
+  .q-item .qbox {
+    width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--stroke-strong);
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .doc-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--stroke); font-size: 10.5px; color: var(--ink-3); line-height: 1.6; }
+  .doc-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+  .doc-btn {
+    flex: 1; padding: 12px; border-radius: var(--r-md); font-family: var(--sans);
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .doc-btn:active { transform: scale(0.97); }
+  .doc-btn.primary { background: linear-gradient(135deg, #16a34a, #059669); color: #fff; border: none; box-shadow: 0 6px 20px rgba(22,163,74,0.25); }
+  .doc-btn.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--stroke-strong); box-shadow: var(--shadow); }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed; bottom: 92px; left: 50%; transform: translate(-50%, 16px);
+    background: #e9f7ee; color: #15803d; border: 1px solid rgba(22,163,74,0.35);
+    font-size: 13px; font-weight: 600; padding: 11px 18px; border-radius: 100px;
+    opacity: 0; pointer-events: none; z-index: 60; white-space: nowrap;
+    transition: opacity .3s, transform .3s cubic-bezier(.2,1.2,.4,1);
+    box-shadow: 0 10px 40px rgba(15,23,42,0.18);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 0.01s !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="ambient"></div>
+  <div class="content">
+
+    <!-- BRAND BAR -->
+    <div class="brandbar reveal in">
+      <div class="brand">
+        <span class="bmark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+        PocketDoc
+      </div>
+      <div class="h-actions">
+        <div class="icon-btn" data-page="page-notifs">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="dot"></span>
+        </div>
+        <div class="avatar" data-page="page-profile">AL</div>
+      </div>
+    </div>
+
+    <!-- HEADER -->
+    <header class="reveal in">
+      <div class="greet">
+        <h1 id="greeting">Good morning, Adam</h1>
+        <p id="dateline">Monday, July 14</p>
+      </div>
+    </header>
+
+    <!-- HERO SCORE -->
+    <div class="hero reveal in">
+      <div class="ring-wrap">
+        <svg width="216" height="216" viewBox="0 0 216 216">
+          <defs>
+            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#0ea5e9"/>
+              <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-track" cx="108" cy="108" r="96"/>
+          <circle class="ring-fill" id="scoreRing" cx="108" cy="108" r="96"
+                  stroke-dasharray="603.2" stroke-dashoffset="603.2"/>
+        </svg>
+        <div class="ring-center">
+          <svg class="crown" id="crown" viewBox="0 0 24 18" width="26">
+            <path d="M2 14 L1 4 L7 9 L12 1 L17 9 L23 4 L22 14 Z" fill="#f59e0b"/>
+            <rect x="2" y="15.5" width="20" height="2.2" rx="1.1" fill="#f59e0b"/>
+          </svg>
+          <div class="score-num" id="scoreNum">0</div>
+          <div class="score-label">Health Score</div>
+        </div>
+      </div>
+      <div class="tier-row">
+        <span class="pill optimal">● Optimal</span>
+        <span class="pill delta"><b>▲ 4</b>&nbsp;vs June</span>
+      </div>
+
+      <div class="subscores">
+        <div class="sub">
+          <div class="mini">
+            <svg width="58" height="58" viewBox="0 0 58 58">
+              <circle class="mini-track" cx="29" cy="29" r="25"/>
+              <circle class="mini-fill" cx="29" cy="29" r="25" stroke="#0284c7"
+                      stroke-dasharray="157.1" stroke-dashoffset="157.1" data-score="82"/>
+            </svg>
+            <span data-count="82">0</span>
+          </div>
+          <label>Sleep</label>
+        </div>
+        <div class="sub">
+          <div class="mini">
+            <svg width="58" height="58" viewBox="0 0 58 58">
+              <circle class="mini-track" cx="29" cy="29" r="25"/>
+              <circle class="mini-fill" cx="29" cy="29" r="25" stroke="#d97706"
+                      stroke-dasharray="157.1" stroke-dashoffset="157.1" data-score="68"/>
+            </svg>
+            <span data-count="68">0</span>
+          </div>
+          <label>Activity</label>
+        </div>
+        <div class="sub">
+          <div class="mini">
+            <svg width="58" height="58" viewBox="0 0 58 58">
+              <circle class="mini-track" cx="29" cy="29" r="25"/>
+              <circle class="mini-fill" cx="29" cy="29" r="25" stroke="#16a34a"
+                      stroke-dasharray="157.1" stroke-dashoffset="157.1" data-score="91"/>
+            </svg>
+            <span data-count="91">0</span>
+          </div>
+          <label>Metabolic</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- TODAY'S INSIGHT -->
+    <section class="reveal">
+      <div class="card insight">
+        <span class="eyebrow"><svg class="spark" width="12" height="12" viewBox="0 0 24 24" fill="#0284c7"><path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6z"/></svg>Today's insight</span>
+        <p>Your <b>ApoB is down 12% since March</b> — the rosuvastatin + zone-2 routine is working. Activity is your one lagging score this week: a <b>20-minute walk between clinic blocks</b> would lift tomorrow's readiness.</p>
+        <div class="cta-row">
+          <button class="chip-btn primary" data-ask="Why is my activity score low this week?">Ask about this</button>
+          <button class="chip-btn" data-toast="Nice — logged to your timeline">Done ✓</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- LAB TRIAGE -->
+    <section class="reveal">
+      <div class="sec-head">
+        <h2>Your bloodwork</h2>
+        <a data-toast="Full lab record — 3 panels on file">All panels →</a>
+      </div>
+      <div class="card">
+        <div class="triage-head">
+          <span class="big" id="optCount" data-count="87">0</span>
+          <span class="of">of 102 markers optimal</span>
+        </div>
+        <div class="triage-sub">Quest Diagnostics panel · drawn Jul 8, 2026</div>
+        <div class="seg-bar">
+          <div class="seg g" data-w="85.3%"></div>
+          <div class="seg w" data-w="8.8%"></div>
+          <div class="seg b" data-w="5.9%"></div>
+        </div>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--good)"></i>87 Optimal</span>
+          <span><i class="swatch" style="background:var(--warn)"></i>9 Borderline</span>
+          <span><i class="swatch" style="background:var(--bad)"></i>6 Attention</span>
+        </div>
+      </div>
+
+      <div class="cat-grid" id="catGrid">
+        <div class="cat" data-toast="Heart & Vascular — 14 markers">
+          <div class="ico" style="background:var(--bad-dim)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>
+          </div>
+          <h3>Heart &amp; Vascular</h3>
+          <div class="meta">14 markers</div>
+          <div class="status"><i class="st-b">1 attention</i><i class="st-w">2</i></div>
+        </div>
+        <div class="cat" data-toast="Hormones — 11 markers">
+          <div class="ico" style="background:var(--warn-dim)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="M8 6a4 4 0 1 1 8 0c0 4.5-8 4-8 9a4 4 0 0 0 8 0"/></svg>
+          </div>
+          <h3>Hormones</h3>
+          <div class="meta">11 markers</div>
+          <div class="status"><i class="st-b">1 attention</i><i class="st-w">2</i></div>
+        </div>
+        <div class="cat" data-toast="Metabolic — 12 markers">
+          <div class="ico" style="background:var(--warn-dim)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3>Metabolic</h3>
+          <div class="meta">12 markers</div>
+          <div class="status"><i class="st-b">1 attention</i><i class="st-w">1</i></div>
+        </div>
+        <div class="cat" data-toast="Nutrients — 18 markers">
+          <div class="ico" style="background:var(--warn-dim)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+          </div>
+          <h3>Nutrients</h3>
+          <div class="meta">18 markers</div>
+          <div class="status"><i class="st-b">1 attention</i><i class="st-w">2</i></div>
+        </div>
+
+        <div class="cat-extra" id="catExtra">
+          <div class="cat" data-toast="Blood Health — 14 markers">
+            <div class="ico" style="background:var(--bad-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+            </div>
+            <h3>Blood Health</h3>
+            <div class="meta">14 markers</div>
+            <div class="status"><i class="st-b">2 attention</i></div>
+          </div>
+          <div class="cat" data-toast="Inflammation — 9 markers">
+            <div class="ico" style="background:var(--good-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+            </div>
+            <h3>Inflammation</h3>
+            <div class="meta">9 markers</div>
+            <div class="status"><i class="st-w">1 borderline</i></div>
+          </div>
+          <div class="cat" data-toast="Liver & Kidney — 16 markers">
+            <div class="ico" style="background:var(--good-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            </div>
+            <h3>Liver &amp; Kidney</h3>
+            <div class="meta">16 markers</div>
+            <div class="status"><i class="st-w">1 borderline</i></div>
+          </div>
+          <div class="cat" data-toast="Thyroid — 8 markers, all optimal">
+            <div class="ico" style="background:var(--good-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <h3>Thyroid</h3>
+            <div class="meta">8 markers</div>
+            <div class="status"><i class="st-g">All optimal</i></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:12px;">
+        <a id="moreCats" style="color:var(--accent); font-size:13px; font-weight:600; cursor:pointer;">Show all 8 categories ↓</a>
+      </div>
+    </section>
+
+    <!-- TREND -->
+    <section class="reveal">
+      <div class="sec-head">
+        <h2>Trending your way</h2>
+        <a data-toast="Trends — 34 markers with 2+ draws">All trends →</a>
+      </div>
+      <div class="card">
+        <div class="trend-title">
+          <h3>ApoB</h3>
+          <span class="trend-val">78<small>mg/dL</small></span>
+        </div>
+        <div class="trend-sub">Crossed into your <b>optimal zone</b> in June · optimal range for men 40–49 · 6 draws</div>
+        <svg class="chart" viewBox="0 0 340 172" id="trendChart">
+          <defs>
+            <linearGradient id="zoneGrad" x1="0" y1="0" x2="0" y2="172" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#dc2626"/>
+              <stop offset="0.40" stop-color="#dc2626"/>
+              <stop offset="0.47" stop-color="#d97706"/>
+              <stop offset="0.59" stop-color="#d97706"/>
+              <stop offset="0.66" stop-color="#16a34a"/>
+              <stop offset="1" stop-color="#16a34a"/>
+            </linearGradient>
+          </defs>
+          <!-- zone bands (ApoB: lower is better): high >100 (top), borderline 80-100, optimal <80 (bottom) -->
+          <rect x="0" y="20" width="340" height="48.75" rx="6" fill="rgba(220,38,38,0.05)"/>
+          <rect x="0" y="70.75" width="340" height="30.5" rx="6" fill="rgba(217,119,6,0.07)"/>
+          <rect x="0" y="103.25" width="340" height="46.75" rx="6" fill="rgba(22,163,74,0.07)"/>
+          <text x="332" y="32" text-anchor="end" fill="#dc2626" opacity="0.7" class="zone-label">High &gt;100</text>
+          <text x="332" y="82" text-anchor="end" fill="#d97706" opacity="0.75" class="zone-label">Borderline 80–100</text>
+          <text x="332" y="114" text-anchor="end" fill="#16a34a" opacity="0.8" class="zone-label">Optimal &lt;80</text>
+          <!-- line: 118, 112, 103, 94, 84, 78 mg/dL → y = 150 - (140 - v) * 1.625 -->
+          <path id="trendPath" d="M 20 45.3 L 80 55 L 140 69.6 L 200 84.3 L 260 100.5 L 320 110.3"/>
+          <!-- points -->
+          <circle class="pt" cx="20"  cy="45.3"  r="4.5" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+          <circle class="pt" cx="80"  cy="55"    r="4.5" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+          <circle class="pt" cx="140" cy="69.6"  r="4.5" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+          <circle class="pt" cx="200" cy="84.3"  r="4.5" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+          <circle class="pt" cx="260" cy="100.5" r="4.5" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+          <circle class="pt" cx="320" cy="110.3" r="5.5" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
+          <!-- x labels -->
+          <text x="20"  y="166" text-anchor="middle" class="axis-label">Feb</text>
+          <text x="80"  y="166" text-anchor="middle" class="axis-label">Mar</text>
+          <text x="140" y="166" text-anchor="middle" class="axis-label">Apr</text>
+          <text x="200" y="166" text-anchor="middle" class="axis-label">May</text>
+          <text x="260" y="166" text-anchor="middle" class="axis-label">Jun</text>
+          <text x="320" y="166" text-anchor="middle" class="axis-label">Jul</text>
+        </svg>
+      </div>
+
+      <div class="spark-row">
+        <div class="spark-chip" data-toast="HbA1c — optimal, stable">
+          <div class="nm">HbA1c</div>
+          <div class="vl">5.4% <span class="tag st-g">✓</span></div>
+          <svg width="100%" height="20" viewBox="0 0 84 20" preserveAspectRatio="none"><polyline points="0,6 17,8 34,7 51,10 68,12 84,13" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="spark-chip" data-ask="Why did my ferritin drop since April?">
+          <div class="nm">Ferritin</div>
+          <div class="vl">38 <span class="tag st-w">▼</span></div>
+          <svg width="100%" height="20" viewBox="0 0 84 20" preserveAspectRatio="none"><polyline points="0,4 17,5 34,8 51,9 68,13 84,16" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="spark-chip" data-toast="hs-CRP — optimal, improving">
+          <div class="nm">hs-CRP</div>
+          <div class="vl">0.8 <span class="tag st-g">✓</span></div>
+          <svg width="100%" height="20" viewBox="0 0 84 20" preserveAspectRatio="none"><polyline points="0,14 17,11 34,12 51,9 68,7 84,5" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- WEARABLES -->
+    <section class="reveal">
+      <div class="sec-head">
+        <h2>Last night</h2>
+        <a data-toast="Manage connected devices">Oura + Apple Health →</a>
+      </div>
+      <div class="wear-head"><span class="conn-dot"></span><span>Oura Ring · synced 6:58 AM</span></div>
+      <div class="stat-grid">
+        <div class="stat"><div class="v">7<small>h</small>12<small>m</small></div><div class="k">SLEEP</div><div class="d up">▲ 14m</div></div>
+        <div class="stat"><div class="v">42<small>ms</small></div><div class="k">HRV</div><div class="d up">▲ 5ms</div></div>
+        <div class="stat"><div class="v">61</div><div class="k">REST HR</div><div class="d flat">— steady</div></div>
+        <div class="stat"><div class="v">6,918</div><div class="k">STEPS</div><div class="d flat">yesterday</div></div>
+      </div>
+    </section>
+
+    <!-- ASK -->
+    <section class="reveal">
+      <div class="sec-head"><h2>Ask PocketDoc</h2></div>
+      <div class="ask-bar" id="askBar">
+        <input type="text" id="askInput" placeholder="Ask anything about your health…">
+        <button class="ask-orb" data-toast="AI answers grounded in YOUR labs">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"/></svg>
+        </button>
+      </div>
+      <div class="ask-chips">
+        <button class="ask-chip" data-ask="Why did my ferritin drop since April?">
+          <svg class="q-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Why did my ferritin drop since April?
+        </button>
+        <button class="ask-chip" data-ask="What do my ApoB and LDL numbers mean together?">
+          <svg class="q-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          What do my ApoB and LDL numbers mean together?
+        </button>
+        <button class="ask-chip" data-ask="Is my testosterone normal for a 45-year-old?">
+          <svg class="q-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          Is my testosterone normal for a 45-year-old?
+        </button>
+      </div>
+    </section>
+
+    <!-- VISIT PREP -->
+    <section class="reveal">
+      <div class="sec-head"><h2>Next appointment</h2></div>
+      <div class="card visit">
+        <div class="visit-top">
+          <div class="doc-av">PP</div>
+          <div>
+            <h3>Dr. Priya Patel</h3>
+            <div class="meta">Preventive Cardiology · Northside</div>
+          </div>
+          <div class="visit-when">
+            <div class="day">Tue, Jul 22</div>
+            <div class="tm">2:30 PM</div>
+          </div>
+        </div>
+        <div class="ready-row">
+          <span class="ready"><b>6</b> flagged markers</span>
+          <span class="ready"><b id="qCount">3</b>&nbsp;questions queued</span>
+          <span class="ready"><b>2</b> trends to show</span>
+        </div>
+        <button class="gen-btn" id="genBtn">Generate Discussion Page</button>
+        <div class="gen-sub">One page your doctor can scan in 30 seconds · PDF + secure link</div>
+      </div>
+    </section>
+
+    <!-- CARE CIRCLE -->
+    <section class="reveal">
+      <div class="sec-head">
+        <h2>Care circle</h2>
+        <a data-toast="Permissions: view, suggest, or labs-only">Manage →</a>
+      </div>
+      <div class="card">
+        <div class="mem">
+          <div class="fam-av m">ML</div>
+          <div><div class="nm">Maya Locker</div><div class="ds">Spouse · can view &amp; suggest</div></div>
+          <span class="end acc-full">Full access</span>
+        </div>
+        <div class="mem" style="border-bottom:none; padding-bottom:0;">
+          <div class="fam-av r">RL</div>
+          <div><div class="nm">Robert Locker</div><div class="ds">Dad, 74 · you monitor his panels</div></div>
+          <span class="end acc-labs">Labs only</span>
+        </div>
+
+        <div class="suggest">
+          <div class="s-head">
+            <div class="fam-av m">ML</div>
+            <span>Maya suggests a question</span>
+            <span class="tm">2d ago</span>
+          </div>
+          <q>Ask Dr. Patel about the snoring — could it be sleep apnea? It's most nights now.</q>
+          <div class="s-acts">
+            <button class="chip-btn primary" id="addSuggest">＋ Add to visit prep</button>
+            <button class="chip-btn" data-toast="Dismissed — Maya will be notified">Dismiss</button>
+          </div>
+        </div>
+
+        <button class="invite-btn" data-toast="Invite sent — they'll see only what you allow">＋ Invite a family member</button>
+      </div>
+    </section>
+
+    <!-- MEDS -->
+    <section class="reveal">
+      <div class="sec-head">
+        <h2>Today's plan</h2>
+        <a data-toast="Medications & supplements">Manage →</a>
+      </div>
+      <div class="card">
+        <div class="adh"><span class="lbl">Meds &amp; supplements</span><span class="pct">96% this month</span></div>
+        <div class="med-list">
+          <div class="med">
+            <div class="tick done">✓</div>
+            <div><div class="nm">Rosuvastatin</div><div class="ds">5 mg · Dr. Patel</div></div>
+            <div class="when">7:40 AM</div>
+          </div>
+          <div class="med">
+            <div class="tick done">✓</div>
+            <div><div class="nm">Vitamin D3</div><div class="ds">5,000 IU · with breakfast</div></div>
+            <div class="when">7:40 AM</div>
+          </div>
+          <div class="med">
+            <div class="tick wait"></div>
+            <div><div class="nm">Magnesium Glycinate</div><div class="ds">400 mg · before bed</div></div>
+            <div class="when">9:30 PM</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECOMMENDED SUPPLEMENTS -->
+    <section class="reveal">
+      <div class="sec-head">
+        <h2>Recommended for you</h2>
+        <a data-toast="Chosen from your latest labs, meds & goals">Why these? →</a>
+      </div>
+      <div class="supp-row">
+        <div class="supp">
+          <div class="supp-top">
+            <div class="ico" style="background:var(--accent-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+            </div>
+            <span class="supp-tag st-w">Heart · 2 borderline</span>
+          </div>
+          <h3>Omega-3 (EPA/DHA)</h3>
+          <div class="ds">2 g daily · with food</div>
+          <p class="why">Supports <b>triglycerides &amp; Lp(a)</b> — keeps your lipid trend moving the right way.</p>
+          <button class="add-btn">＋ Add to plan</button>
+        </div>
+        <div class="supp">
+          <div class="supp-top">
+            <div class="ico" style="background:var(--warn-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            </div>
+            <span class="supp-tag st-w">Ferritin 38 ▼</span>
+          </div>
+          <h3>Iron Bisglycinate</h3>
+          <div class="ds">25 mg · every other day</div>
+          <p class="why">Your <b>ferritin has fallen 4 draws straight</b>. Gentle on the stomach; retest in 8 weeks.</p>
+          <button class="add-btn">＋ Add to plan</button>
+        </div>
+        <div class="supp">
+          <div class="supp-top">
+            <div class="ico" style="background:var(--good-dim)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <span class="supp-tag st-g">Goals · 40s+</span>
+          </div>
+          <h3>Creatine Monohydrate</h3>
+          <div class="ds">5 g daily · any time</div>
+          <p class="why">Strength, recovery &amp; cognition support — pairs well with your <b>zone-2 routine</b>.</p>
+          <button class="add-btn">＋ Add to plan</button>
+        </div>
+      </div>
+      <div class="supp-note">
+        <b>✓ Checked against your meds — no interactions found.</b> Review changes with your physician.<br>
+        Order directly in PocketDoc — coming soon · <a data-toast="You're on the list — we'll email you at launch">Join the waitlist</a>
+      </div>
+    </section>
+
+    <!-- RECENT ACTIVITY -->
+    <section class="reveal">
+      <div class="sec-head"><h2>Recent</h2></div>
+      <div class="card act">
+        <div class="f-ico">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12h4"/><path d="M10 16h4"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <h3>Quest Diagnostics</h3>
+          <div class="meta">34 markers AI-extracted · Jul&nbsp;8</div>
+        </div>
+        <span class="tag">Auto-extracted ✓</span>
+      </div>
+    </section>
+
+    <div class="foot reveal">
+      PocketDoc is a health companion, not a diagnosis.<br>
+      Always review results with your physician. HIPAA-compliant · Your data is never sold.
+    </div>
+  </div>
+
+  <!-- ===== PAGE: NOTIFICATIONS ===== -->
+  <div class="page" id="page-notifs">
+    <div class="page-inner">
+      <div class="page-bar">
+        <button class="back-btn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <h2>Notifications</h2>
+        <button class="bar-act" data-toast="All caught up ✓">Mark all read</button>
+      </div>
+      <div class="page-body">
+        <div class="n-day">Today</div>
+        <div class="nrow" data-toast="Opens the ApoB trend">
+          <div class="ico" style="background:var(--good-dim)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 14 4-4 4 3 5-6"/></svg></div>
+          <div class="tx"><div class="tt">ApoB crossed into your optimal zone</div><div class="ts">78 mg/dL — down 34% since February. The statin + zone-2 plan is working.</div></div>
+          <span class="tm">2h</span><span class="unread"></span>
+        </div>
+        <div class="nrow" data-toast="Opens the Ferritin trend">
+          <div class="ico" style="background:var(--warn-dim)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+          <div class="tx"><div class="tt">Ferritin is trending down</div><div class="ts">38 ng/mL — fourth consecutive decline. Consider discussing a retest with Dr. Patel.</div></div>
+          <span class="tm">5h</span><span class="unread"></span>
+        </div>
+        <div class="nrow" data-toast="Opens Maya's suggestion in Care Circle">
+          <div class="ico" style="background:rgba(124,58,237,0.08)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="tx"><div class="tt">Maya suggested a question for Dr. Patel</div><div class="ts">"Ask about the snoring — could it be sleep apnea?" Review it in your Care Circle.</div></div>
+          <span class="tm">2d</span><span class="unread"></span>
+        </div>
+        <div class="n-day">Earlier this week</div>
+        <div class="nrow" data-toast="Opens visit prep">
+          <div class="ico" style="background:var(--accent-dim)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg></div>
+          <div class="tx"><div class="tt">Visit prep: Dr. Patel in 8 days</div><div class="ts">Your discussion page is ready to generate — 6 flagged markers queued.</div></div>
+          <span class="tm">Jul 12</span>
+        </div>
+        <div class="nrow" data-toast="Opens the Jul 8 panel">
+          <div class="ico" style="background:var(--accent-dim)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
+          <div class="tx"><div class="tt">Quest results extracted</div><div class="ts">34 markers pulled from your forwarded PDF and added to your record. Review confirmed.</div></div>
+          <span class="tm">Jul 8</span>
+        </div>
+        <div class="nrow" data-toast="Opens weekly report">
+          <div class="ico" style="background:var(--good-dim)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <div class="tx"><div class="tt">Weekly report: score up 2 points</div><div class="ts">Sleep consistency drove the gain. Activity remains your biggest opportunity.</div></div>
+          <span class="tm">Jul 7</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PAGE: PROFILE ===== -->
+  <div class="page" id="page-profile">
+    <div class="page-inner">
+      <div class="page-bar">
+        <button class="back-btn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <h2>Profile</h2>
+        <button class="bar-act" data-toast="Profile editing — coming in v1">Edit</button>
+      </div>
+      <div class="page-body">
+        <div class="prof-hero">
+          <div class="prof-av">AL</div>
+          <h3>Adam Locker, MD</h3>
+          <div class="sub">45 · Male · Member since May 2026</div>
+        </div>
+
+        <div class="p-sec">Health profile</div>
+        <div class="p-card">
+          <div class="prow" data-toast="Date of birth"><div class="ico" style="background:var(--accent-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg></div><div class="tx"><div class="tt">Date of birth</div></div><span class="end" style="color:var(--ink-2)">Mar 12, 1981</span></div>
+          <div class="prow" data-toast="Body metrics"><div class="ico" style="background:var(--accent-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"/><path d="M12 3a9 9 0 0 1 9 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 9-9Z"/></svg></div><div class="tx"><div class="tt">Height &amp; weight</div></div><span class="end" style="color:var(--ink-2)">5'11" · 182 lb</span></div>
+          <div class="prow" data-toast="Current therapies & conditions"><div class="ico" style="background:var(--good-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></div><div class="tx"><div class="tt">Therapies &amp; conditions</div><div class="ts">Borderline dyslipidemia · statin therapy</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+          <div class="prow" data-toast="Medications — 3 active"><div class="ico" style="background:var(--good-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></div><div class="tx"><div class="tt">Medications</div><div class="ts">Rosuvastatin, Vitamin D3, Magnesium</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+
+        <div class="p-sec">Connected sources</div>
+        <div class="p-card">
+          <div class="prow" data-toast="Oura — syncing nightly"><div class="ico" style="background:var(--good-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg></div><div class="tx"><div class="tt">Oura Ring</div><div class="ts">Last sync 6:58 AM</div></div><span class="end conn">Connected</span></div>
+          <div class="prow" data-toast="Apple Health — syncing"><div class="ico" style="background:var(--good-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></div><div class="tx"><div class="tt">Apple Health</div><div class="ts">Steps, workouts, heart rate</div></div><span class="end conn">Connected</span></div>
+          <div class="prow" data-toast="WHOOP integration — coming in v1"><div class="ico" style="background:rgba(15,23,42,0.05)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8494a7" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="tx"><div class="tt">WHOOP</div><div class="ts">Recovery &amp; strain</div></div><span class="end notconn">Connect</span></div>
+        </div>
+
+        <div class="p-sec">Records intake</div>
+        <div class="p-card">
+          <div class="prow" id="copyIntake"><div class="ico" style="background:var(--accent-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></div><div class="tx"><div class="tt">Forward labs to your intake address</div><div class="ts">adam-x7k2@intake.pocketdoc.com</div></div><span class="end notconn">Copy</span></div>
+          <div class="prow" data-toast="Upload a PDF or photo of any lab"><div class="ico" style="background:var(--accent-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></div><div class="tx"><div class="tt">Upload bloodwork</div><div class="ts">PDF or photo — AI extracts the markers</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+
+        <div class="p-sec">Care team</div>
+        <div class="p-card">
+          <div class="prow" data-toast="Dr. Patel — next visit Jul 22"><div class="ico" style="background:var(--good-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="tx"><div class="tt">Dr. Priya Patel</div><div class="ts">Preventive Cardiology · Northside</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+          <div class="prow" data-toast="Dr. Webb — annual physical Oct 2026"><div class="ico" style="background:var(--good-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="tx"><div class="tt">Dr. Marcus Webb</div><div class="ts">Primary Care · Lakeview Medical</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+
+        <div class="p-sec">Care circle</div>
+        <div class="p-card">
+          <div class="prow" data-toast="Maya — full access, can suggest"><div class="fam-av m" style="width:32px;height:32px;border-radius:10px;font-size:11px;">ML</div><div class="tx"><div class="tt">Maya Locker</div><div class="ts">Spouse · view &amp; suggest</div></div><span class="end conn">Full access</span></div>
+          <div class="prow" data-toast="You monitor Robert's lab panels"><div class="fam-av r" style="width:32px;height:32px;border-radius:10px;font-size:11px;">RL</div><div class="tx"><div class="tt">Robert Locker</div><div class="ts">Dad, 74 · you monitor his panels</div></div><span class="end acc-labs">Labs only</span></div>
+          <div class="prow" data-toast="Invite sent — they'll see only what you allow"><div class="ico" style="background:var(--accent-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg></div><div class="tx"><div class="tt" style="color:var(--accent)">Invite a family member</div></div></div>
+        </div>
+
+        <div class="p-sec">Data &amp; privacy</div>
+        <div class="p-card">
+          <div class="prow" data-toast="Full record export — PDF or FHIR"><div class="ico" style="background:rgba(15,23,42,0.05)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#55657a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></div><div class="tx"><div class="tt">Export my record</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+          <div class="prow" data-toast="HIPAA-compliant · encrypted at rest · never sold"><div class="ico" style="background:rgba(15,23,42,0.05)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#55657a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></div><div class="tx"><div class="tt">Privacy &amp; security</div></div><svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+          <div class="prow" data-toast="Signed out (demo)"><div class="ico" style="background:var(--bad-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></div><div class="tx"><div class="tt" style="color:var(--bad)">Sign out</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PAGE: DISCUSSION PAGE ===== -->
+  <div class="page" id="page-discussion">
+    <div class="page-inner">
+      <div class="page-bar">
+        <button class="back-btn" data-close><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <h2>Discussion Page</h2>
+      </div>
+      <div class="page-body">
+        <div class="doc-actions">
+          <button class="doc-btn primary" data-toast="Secure link copied — expires in 30 days">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+            Share secure link
+          </button>
+          <button class="doc-btn ghost" data-toast="PDF saved to your device">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            PDF
+          </button>
+        </div>
+
+        <div class="share-line">
+          <div class="fam-av m">ML</div>
+          <span style="flex:1;">Shared with <b>Maya (Care Circle)</b> · Dr. Patel's link expires in 30 days</span>
+          <a data-toast="Sharing controls — per-person permissions">Manage</a>
+        </div>
+
+        <div class="doc-sheet">
+          <div class="doc-head">
+            <div class="brand-line"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.4" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> PocketDoc · Visit Prep</div>
+            <h3>Adam Locker</h3>
+            <div class="pt-meta">45M · DOB Mar 12, 1981 · Prepared Jul 14, 2026<br>For: <b>Dr. Priya Patel</b>, Preventive Cardiology — visit Jul 22, 2:30 PM</div>
+          </div>
+
+          <div class="doc-sec">
+            <h4>Top concerns to discuss</h4>
+            <div class="concern"><span class="num">1</span><p><b>Ferritin declining 4 draws straight</b> (62 → 38 ng/mL since January). No change in diet noted; considering iron supplementation pending your guidance.</p></div>
+            <div class="concern"><span class="num">2</span><p><b>Total testosterone at 310 ng/dL</b> — low-normal for age. Sleep and training are consistent; worth a repeat morning draw?</p></div>
+            <div class="concern"><span class="num">3</span><p><b>ApoB now 78 mg/dL</b> (down from 118 in Feb). Discuss whether to maintain current rosuvastatin dose or adjust.</p></div>
+          </div>
+
+          <div class="doc-sec">
+            <h4>Flagged markers · Jul 8 panel</h4>
+            <div class="mrow"><span class="mk">Ferritin</span><span class="mv">38 <small>ng/mL</small></span><span class="rng">opt 50–150</span><span class="mtag st-w">▼ falling</span></div>
+            <div class="mrow"><span class="mk">Total Testosterone</span><span class="mv">310 <small>ng/dL</small></span><span class="rng">opt 450–900</span><span class="mtag st-b">low</span></div>
+            <div class="mrow"><span class="mk">Lp(a)</span><span class="mv">88 <small>nmol/L</small></span><span class="rng">opt &lt;75</span><span class="mtag st-b">high</span></div>
+            <div class="mrow"><span class="mk">LDL-C</span><span class="mv">112 <small>mg/dL</small></span><span class="rng">opt &lt;100</span><span class="mtag st-w">borderline</span></div>
+            <div class="mrow"><span class="mk">Fasting Insulin</span><span class="mv">11.2 <small>µIU/mL</small></span><span class="rng">opt 2–8</span><span class="mtag st-w">borderline</span></div>
+            <div class="mrow"><span class="mk">Vitamin B12</span><span class="mv">340 <small>pg/mL</small></span><span class="rng">opt 500–900</span><span class="mtag st-w">borderline</span></div>
+          </div>
+
+          <div class="doc-sec">
+            <h4>Adam's questions</h4>
+            <div class="q-item"><span class="qbox"></span>Should I retest ferritin before starting iron, or begin now and retest in 8 weeks?</div>
+            <div class="q-item"><span class="qbox"></span>Is my testosterone worth treating, or watch-and-wait with lifestyle changes?</div>
+            <div class="q-item"><span class="qbox"></span>Given the ApoB progress, can we hold the statin at 5 mg — and is Lp(a) worth acting on?</div>
+            <div class="q-item"><span class="qbox"></span><span>Frequent snoring most nights — worth screening for sleep apnea?<span class="q-by">ML · asked by Maya</span></span></div>
+          </div>
+
+          <div class="doc-sec">
+            <h4>Current regimen</h4>
+            <div class="ready-row" style="margin:4px 0 0;">
+              <span class="ready">Rosuvastatin <b>5 mg</b></span>
+              <span class="ready">Vitamin D3 <b>5,000 IU</b></span>
+              <span class="ready">Magnesium <b>400 mg</b></span>
+              <span class="ready">Zone-2 cardio <b>3×/wk</b></span>
+            </div>
+          </div>
+
+          <div class="doc-foot">
+            Generated by PocketDoc from 3 lab panels (102 markers) and 62 nights of wearable data.
+            Trends referenced: ApoB 118→78 (Feb–Jul) · Ferritin 62→38 (Jan–Jul).
+            This summary is for discussion with a physician — it is not a diagnosis.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOATING ASK -->
+  <button class="fab" id="fabAsk" aria-label="Ask PocketDoc">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"/></svg>
+  </button>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function () {
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- time-aware greeting + live date ---- */
+  var h = new Date().getHours();
+  var part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  document.getElementById("greeting").textContent = part + ", Adam";
+  document.getElementById("dateline").textContent = new Date().toLocaleDateString("en-US",
+    { weekday: "long", month: "long", day: "numeric" });
+
+  /* ---- count-up helper ---- */
+  function countUp(el, target, ms) {
+    if (reduced) { el.textContent = target; return; }
+    var t0 = null;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min((t - t0) / ms, 1);
+      p = 1 - Math.pow(1 - p, 3); /* ease-out cubic */
+      el.textContent = Math.round(target * p);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ---- hero score: ring sweep + count + crown ---- */
+  var SCORE = 86;
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      var C = 603.2;
+      document.getElementById("scoreRing").style.strokeDashoffset = C * (1 - SCORE / 100);
+      countUp(document.getElementById("scoreNum"), SCORE, 1400);
+      setTimeout(function () {
+        if (SCORE >= 85) document.getElementById("crown").classList.add("pop");
+      }, reduced ? 0 : 1200);
+      /* sub-score rings */
+      document.querySelectorAll(".mini-fill").forEach(function (r) {
+        r.style.strokeDashoffset = 157.1 * (1 - r.dataset.score / 100);
+      });
+      document.querySelectorAll(".sub span[data-count]").forEach(function (s) {
+        countUp(s, +s.dataset.count, 1100);
+      });
+    }, reduced ? 0 : 150);
+  });
+
+  /* ---- reveal on scroll + per-section triggers ---- */
+  function revealEl(el) {
+    if (el.classList.contains("in")) return;
+    el.classList.add("in");
+    io.unobserve(el);
+
+    /* segmented bar */
+    el.querySelectorAll(".seg").forEach(function (s) { s.style.width = s.dataset.w; });
+    /* optimal count-up */
+    var oc = el.querySelector("#optCount");
+    if (oc) countUp(oc, +oc.dataset.count, 1100);
+    /* trend line draw */
+    var path = el.querySelector("#trendPath");
+    if (path) {
+      var len = path.getTotalLength();
+      if (reduced) {
+        el.querySelectorAll(".pt").forEach(function (p) { p.classList.add("on"); });
+      } else {
+        path.style.strokeDasharray = len;
+        path.style.strokeDashoffset = len;
+        path.getBoundingClientRect(); /* flush */
+        path.style.transition = "stroke-dashoffset 1.5s cubic-bezier(.35,.7,.3,1)";
+        path.style.strokeDashoffset = 0;
+        el.querySelectorAll(".pt").forEach(function (p, i) {
+          setTimeout(function () { p.classList.add("on"); }, 250 + i * 230);
+        });
+      }
+    }
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) revealEl(e.target); });
+  }, { threshold: 0.18 });
+  document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+
+  /* safety net: if IO misses (throttled tabs, odd webviews), reveal anything in view */
+  function revealInView() {
+    document.querySelectorAll(".reveal:not(.in)").forEach(function (el) {
+      if (el.getBoundingClientRect().top < window.innerHeight - 30) revealEl(el);
+    });
+  }
+  setTimeout(revealInView, 2500);
+  var scrollT;
+  window.addEventListener("scroll", function () {
+    clearTimeout(scrollT);
+    scrollT = setTimeout(revealInView, 350);
+  }, { passive: true });
+
+  /* ---- toast ---- */
+  var toast = document.getElementById("toast"), toastT;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { toast.classList.remove("show"); }, 2200);
+  }
+  document.querySelectorAll("[data-toast]").forEach(function (el) {
+    el.addEventListener("click", function () { showToast(el.dataset.toast); });
+  });
+
+  /* ---- ask chips fill the ask bar ---- */
+  var askInput = document.getElementById("askInput"), askBar = document.getElementById("askBar");
+  document.querySelectorAll("[data-ask]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      askInput.value = el.dataset.ask;
+      askBar.classList.add("lit");
+      askBar.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      setTimeout(function () { askBar.classList.remove("lit"); }, 2600);
+    });
+  });
+  askInput.addEventListener("focus", function () { askBar.classList.add("lit"); });
+  askInput.addEventListener("blur", function () { askBar.classList.remove("lit"); });
+
+  /* ---- floating ask button: jump to the ask bar ---- */
+  document.getElementById("fabAsk").addEventListener("click", function () {
+    askBar.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    askBar.classList.add("lit");
+    setTimeout(function () { askInput.focus({ preventScroll: true }); }, reduced ? 0 : 450);
+    setTimeout(function () { askBar.classList.remove("lit"); }, 2600);
+  });
+
+  /* ---- supplement add-to-plan ---- */
+  document.querySelectorAll(".add-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var added = btn.classList.toggle("added");
+      btn.textContent = added ? "✓ Added to plan" : "＋ Add to plan";
+      if (added) showToast("Added — it'll appear in Today's plan");
+    });
+  });
+
+  /* ---- show all categories ---- */
+  var more = document.getElementById("moreCats");
+  more.addEventListener("click", function () {
+    var extra = document.getElementById("catExtra");
+    var open = extra.classList.toggle("open");
+    more.textContent = open ? "Show fewer ↑" : "Show all 8 categories ↓";
+  });
+
+  /* ---- slide-in pages ---- */
+  function openPage(id) {
+    var p = document.getElementById(id);
+    if (!p) return;
+    p.classList.add("open");
+    document.body.style.overflow = "hidden";
+    p.querySelector(".page-inner").scrollTop = 0;
+  }
+  function closePages() {
+    document.querySelectorAll(".page.open").forEach(function (p) { p.classList.remove("open"); });
+    document.body.style.overflow = "";
+  }
+  document.querySelectorAll("[data-page]").forEach(function (el) {
+    el.addEventListener("click", function () { openPage(el.dataset.page); });
+  });
+  document.querySelectorAll("[data-close]").forEach(function (el) {
+    el.addEventListener("click", closePages);
+  });
+  document.querySelectorAll(".page").forEach(function (p) {
+    p.addEventListener("click", function (e) { if (e.target === p) closePages(); });
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePages(); });
+  /* deep links: #notifs / #profile / #discussion */
+  var hashMap = { "#notifs": "page-notifs", "#profile": "page-profile", "#discussion": "page-discussion" };
+  if (hashMap[location.hash]) openPage(hashMap[location.hash]);
+
+  /* ---- care circle: add Maya's question to visit prep ---- */
+  var addSuggest = document.getElementById("addSuggest");
+  addSuggest.addEventListener("click", function () {
+    if (addSuggest.classList.contains("added")) return;
+    addSuggest.classList.add("added");
+    addSuggest.textContent = "✓ Added to visit prep";
+    addSuggest.style.background = "var(--good-dim)";
+    addSuggest.style.borderColor = "rgba(22,163,74,0.3)";
+    addSuggest.style.color = "var(--good)";
+    document.getElementById("qCount").textContent = "4";
+    showToast("Added — Maya will see it was included");
+  });
+
+  /* ---- copy intake address ---- */
+  var copyRow = document.getElementById("copyIntake");
+  copyRow.addEventListener("click", function () {
+    var addr = "adam-x7k2@intake.pocketdoc.com";
+    if (navigator.clipboard) navigator.clipboard.writeText(addr).catch(function () {});
+    showToast("Intake address copied");
+  });
+
+  /* ---- generate discussion page: loading -> success -> open ---- */
+  var gen = document.getElementById("genBtn"), genBusy = false;
+  gen.addEventListener("click", function () {
+    if (genBusy) return;
+    if (gen.classList.contains("done")) { openPage("page-discussion"); return; }
+    genBusy = true;
+    gen.textContent = "Reading your record…";
+    setTimeout(function () { gen.textContent = "Summarizing 6 flagged markers…"; }, 800);
+    setTimeout(function () {
+      gen.classList.add("done");
+      gen.textContent = "✓ Discussion page ready — tap to view";
+      genBusy = false;
+      showToast("Ready to share with Dr. Patel");
+      setTimeout(function () { openPage("page-discussion"); }, 700);
+    }, 1800);
+  });
+})();
+</script>
+</body>
+</html>
