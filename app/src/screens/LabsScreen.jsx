@@ -1,17 +1,13 @@
 import React from "react";
 import { AlertCircle, ChevronRight, Plus, TrendingUp } from "lucide-react";
 import { Card } from "../components/Card";
+import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 
-function LabsScreen({ setActive, goToMarket }) {
-  const markers = [
-    { name: "TSH", value: "2.1 mIU/L", status: "normal" },
-    { name: "TPO antibodies", value: "118 IU/mL", status: "watch" },
-    { name: "Vitamin D", value: "28 ng/mL", status: "low" },
-    { name: "Ferritin", value: "62 ng/mL", status: "normal" },
-  ];
-  const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger };
+function LabsScreen({ setActive, goToMarket, healthData, testModeEnabled }) {
+  const markers = healthData?.labs || [];
+  const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   return (
     <div style={{ padding: "24px 18px" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Labs</div>
@@ -34,7 +30,8 @@ function LabsScreen({ setActive, goToMarket }) {
         <ChevronRight size={16} color={COLORS.textMuted} />
       </button>
 
-      <Card>
+      <SectionLabel>Latest panel</SectionLabel>
+      {markers.length > 0 ? <Card>
         {markers.map((m, i) => (
           <div key={m.name} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -42,14 +39,20 @@ function LabsScreen({ setActive, goToMarket }) {
           }}>
             <span style={{ fontSize: 13 }}>{m.name}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}</span>
+              <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor[m.status] }} />
             </div>
           </div>
         ))}
-      </Card>
+      </Card> : <LockedDataSection
+        title="Your lab markers"
+        description="Import a lab result to see each marker, its range, and what needs attention."
+        actionLabel="Import lab results"
+        onAction={() => setActive("importlabs")}
+        rows={4}
+      />}
 
-      <Card style={{ border: `1px solid ${COLORS.danger}40`, background: COLORS.badDim }}>
+      {testModeEnabled && <Card style={{ border: `1px solid ${COLORS.danger}40`, background: COLORS.badDim }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <AlertCircle size={18} color={COLORS.danger} style={{ marginTop: 2, flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
@@ -69,9 +72,9 @@ function LabsScreen({ setActive, goToMarket }) {
             </button>
           </div>
         </div>
-      </Card>
+      </Card>}
 
-      <SectionLabel>Trend</SectionLabel>
+      {testModeEnabled && <><SectionLabel>Trend</SectionLabel>
       <Card>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
           <TrendingUp size={16} color={COLORS.warning} />
@@ -81,7 +84,15 @@ function LabsScreen({ setActive, goToMarket }) {
           Apr 2025: 64 IU/mL &rarr; Oct 2025: 91 IU/mL &rarr; Jan 2026: 118 IU/mL.
           Each result alone was within range. The trend across all three is what matters.
         </div>
-      </Card>
+      </Card></>}
+      {!testModeEnabled && markers.length === 0 && <><SectionLabel>Trends</SectionLabel>
+      <LockedDataSection
+        title="Marker trends"
+        description="Add at least two lab panels to unlock changes over time and pattern alerts."
+        actionLabel="Import your first panel"
+        onAction={() => setActive("importlabs")}
+        rows={3}
+      /></>}
     </div>
   );
 }

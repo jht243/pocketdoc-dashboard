@@ -3,14 +3,22 @@ import { Activity, AlertTriangle, Bell, ChevronRight, Moon, Sparkles } from "luc
 import { Card } from "../components/Card";
 import { ScoreBreakdownModal } from "../components/ScoreBreakdownModal";
 import { ScoreGauge } from "../components/ScoreGauge";
+import { LockedDataSection } from "../components/LockedDataSection";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { COLORS, SERIF, SHADOW } from "../theme/tokens";
 
-function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, healthHistory }) {
+function HomeScreen({
+  setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData,
+  testModeEnabled, testModeSaving, onTestModeChange,
+}) {
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const { baseDisplay, dailyDisplay } = useScoreModel(nutritionEnabled);
-  const rec = getDailyRecommendation();
+  const score = useScoreModel(nutritionEnabled, healthData);
+  const { baseDisplay, dailyDisplay } = score;
+  const rec = getDailyRecommendation(healthData);
+  const hasHealthData = Boolean(
+    healthData?.labs?.length || healthData?.records?.length || healthData?.vitals?.length || healthData?.today || healthData?.score
+  );
   const userName = userProfile?.profile?.name || "there";
   const initials = userName !== "there" ? userName[0].toUpperCase() : "?";
 
@@ -18,10 +26,10 @@ function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, heal
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   // Two vitals chips from wearables — shown only when data exists
-  const vitals = [
-    { label: "HRV", value: "42ms", sub: "Below baseline", color: COLORS.warning },
-    { label: "RHR", value: "64bpm", sub: "+12 vs baseline", color: COLORS.warning },
-  ];
+  const vitals = (healthData?.vitals || []).map((v) => ({
+    ...v,
+    color: v.color === "warning" ? COLORS.warning : v.color === "danger" ? COLORS.danger : COLORS.tealLight,
+  }));
 
   // One contextual action button — the single most time-sensitive thing
   const contextualAction = (() => {
@@ -34,7 +42,7 @@ function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, heal
 
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
-      {showBreakdown && <ScoreBreakdownModal onClose={() => setShowBreakdown(false)} nutritionEnabled={nutritionEnabled} />}
+      {showBreakdown && <ScoreBreakdownModal onClose={() => setShowBreakdown(false)} nutritionEnabled={nutritionEnabled} healthData={healthData} />}
 
       {/* Brand bar — matches the live dashboard */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -49,7 +57,32 @@ function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, heal
           </div>
           PocketDoc
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={testModeEnabled}
+            aria-label="Toggle test mode"
+            disabled={testModeSaving}
+            onClick={() => onTestModeChange?.(!testModeEnabled)}
+            style={{
+              display: "flex", alignItems: "center", gap: 5, padding: "5px 7px", borderRadius: 10,
+              cursor: testModeSaving ? "wait" : "pointer", fontSize: 10, fontWeight: 700,
+              color: testModeEnabled ? COLORS.onAccent : COLORS.textMuted,
+              background: testModeEnabled ? COLORS.teal : COLORS.bgCard,
+              border: `1px solid ${testModeEnabled ? COLORS.teal : COLORS.border}`,
+              opacity: testModeSaving ? 0.65 : 1,
+            }}
+          >
+            Test
+            <span style={{
+              width: 22, height: 13, borderRadius: 8, padding: 2, display: "flex", alignItems: "center",
+              justifyContent: testModeEnabled ? "flex-end" : "flex-start",
+              background: testModeEnabled ? "rgba(255,255,255,0.35)" : COLORS.border,
+            }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: testModeEnabled ? "#fff" : COLORS.textMuted }} />
+            </span>
+          </button>
           <button style={{
             width: 40, height: 40, borderRadius: 14, background: COLORS.bgCard,
             border: `1px solid ${COLORS.border}`, boxShadow: SHADOW,
@@ -82,12 +115,22 @@ function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, heal
       </div>
 
       {/* Element 1: Health score — one number, one sentence */}
-      <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
-        <Card style={{ marginBottom: 0, textAlign: "center", paddingTop: 20, paddingBottom: 20 }}>
-          <ScoreGauge basePts={baseDisplay} baseMax={50} dailyPts={dailyDisplay} dailyMax={50} onTap={() => setShowBreakdown(true)} />
-          <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Tap to see what's driving your score today</div>
-        </Card>
-      </button>
+      {score.hasData ? (
+        <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
+          <Card style={{ marginBottom: 0, textAlign: "center", paddingTop: 20, paddingBottom: 20 }}>
+            <ScoreGauge basePts={baseDisplay} baseMax={50} dailyPts={dailyDisplay} dailyMax={50} onTap={() => setShowBreakdown(true)} />
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Tap to see what's driving your score today</div>
+          </Card>
+        </button>
+      ) : (
+        <LockedDataSection
+          title="Your health score"
+          description="Unlock your score by importing a lab result or connecting health data."
+          actionLabel="Import lab results"
+          onAction={() => setActive("importlabs")}
+          rows={3}
+        />
+      )}
 
       {/* Element 2: One action card — the single highest-priority signal */}
       {rec && (() => {
@@ -115,7 +158,7 @@ function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, heal
       })()}
 
       {/* Element 3: Two vitals chips from wearables */}
-      <button onClick={() => setActive("body")} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
+      {vitals.length > 0 && <button onClick={() => setActive("body")} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
         <Card style={{ marginBottom: 0 }}>
           <div style={{ display: "flex", gap: 0 }}>
             {vitals.map((v, i) => (
@@ -130,7 +173,14 @@ function HomeScreen({ setActive, goToMarket, nutritionEnabled, userProfile, heal
             </div>
           </div>
         </Card>
-      </button>
+      </button>}
+
+      {!hasHealthData && <LockedDataSection
+        title="Today's signals"
+        description="Upload your first result to start unlocking trends, daily signals, and tailored next steps."
+        actionLabel="Upload a result"
+        onAction={() => setActive("importlabs")}
+      />}
 
       {/* Element 4: One contextual action — the most time-sensitive item */}
       {contextualAction && (

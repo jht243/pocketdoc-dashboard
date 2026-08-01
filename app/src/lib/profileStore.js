@@ -186,8 +186,87 @@ export async function uploadDocument(userId, file, kind = "lab") {
     })
     .select()
     .single();
-  if (error) console.error("uploadDocument/row", error);
-  return { error, document: data || null };
+  if (error) {
+    console.error("uploadDocument/row", error);
+    // The row is what makes the file discoverable. Without it the object is an
+    // orphan the user can never see, so clean it up rather than leave litter.
+    await supabase.storage.from("health-docs").remove([path]);
+    return { error, document: null };
+  }
+  return { error: null, document: data };
+}
+
+/** Every document the user has uploaded, newest first. */
+export async function listDocuments(userId) {
+  if (!isConfigured || !userId) return [];
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("listDocuments", error);
+    return [];
+  }
+  return data || [];
+}
+
+/**
+ * Short-lived signed URL for viewing a stored file. The bucket is private, so
+ * there is no permanent public link — the URL is minted on demand and expires.
+ */
+export async function getDocumentUrl(storagePath, expiresInSeconds = 120) {
+  if (!isConfigured || !storagePath) return null;
+  const { data, error } = await supabase.storage
+    .from("health-docs")
+    .createSignedUrl(storagePath, expiresInSeconds);
+  if (error) {
+    console.error("getDocumentUrl", error);
+    return null;
+  }
+  return data?.signedUrl || null;
+}
+
+/** Remove a document: the stored object first, then its row. */
+export async function deleteDocument(document) {
+  if (!isConfigured || !document?.id) return { error: null };
+  if (document.storage_path) {
+    const { error: rmErr } = await supabase.storage
+      .from("health-docs")
+      .remove([document.storage_path]);
+    if (rmErr) console.error("deleteDocument/storage", rmErr);
+  }
+  const { error } = await supabase.from("documents").delete().eq("id", document.id);
+  if (error) console.error("deleteDocument/row", error);
+  return { error };
+}
+
+export async function loadDocuments(userId) {
+  if (!isConfigured || !userId) return [];
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, kind, file_name, status, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("loadDocuments", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function loadLabMarkers(userId) {
+  if (!isConfigured || !userId) return [];
+  const { data, error } = await supabase
+    .from("lab_markers")
+    .select("name, value, unit, status, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("loadLabMarkers", error);
+    return [];
+  }
+  return data || [];
 }
 
 /* ---------------- screenings ---------------- */

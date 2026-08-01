@@ -5,11 +5,11 @@ import { COLORS, SERIF } from "../theme/tokens";
 import { Card } from "./Card";
 import { SectionLabel } from "./SectionLabel";
 
-function ScoreBreakdownModal({ onClose, nutritionEnabled }) {
+function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData }) {
   const {
     baseItems, dailyItems,
     baseTotal, baseMax, dailyTotal, dailyMax,
-  } = useScoreModel(nutritionEnabled);
+  } = useScoreModel(nutritionEnabled, healthData);
 
   const statusMeta = {
     current: { color: COLORS.tealLight, label: "Current", icon: ShieldCheck },
@@ -76,13 +76,13 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled }) {
         ))}
       </Card>
 
-      <div style={{
+      {baseMax > baseTotal && <div style={{
         background: COLORS.bgCardAlt, borderRadius: 10, padding: 12, fontSize: 12,
         color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 18
       }}>
-        Completing your colonoscopy, skin check, and this month's TRT panel would add
-        {" "}{baseMax - baseTotal} pts to your base score on their own, no daily changes needed.
-      </div>
+        Completing the outstanding preventive-care items would add {baseMax - baseTotal} pts
+        to your base score, without any daily changes needed.
+      </div>}
 
       <SectionLabel>Daily score &middot; {dailyTotal} of {dailyMax} pts &middot; sleep, training, monitoring</SectionLabel>
       <Card>
@@ -103,13 +103,6 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled }) {
         </Card>
       )}
 
-      <div style={{
-        background: COLORS.bgCardAlt, borderRadius: 10, padding: 12, fontSize: 12,
-        color: COLORS.textSecondary, lineHeight: 1.5
-      }}>
-        Completing this month's TRT panel would add {baseItems.find(i => i.name.includes("Monthly bloodwork"))?.max - baseItems.find(i => i.name.includes("Monthly bloodwork"))?.pts} pts
-        to your base score, no daily changes needed.
-      </div>
     </div>
   );
 }

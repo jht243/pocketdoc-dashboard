@@ -7,6 +7,8 @@ import { isConfigured } from "./lib/supabase";
 import { scrollPhoneToTop } from "./lib/scroll";
 import {
   loadProfile,
+  loadDocuments,
+  loadLabMarkers,
   saveScreenings,
   saveOnboardingProgress,
   completeOnboarding,
@@ -14,6 +16,11 @@ import {
   saveMedications,
   uploadDocument,
 } from "./lib/profileStore";
+import {
+  disableTestMode,
+  enableTestMode,
+  loadTestModeSnapshot,
+} from "./lib/testMode";
 import AuthScreen from "./screens/AuthScreen";
 import WelcomeScreen from "./screens/WelcomeScreen";
 import PrivacyScreen, { CONSENT_VERSION } from "./screens/PrivacyScreen";
@@ -57,6 +64,10 @@ function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [healthHistory, setHealthHistory] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [testModeEnabled, setTestModeEnabled] = useState(false);
+  const [testSnapshot, setTestSnapshot] = useState(null);
+  const [testModeSaving, setTestModeSaving] = useState(false);
+  const [liveHealthData, setLiveHealthData] = useState(null);
   // Pre-auth routing: welcome → auth, with privacy reachable from either.
   const [gate, setGate] = useState("welcome");
   const [resumeData, setResumeData] = useState(null);
@@ -69,19 +80,39 @@ function App() {
     if (!user) {
       setUserProfile(null);
       setResumeData(null);
+      setHealthHistory(null);
+      setTestModeEnabled(false);
+      setTestSnapshot(null);
+      setLiveHealthData(null);
       setActive("onboarding");
       return;
     }
     setProfileLoading(true);
-    loadProfile(user.id).then((stored) => {
+    Promise.all([loadProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id)]).then(([stored, testMode, documents, labMarkers]) => {
       if (cancelled) return;
-      if (stored?.onboardingCompletedAt) {
+      setLiveHealthData({
+        labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
+        records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
+      });
+      if (testMode.enabled && testMode.snapshot?.profile) {
+        setTestModeEnabled(true);
+        setTestSnapshot(testMode.snapshot);
+        setUserProfile(testMode.snapshot.profile);
+        setHealthHistory(testMode.snapshot.healthHistory || null);
+        setActive("home");
+      } else if (stored?.onboardingCompletedAt) {
+        setTestModeEnabled(false);
+        setTestSnapshot(null);
         setUserProfile(stored);
+        setHealthHistory(null);
         setActive("home");
       } else {
         // Partially onboarded (or brand new): hand what we have back to the form
         // so they resume where they stopped instead of starting over.
         setResumeData(stored?.profile?.dob ? stored : null);
+        setTestModeEnabled(false);
+        setTestSnapshot(null);
+        setHealthHistory(null);
         setActive("onboarding");
       }
       setProfileLoading(false);
@@ -132,6 +163,45 @@ function App() {
     }
   };
 
+  const handleTestModeChange = async (nextEnabled) => {
+    if (!user || testModeSaving) return;
+    setTestModeSaving(true);
+    if (nextEnabled) {
+      const { snapshot, error } = await enableTestMode(user.id);
+      if (!error && snapshot?.profile) {
+        setTestSnapshot(snapshot);
+        setTestModeEnabled(true);
+        setUserProfile(snapshot.profile);
+        setHealthHistory(snapshot.healthHistory || null);
+        setActive("home");
+      }
+    } else {
+      const { error } = await disableTestMode(user.id);
+      if (!error) {
+        const stored = await loadProfile(user.id);
+        const [documents, labMarkers] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id)]);
+        setTestModeEnabled(false);
+        setTestSnapshot(null);
+        setHealthHistory(null);
+        setLiveHealthData({
+          labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
+          records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
+        });
+        if (stored?.onboardingCompletedAt) {
+          setUserProfile(stored);
+          setActive("home");
+        } else {
+          setUserProfile(null);
+          setResumeData(stored?.profile?.dob ? stored : null);
+          setActive("onboarding");
+        }
+      }
+    }
+    setTestModeSaving(false);
+  };
+
+  const healthData = testModeEnabled ? testSnapshot?.health || null : liveHealthData;
+
   const screens = {
     onboarding: (
       <OnboardingScreen
@@ -141,11 +211,11 @@ function App() {
         initial={resumeData}
       />
     ),
-    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} />,
+    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
     checkin: <CheckInScreen />,
-    aichat: <AIChatScreen setActive={setActive} />,
-    records: <RecordsScreen setActive={setActive} />,
-    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} />,
+    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} testModeEnabled={testModeEnabled} />,
+    records: <RecordsScreen setActive={setActive} healthData={healthData} />,
+    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} />,
     discussion: <DiscussionPageScreen setActive={setActive} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,

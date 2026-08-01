@@ -3,6 +3,48 @@ import { Camera, Home, Mic, Send, X } from "lucide-react";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 
+function buildHealthContext(userProfile, healthData, testModeEnabled) {
+  const profile = userProfile?.profile;
+  if (!profile) {
+    return "You are a personal health advocate AI. The user has not completed a health profile or uploaded any health data yet. Ask concise follow-up questions and never diagnose or prescribe.";
+  }
+
+  const age = profile.dob
+    ? new Date().getFullYear() - new Date(profile.dob).getFullYear()
+    : "unknown";
+  const intake = userProfile?.intake || {};
+  const labs = healthData?.labs?.length
+    ? healthData.labs.map((lab) => `- ${lab.name}: ${lab.value} ${lab.unit} (${lab.status}, ${lab.date})`).join("\n")
+    : "No lab results have been uploaded.";
+  const vitals = healthData?.today
+    ? `Readiness ${healthData.today.readiness} (typical ${healthData.today.readinessTypical}); HRV ${healthData.today.hrv}ms (baseline ${healthData.today.hrvBaseline}); resting heart rate ${healthData.today.restingHR} bpm (baseline ${healthData.today.restingHRBaseline}).`
+    : "No wearable or daily-vitals data has been connected.";
+  const genetics = healthData?.genetics?.length ? healthData.genetics.map((item) => `- ${item}`).join("\n") : "No genetic data has been uploaded.";
+
+  return `You are a personal health advocate AI embedded inside a health platform.
+
+MODE: ${testModeEnabled ? "Persisted test mode — treat this seeded snapshot exactly like client data while clearly remaining a health advocate." : "Live client mode — only use the data below; do not invent missing records."}
+NAME: ${profile.name || "Unknown"}, ${age} years old, ${profile.sex || "unspecified"}
+CONDITIONS: ${(intake.conditions || []).join(", ") || "None recorded"}
+MEDICATIONS: ${(intake.medications || []).join(", ") || "None recorded"}
+PRIMARY CONCERN: ${intake.primaryConcern || "None recorded"}
+
+LABS:
+${labs}
+
+VITALS:
+${vitals}
+
+GENETICS:
+${genetics}
+
+IMPORTANT RULES:
+- You are a health advocate, not a clinician. Never diagnose or prescribe.
+- Be concise, specific, and grounded only in the data above.
+- Frame pharmacogenomic or medication guidance as a discussion with the prescriber.
+- When a doctor appointment is mentioned, suggest preparing a Discussion Page.`;
+}
+
 // Single source of truth for scoring. Both the gauge (Home) and the breakdown modal
 // call this so the two never silently drift out of sync, as they did when each kept
 // its own hardcoded copy of the numbers.
@@ -14,7 +56,7 @@ import { callAI, firstText } from "../lib/api";
 // ---- AI CHAT SCREEN ----
 // Powers real AI responses via the Anthropic API, with the user's health profile injected
 // into every request so answers are contextual to their actual data, not generic wellness advice.
-function AIChatScreen({ setActive }) {
+function AIChatScreen({ setActive, userProfile, healthData, testModeEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +76,7 @@ function AIChatScreen({ setActive }) {
   };
 
   // User's health profile injected as context into every AI request.
-  const healthProfile = `
+  const demoHealthProfile = `
 You are a personal health advocate AI embedded inside a health platform. You have access to this user's health profile:
 
 NAME: Adam Locker, 52 years old, male
@@ -88,11 +130,17 @@ IMPORTANT RULES:
 - Keep responses concise and action-oriented.
 `.trim();
 
-  const startingPrompts = [
-    "Should I be taking magnesium?",
-    "I saw a TikTok saying everyone needs berberine — is that true for me?",
+  const healthProfile = buildHealthContext(userProfile, healthData, testModeEnabled);
+
+  const startingPrompts = healthData ? [
     "My readiness is low today — should I still train?",
+    "What should I discuss with my doctor about my thyroid trend?",
+    "How does my vitamin D result fit my overall profile?",
     "I have a doctor appointment next Tuesday",
+  ] : [
+    "What information should I upload first?",
+    "How can I prepare for my next doctor visit?",
+    "What does a preventive-care checklist include?",
   ];
 
   useEffect(() => {

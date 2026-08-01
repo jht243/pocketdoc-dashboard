@@ -1,20 +1,14 @@
 
 
-function useScoreModel(nutritionEnabled) {
-  const baseItems = [
-    { name: "Annual physical", status: "current", detail: "Completed Mar 2026", pts: 8, max: 8 },
-    { name: "Comprehensive bloodwork", status: "current", detail: "Completed Jan 2026", pts: 8, max: 8 },
-    { name: "Monthly bloodwork (TRT panel)", status: "due_soon", detail: "Due in 6 days, tracks hormone levels while on therapy", pts: 2, max: 8, action: "Complete this month's TRT panel" },
-    { name: "Colonoscopy", status: "overdue", detail: "Due at 45, last completed at 42", pts: 0, max: 10, action: "Schedule your colonoscopy" },
-    { name: "Prostate exam (PSA)", status: "due_soon", detail: "Due within 3 months", pts: 4, max: 8, action: "Book your PSA screening" },
-    { name: "EEG / baseline neuro screen", status: "current", detail: "Completed Aug 2025", pts: 8, max: 8 },
-    { name: "Skin cancer screening", status: "overdue", detail: "Over 18 months since last visit", pts: 0, max: 8, action: "Schedule a skin check" },
-  ];
+function useScoreModel(nutritionEnabled, healthData) {
+  const source = healthData?.score;
+  if (!source) return { hasData: false, baseItems: [], dailyItems: [], baseDisplay: 0, dailyDisplay: 0 };
+  const baseItems = source.baseItems || [];
 
   // Daily training effort, scored from Zone 2+ minutes reported by the wearable.
   // Tiers: under 20 min = below threshold, 20-29 = partial credit scaling up,
   // 30-44 = full points (the target), 45+ = capped bonus, no reward past the cap.
-  const zone2Minutes = 34;
+  const zone2Minutes = source.zone2Minutes || 0;
   const scoreEffort = (min, max) => {
     if (min < 20) return Math.round((min / 20) * (max * 0.4));
     if (min < 30) return Math.round((max * 0.4) + ((min - 20) / 10) * (max * 0.6));
@@ -43,13 +37,13 @@ function useScoreModel(nutritionEnabled) {
   }
 
   const effortPts = scoreEffort(zone2Minutes, weights.effort);
-  const nutritionLogged = false; // today's logging state; toggled per day, separate from the opt-in setting
+  const nutritionLogged = Boolean(source.nutritionLogged); // today's logging state; toggled per day, separate from the opt-in setting
   const nutritionPts = nutritionEnabled && nutritionLogged ? Math.round(weights.nutrition * 0.8) : 0;
 
   const dailyItems = [
-    { name: "Sleep score (Oura)", value: "82", note: "Good night last night", pts: weights.sleep, max: weights.sleep },
+    { name: "Sleep score (Oura)", value: String(source.sleepScore || "—"), note: source.sleepNote || "No sleep data yet", pts: source.sleepScore ? weights.sleep : 0, max: weights.sleep },
     { name: "Training effort (Zone 2+)", value: `${zone2Minutes} min`, note: "Target: 30 min Zone 2 or higher", pts: effortPts, max: weights.effort },
-    { name: "Wake-up check-in", value: "Logged", note: "Felt rested", pts: weights.wakeup, max: weights.wakeup },
+    { name: "Wake-up check-in", value: source.wakeupLogged ? "Logged" : "Not logged", note: source.wakeupNote || "No check-in yet", pts: source.wakeupLogged ? weights.wakeup : 0, max: weights.wakeup },
   ];
   if (nutritionEnabled) {
     dailyItems.push({
@@ -67,11 +61,11 @@ function useScoreModel(nutritionEnabled) {
   // The gauge displays everything on a consistent 0-50 scale per ring regardless of how
   // many raw points the underlying item list sums to, since baseMax in particular isn't
   // a round number.
-  const baseDisplay = Math.round((baseTotal / baseMax) * 50);
-  const dailyDisplay = Math.round((dailyTotal / dailyMax) * 50);
+  const baseDisplay = baseMax ? Math.round((baseTotal / baseMax) * 50) : 0;
+  const dailyDisplay = dailyMax ? Math.round((dailyTotal / dailyMax) * 50) : 0;
 
   return {
-    baseItems, dailyItems, nutritionEnabled, nutritionLogged,
+    hasData: true, baseItems, dailyItems, nutritionEnabled, nutritionLogged,
     baseTotal, baseMax, dailyTotal, dailyMax, baseDisplay, dailyDisplay,
   };
 }

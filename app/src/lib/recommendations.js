@@ -1,29 +1,10 @@
 
 
-function getDailyRecommendation() {
-  // Stand-in for today's actual device, lab, and log data. In production these would be
-  // pulled from the same sources already powering Body, Labs, and the score model.
-  const today = {
-    readiness: 68,
-    readinessTypical: 78,
-    restingHR: 64,
-    restingHRBaseline: 52,
-    hrv: 42,
-    hrvBaseline: 50,
-    skinTempDeviation: 0.4,
-    sleepEfficiency: 0.91,
-    strainYesterday: "high",
-    zone2MinutesPlanned: 30,
-    vitaminD: 28, // ng/mL, last checked
-    tpoAntibodiesTrend: "rising",
-    recentSymptoms: ["fatigue", "cold sensitivity"],
-    nutritionEnabled: false,
-    nutritionLoggedToday: false,
-    proteinLowOnTrainingDays: true,
-    bodyFatTrend: "down",
-    weightTrend: "flat",
-    goalAchieved: false,
-  };
+function getDailyRecommendation(healthData) {
+  // Recommendations are intentionally silent until we have a real health snapshot.
+  // Test mode supplies a persisted snapshot; production data will use the same shape.
+  const today = healthData?.today;
+  if (!today) return null;
 
   const candidates = [];
 

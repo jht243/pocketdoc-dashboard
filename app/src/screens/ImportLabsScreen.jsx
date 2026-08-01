@@ -4,6 +4,8 @@ import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
+import { useAuth } from "../lib/AuthContext";
+import { uploadDocument } from "../lib/profileStore";
 
 // ---- RECORDS SCREEN ----
 // ---- IMPORT LABS SCREEN ----
@@ -11,6 +13,12 @@ import { callAI, firstText } from "../lib/api";
 // The review step before saving is intentional: silently storing a misread value into a
 // health record is worse than not storing it at all.
 function ImportLabsScreen({ setActive }) {
+  const { user } = useAuth();
+  // "storing" tracks the file landing in storage, which is independent of the AI
+  // extraction below — the document is kept even if extraction fails.
+  const [storing, setStoring] = useState(false);
+  const [storedDoc, setStoredDoc] = useState(null);
+  const [storeError, setStoreError] = useState(null);
   const [stage, setStage] = useState("idle"); // idle | extracting | review | saved
   const [importType, setImportType] = useState("labs"); // labs | genetic
   const [copied, setCopied] = useState(false);
@@ -40,6 +48,24 @@ function ImportLabsScreen({ setActive }) {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name || "Photo capture");
+    setStoreError(null);
+    setStoredDoc(null);
+
+    // Store the file first and independently of extraction. The document itself is
+    // the record the user asked us to keep; whether we can read values out of it is
+    // a separate concern that must not be able to lose their file.
+    if (user) {
+      setStoring(true);
+      const { document, error } = await uploadDocument(
+        user.id,
+        file,
+        importType === "genetic" ? "genetic" : "lab"
+      );
+      setStoring(false);
+      if (error) setStoreError(error.message || "Upload failed");
+      else setStoredDoc(document);
+    }
+
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const dataUrl = ev.target.result;
@@ -120,6 +146,24 @@ If you cannot find lab data in the document, return an empty array [].`,
         Upload a PDF, photograph a paper report, or enter results manually. Saved records
         feed your pattern review, your AI conversations, and your Discussion Page.
       </div>
+
+      {/* Storage status — separate from extraction so the user knows the file itself
+          is safe even when we can't read values out of it. */}
+      {(storing || storedDoc || storeError) && (
+        <div style={{
+          display: "flex", gap: 9, alignItems: "center", marginBottom: 14,
+          padding: "10px 12px", borderRadius: 10, fontSize: 12.5, lineHeight: 1.45,
+          background: storeError ? COLORS.badDim : storedDoc ? COLORS.goodDim : COLORS.accentDim,
+          border: `1px solid ${storeError ? COLORS.danger : storedDoc ? COLORS.good : COLORS.accent}33`,
+          color: storeError ? COLORS.danger : storedDoc ? COLORS.good : COLORS.accent,
+        }}>
+          {storeError
+            ? <><X size={15} /> Couldn’t save the file: {storeError}</>
+            : storedDoc
+              ? <><CheckCircle2 size={15} /> <span><strong>{storedDoc.file_name}</strong> saved to your records.</span></>
+              : <><Upload size={15} /> Saving file to your records…</>}
+        </div>
+      )}
 
       {stage === "idle" && (
         <>
