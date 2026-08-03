@@ -14,7 +14,6 @@ import {
   completeOnboarding,
   acceptConsent,
   saveMedications,
-  uploadDocument,
 } from "./lib/profileStore";
 import {
   disableTestMode,
@@ -71,7 +70,6 @@ function App() {
   // Pre-auth routing: welcome → auth, with privacy reachable from either.
   const [gate, setGate] = useState("welcome");
   const [resumeData, setResumeData] = useState(null);
-  const pendingFileRef = React.useRef(null);
 
   // On sign-in, pull the stored profile. Completion — not merely having a dob — is
   // what decides home-vs-onboarding, now that we save partway through.
@@ -143,12 +141,6 @@ function App() {
     if (user) saveOnboardingProgress(user.id, data, nextStep);
   };
 
-  // The raw File is handed up when picked, then uploaded on completion — uploading
-  // mid-flow would orphan files for users who never finish.
-  const handleFileSelected = (file) => {
-    pendingFileRef.current = file;
-  };
-
   const handleOnboardingComplete = async (data) => {
     setUserProfile(data);
     setActive("home");
@@ -157,10 +149,8 @@ function App() {
     await completeOnboarding(user.id, data);
     await saveScreenings(user.id, data.schedule, data.completedItems);
     await saveMedications(user.id, data.intake?.medications);
-    if (pendingFileRef.current) {
-      await uploadDocument(user.id, pendingFileRef.current, "lab");
-      pendingFileRef.current = null;
-    }
+    // Uploads are no longer deferred to here — OnboardingScreen stores the file the
+    // moment it's picked, so abandoning steps 4/5 can't lose it.
   };
 
   const handleTestModeChange = async (nextEnabled) => {
@@ -207,7 +197,6 @@ function App() {
       <OnboardingScreen
         onComplete={handleOnboardingComplete}
         onStepComplete={handleStepComplete}
-        onFileSelected={handleFileSelected}
         initial={resumeData}
       />
     ),

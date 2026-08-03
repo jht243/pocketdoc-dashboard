@@ -5,11 +5,14 @@ import { buildPreventiveCareSchedule } from "../lib/preventiveCare";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { scrollPhoneToTop } from "../lib/scroll";
+import { useAuth } from "../lib/AuthContext";
+import { uploadDocument } from "../lib/profileStore";
 
 // ---- ONBOARDING SCREEN ----
 // Three steps: profile inputs → instant preventive care schedule → first AI insight.
 // Delivers value before the user has uploaded anything or connected any device.
-function OnboardingScreen({ onComplete, onStepComplete, onFileSelected, initial }) {
+function OnboardingScreen({ onComplete, onStepComplete, initial }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(initial?.onboardingStep || 1); // 1-fast facts | 2-preventive care | 3-health intake | 4-bloodwork | 5-AI insight
   const [profile, setProfile] = useState(initial?.profile || {
     name: "", dob: "", sex: "male", smoker: false,
@@ -27,6 +30,9 @@ function OnboardingScreen({ onComplete, onStepComplete, onFileSelected, initial 
   const [completedItems, setCompletedItems] = useState({});
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState(null);
+  const [storing, setStoring] = useState(false);
+  const [storeError, setStoreError] = useState(null);
+  const [storedDoc, setStoredDoc] = useState(null);
   const [insight, setInsight] = useState("");
   const [loadingInsight, setLoadingInsight] = useState(false);
 
@@ -71,11 +77,24 @@ function OnboardingScreen({ onComplete, onStepComplete, onFileSelected, initial 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.dob, profile.name]);
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadedFileName(file.name);
-    onFileSelected?.(file);
+    setStoreError(null);
+    setStoredDoc(null);
+
+    // Store immediately rather than on completion. Steps 4 and 5 involve a slow AI
+    // call the user can abandon; deferring the upload meant their file was silently
+    // lost if they left, even though the UI had told them it was ready.
+    if (user) {
+      setStoring(true);
+      const { document, error } = await uploadDocument(user.id, file, "lab");
+      setStoring(false);
+      if (error) setStoreError(error.message || "Upload failed");
+      else setStoredDoc(document);
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => setUploadedFile({ base64: ev.target.result.split(",")[1], mediaType: file.type || "application/pdf" });
     reader.readAsDataURL(file);
@@ -351,14 +370,34 @@ function OnboardingScreen({ onComplete, onStepComplete, onFileSelected, initial 
               </div>
             </>
           ) : (
-            <Card style={{ border: `1px solid ${COLORS.tealLight}40`, marginBottom: 20 }}>
+            <Card style={{
+              border: `1px solid ${storeError ? COLORS.danger : storedDoc ? COLORS.good : COLORS.accent}40`,
+              marginBottom: 20,
+            }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <CheckCircle2 size={20} color={COLORS.tealLight} />
+                {storeError
+                  ? <X size={20} color={COLORS.danger} />
+                  : <CheckCircle2 size={20} color={storedDoc ? COLORS.good : COLORS.accent} />}
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{uploadedFileName}</div>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted }}>Ready to analyze</div>
+                  {/* Report what actually happened. "Ready to analyze" implied the file
+                      was safe while it was still only in browser memory. */}
+                  <div style={{ fontSize: 11, color: storeError ? COLORS.danger : COLORS.textMuted }}>
+                    {storing
+                      ? "Saving to your records…"
+                      : storeError
+                        ? `Couldn't save: ${storeError}`
+                        : storedDoc
+                          ? "Saved to your records"
+                          : "Ready to analyze"}
+                  </div>
                 </div>
-                <button onClick={() => { setUploadedFile(null); setUploadedFileName(null); }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted }}><X size={16} /></button>
+                <button
+                  onClick={() => { setUploadedFile(null); setUploadedFileName(null); setStoredDoc(null); setStoreError(null); }}
+                  style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted }}
+                >
+                  <X size={16} />
+                </button>
               </div>
             </Card>
           )}
