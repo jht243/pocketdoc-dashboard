@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "emails:build": "node scripts/apply-auth-email-templates.mjs",
     "emails:apply": "node scripts/apply-auth-email-templates.mjs --apply",
+    "emails:configure-resend": "node scripts/configure-resend-auth-email.mjs",
     "emails:preview": "vite --open /emails/preview.html"
   },
   "dependencies": {

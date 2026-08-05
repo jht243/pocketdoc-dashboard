@@ -8,6 +8,7 @@
  */
 import { supabase, isConfigured } from "./supabase";
 import { buildPreventiveCareSchedule } from "./preventiveCare";
+import { fromCompletedAt, isScreeningDone, toCompletedAt } from "./screeningDates";
 
 function ageFromDob(dob) {
   if (!dob) return null;
@@ -111,9 +112,8 @@ export async function loadFullProfile(userId) {
 
   const completedItems = {};
   for (const row of screenings || []) {
-    if (row.urgency === "done" || row.completed_at) {
-      completedItems[row.key] = true;
-    }
+    const value = fromCompletedAt(row.completed_at, row.urgency);
+    if (value) completedItems[row.key] = value;
   }
 
   return {
@@ -333,23 +333,39 @@ export async function loadLabMarkers(userId) {
 
 /* ---------------- screenings ---------------- */
 
+/**
+ * Persist the full schedule plus completion state.
+ * completedItems values: true (done, no month) | "YYYY-MM" (done that month) | falsy.
+ * Month values are stored as the first of that month on `completed_at`.
+ */
 export async function saveScreenings(userId, schedule = [], completed = {}) {
   if (!isConfigured || !userId || !schedule.length) return { error: null };
-  const rows = schedule.map((item) => ({
-    user_id: userId,
-    key: item.id,
-    name: item.name,
-    category: item.category || null,
-    frequency: item.frequency || null,
-    // A locally-ticked item wins over the engine's computed urgency.
-    urgency: completed[item.id] ? "done" : item.urgency || null,
-    completed_at: completed[item.id] ? new Date().toISOString().slice(0, 10) : null,
-  }));
-  const { error } = await supabase
+  const now = new Date().toISOString();
+  const rows = schedule.map((item) => {
+    const value = completed[item.id];
+    const done = isScreeningDone(value);
+    const completedAt = done ? toCompletedAt(value) : null;
+    return {
+      user_id: userId,
+      key: item.id,
+      name: item.name,
+      category: item.category || null,
+      frequency: item.frequency || null,
+      // A locally-ticked item wins over the engine's computed urgency.
+      urgency: done ? "done" : item.urgency || null,
+      completed_at: completedAt,
+      updated_at: now,
+    };
+  });
+  const { data, error } = await supabase
     .from("screenings")
-    .upsert(rows, { onConflict: "user_id,key" });
-  if (error) console.error("saveScreenings", error);
-  return { error };
+    .upsert(rows, { onConflict: "user_id,key" })
+    .select("key, urgency, completed_at");
+  if (error) {
+    console.error("saveScreenings", error);
+    return { error, data: null };
+  }
+  return { error: null, data };
 }
 
 export async function loadScreenings(userId) {
@@ -367,11 +383,15 @@ export async function loadScreenings(userId) {
 
 export async function markScreeningDone(userId, key, completedAt) {
   if (!isConfigured || !userId) return { error: null };
+  const normalized =
+    completedAt == null || completedAt === true
+      ? null
+      : toCompletedAt(completedAt) || String(completedAt).slice(0, 10);
   const { error } = await supabase
     .from("screenings")
     .update({
       urgency: "done",
-      completed_at: completedAt || new Date().toISOString().slice(0, 10),
+      completed_at: normalized,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId)

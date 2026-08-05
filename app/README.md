@@ -23,7 +23,8 @@ src/
   theme/tokens.js          COLORS, SHADOW, SERIF, SANS, RADIUS
   lib/
     api.js                 central AI gateway — all AI calls go through here
-    preventiveCare.js      age/sex/risk → screening schedule (USPSTF, ACS, ATA, ACR)
+    preventiveCare.js      USPSTF Grade A/B evaluator (age/sex/risk)
+    uspstfScreeningRules.json  structured screening rules (source of truth)
     recommendations.js     daily recommendation engine
     scoring.js             health-score model
   components/              PhoneFrame, TabBar, Card, SectionLabel, ScoreGauge,
@@ -51,7 +52,7 @@ Branded transactional mail (header → subheader → body → CTA) lives in `src
 This is the V1 frontend, ported from the single-file mockup. Working today:
 
 - All 17 screens in the PocketDoc light design system
-- Preventive-care rules engine (16 screening rules, risk-adjusted)
+- Preventive-care rules engine (USPSTF Grade A/B baseline, risk-adjusted)
 - Health-score model and daily recommendation engine
 - File upload (PDF / image / camera capture)
 

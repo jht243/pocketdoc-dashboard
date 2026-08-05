@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { CheckCircle2, Circle, Dna, Sparkles, Upload, X } from "lucide-react";
 import { Card } from "../components/Card";
 import { buildPreventiveCareSchedule } from "../lib/preventiveCare";
+import { isScreeningDone } from "../lib/screeningDates";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { scrollPhoneToTop } from "../lib/scroll";
@@ -88,7 +89,13 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
   };
 
   const toggleScreeningDone = (id) => {
-    const next = { ...completedItems, [id]: !completedItems[id] };
+    const next = { ...completedItems };
+    if (isScreeningDone(completedItems[id])) {
+      delete next[id];
+    } else {
+      // Onboarding is done/not-done only — month/year is collected later in the app.
+      next[id] = true;
+    }
     setCompletedItems(next);
     // Persist immediately so closing the app mid-step doesn't lose mark-done taps.
     onStepComplete?.({ profile, intake, schedule, completedItems: next }, step);
@@ -259,7 +266,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             <div key={cat}>
               <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, letterSpacing: 0.5, marginBottom: 6, marginTop: 16 }}>{cat.toUpperCase()}</div>
               {schedule.filter(i => i.category === cat).map((item) => {
-                const done = completedItems[item.id];
+                const done = isScreeningDone(completedItems[item.id]);
                 return (
                   <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${COLORS.border}` }}>
                     <div style={{ flex: 1 }}>
@@ -293,7 +300,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
           ))}
 
           <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 14, marginBottom: 20 }}>
-            {Object.values(completedItems).filter(Boolean).length} of {schedule.length} marked as done —
+            {Object.values(completedItems).filter(isScreeningDone).length} of {schedule.length} marked as done —
             we’ll remind you about the rest.
           </div>
 

@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card } from "../components/Card";
+import { ScreeningMonthYear } from "../components/ScreeningMonthYear";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { saveScreenings } from "../lib/profileStore";
+import { currentYearMonth, formatCompletedMonth, isScreeningDone } from "../lib/screeningDates";
 
 function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }) {
   const { user } = useAuth();
@@ -14,13 +16,30 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
   const urgencyLabel = { overdue: "Overdue", due_soon: "Due soon", upcoming: "Upcoming" };
   const categories = [...new Set(schedule.map(i => i.category))];
 
-  const toggleDone = (id) => {
-    const next = { ...completedItems, [id]: !completedItems[id] };
+  useEffect(() => {
+    setCompletedItems(userProfile?.completedItems || {});
+  }, [userProfile?.completedItems]);
+
+  const persist = async (next) => {
     setCompletedItems(next);
     onCompletedItemsChange?.(next);
-    if (user && schedule.length) {
-      saveScreenings(user.id, schedule, next);
+    if (!user || !schedule.length) return;
+    const { error } = await saveScreenings(user.id, schedule, next);
+    if (error) console.error("PreventiveCareScreen/saveScreenings", error);
+  };
+
+  const toggleDone = (id) => {
+    const next = { ...completedItems };
+    if (isScreeningDone(completedItems[id])) {
+      delete next[id];
+    } else {
+      next[id] = currentYearMonth();
     }
+    persist(next);
+  };
+
+  const setCompletedAt = (id, value) => {
+    persist({ ...completedItems, [id]: value });
   };
 
   if (!userProfile || schedule.length === 0) {
@@ -42,8 +61,8 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
     );
   }
 
-  const overdue = schedule.filter(i => i.urgency === "overdue" && !completedItems[i.id]).length;
-  const dueSoon = schedule.filter(i => i.urgency === "due_soon" && !completedItems[i.id]).length;
+  const overdue = schedule.filter(i => i.urgency === "overdue" && !isScreeningDone(completedItems[i.id])).length;
+  const dueSoon = schedule.filter(i => i.urgency === "due_soon" && !isScreeningDone(completedItems[i.id])).length;
 
   return (
     <div style={{ padding: "24px 18px" }}>
@@ -60,7 +79,7 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
         {dueSoon > 0 && <span style={{ color: COLORS.warning }}>{dueSoon} due soon</span>}
       </div>
       <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 20 }}>
-        Tap any item to mark it complete. Your health score updates automatically.
+        Mark items complete and add the month if you remember. Your health score updates automatically.
       </div>
 
       {categories.map(cat => (
@@ -68,19 +87,25 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
           <SectionLabel>{cat}</SectionLabel>
           <Card>
             {schedule.filter(i => i.category === cat).map((item, idx, arr) => {
-              const done = completedItems[item.id];
+              const done = isScreeningDone(completedItems[item.id]);
+              const completedLabel = formatCompletedMonth(completedItems[item.id]);
+              const itemsInCat = schedule.filter(i => i.category === cat);
               return (
                 <div key={item.id} style={{
                   padding: "11px 0",
-                  borderBottom: idx < arr.filter(i => i.category === cat).length - 1 ? `1px solid ${COLORS.border}` : "none",
-                  opacity: done ? 0.55 : 1
+                  borderBottom: idx < itemsInCat.length - 1 ? `1px solid ${COLORS.border}` : "none",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1, paddingRight: 10 }}>
+                    <div style={{ flex: 1, paddingRight: 10, opacity: done ? 0.55 : 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, textDecoration: done ? "line-through" : "none" }}>
                         {item.name}
                       </div>
                       <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 3 }}>{item.frequency}</div>
+                      {completedLabel && (
+                        <div style={{ fontSize: 11, color: COLORS.good, marginBottom: 3, fontWeight: 600 }}>
+                          Completed {completedLabel}
+                        </div>
+                      )}
                       <div style={{ fontSize: 10, color: COLORS.textMuted, fontStyle: "italic", lineHeight: 1.4 }}>{item.note}</div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
@@ -100,6 +125,12 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
                       </button>
                     </div>
                   </div>
+                  {done && (
+                    <ScreeningMonthYear
+                      value={completedItems[item.id]}
+                      onChange={(value) => setCompletedAt(item.id, value)}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -107,7 +138,7 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
         </div>
       ))}
       <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, padding: "10px 12px", background: COLORS.bgCardAlt, borderRadius: 10 }}>
-        Based on USPSTF guidelines, ACS, and American Thyroid Association recommendations. Discuss any flagged items with your physician.
+        Based on USPSTF Grade A and B recommendations for your age, sex, and risk factors. Discuss any flagged items with your physician.
       </div>
     </div>
   );

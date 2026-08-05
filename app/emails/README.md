@@ -33,30 +33,20 @@ npm run emails:preview
 
 ## Apply to Supabase Auth (required for signup confirm)
 
-The plain “Confirm your signup” email is sent by **Supabase Auth**, not the app. Update templates on the MetabolicHealth project (`pmqxkdqkqxhbrymeerem`):
+Auth emails are sent through **Resend** via the `ghai-auth-email` Edge Function
+(Send Email Hook). Supabase still creates users/tokens; Resend delivers the mail.
 
-**Option A — Management API**
+See **[RESEND_AUTH_SETUP.md](./RESEND_AUTH_SETUP.md)** — one dashboard toggle to enable the hook.
 
-1. Create a token at https://supabase.com/dashboard/account/tokens  
-2. Run:
+From (testing): `Guided Health AI <noreply@intake.layer3labs.io>`
+
+Optional Management API apply (needs personal access token):
 
 ```bash
-SUPABASE_ACCESS_TOKEN=sbp_... npm run emails:apply
+SUPABASE_ACCESS_TOKEN=sbp_... node scripts/configure-resend-auth-email.mjs
 ```
 
-**Option B — Dashboard**
-
-1. Open https://supabase.com/dashboard/project/pmqxkdqkqxhbrymeerem/auth/templates  
-2. For each template, paste the matching file from `emails/auth/` and set the subject from `emails/auth/subjects.json`
-
-| Supabase template | File | Subject |
-| --- | --- | --- |
-| Confirm signup | `confirmation.html` | Confirm your Guided Health AI account |
-| Invite user | `invite.html` | You're invited to Guided Health AI |
-| Magic Link | `magic_link.html` | Your Guided Health AI sign-in link |
-| Reset Password | `recovery.html` | Reset your Guided Health AI password |
-| Change Email Address | `email_change.html` | Confirm your new email address |
-| Reauthentication | `reauthentication.html` | `{{ .Token }} is your Guided Health AI verification code` |
+Legacy HTML bodies (if you ever fall back to Supabase's built-in mailer) are still in `emails/auth/`.
 
 ## App-sent email
 
