@@ -26,8 +26,8 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
     primaryConcern: "",
     exercise: "", sleep: "",
   });
-  const [schedule, setSchedule] = useState([]);
-  const [completedItems, setCompletedItems] = useState({});
+  const [schedule, setSchedule] = useState(initial?.schedule || []);
+  const [completedItems, setCompletedItems] = useState(initial?.completedItems || {});
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [storing, setStoring] = useState(false);
@@ -50,7 +50,22 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
 
   const commonConditions = ["Hypertension", "Type 2 diabetes", "Thyroid condition", "Autoimmune", "High cholesterol", "Anxiety / depression", "Sleep apnea", "Asthma / COPD", "Cardiac condition"];
   const familyConditions = ["Heart disease", "Cancer", "Type 2 diabetes", "Alzheimer's", "Autoimmune", "Stroke"];
-  const toggleChip = (list, key, val) => setIntake(p => ({ ...p, [key]: p[key].includes(val) ? p[key].filter(x => x !== val) : [...p[key], val] }));
+
+  const persistProfile = (nextProfile) => {
+    setProfile(nextProfile);
+    onStepComplete?.({ profile: nextProfile, intake, schedule, completedItems }, step);
+  };
+
+  const persistIntake = (nextIntake) => {
+    setIntake(nextIntake);
+    onStepComplete?.({ profile, intake: nextIntake, schedule, completedItems }, step);
+  };
+
+  const toggleChip = (key, val) => {
+    const list = intake[key] || [];
+    const nextList = list.includes(val) ? list.filter((x) => x !== val) : [...list, val];
+    persistIntake({ ...intake, [key]: nextList });
+  };
 
   const computeSchedule = (p) => {
     const birthDate = new Date(p.dob);
@@ -63,8 +78,24 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
 
   const goToStep2 = () => {
     if (!profile.dob || !profile.name) return;
-    setSchedule(computeSchedule(profile));
-    goToStep(2);
+    // Compute before setState so the step-progress save includes the schedule
+    // (setSchedule alone would leave goToStep reading a stale empty array).
+    const nextSchedule = computeSchedule(profile);
+    setSchedule(nextSchedule);
+    setStep(2);
+    scrollPhoneToTop();
+    onStepComplete?.({ profile, intake, schedule: nextSchedule, completedItems }, 2);
+  };
+
+  const toggleScreeningDone = (id) => {
+    const next = { ...completedItems, [id]: !completedItems[id] };
+    setCompletedItems(next);
+    // Persist immediately so closing the app mid-step doesn't lose mark-done taps.
+    onStepComplete?.({ profile, intake, schedule, completedItems: next }, step);
+  };
+
+  const persistMedications = (medications) => {
+    persistIntake({ ...intake, medications, medInput: "" });
   };
 
   // The schedule is derived state, built when step 1 is submitted. A user resuming at
@@ -160,12 +191,12 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 5 }}>First name</div>
-            <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Your first name" style={{ width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "11px 14px", color: COLORS.textPrimary, fontSize: 14, outline: "none" }} />
+            <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} onBlur={() => onStepComplete?.({ profile, intake, schedule, completedItems }, step)} placeholder="Your first name" style={{ width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "11px 14px", color: COLORS.textPrimary, fontSize: 14, outline: "none" }} />
           </div>
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 5 }}>Date of birth</div>
-            <input type="date" value={profile.dob} onChange={e => setProfile(p => ({ ...p, dob: e.target.value }))}
+            <input type="date" value={profile.dob} onChange={e => persistProfile({ ...profile, dob: e.target.value })}
               max={new Date().toISOString().split("T")[0]}
               style={{ width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "11px 14px", color: COLORS.textPrimary, fontSize: 14, outline: "none" }} />
           </div>
@@ -174,7 +205,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 8 }}>Biological sex</div>
             <div style={{ display: "flex", gap: 8 }}>
               {["male", "female"].map(s => (
-                <button key={s} onClick={() => setProfile(p => ({ ...p, sex: s }))} style={{ flex: 1, padding: "11px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", background: profile.sex === s ? COLORS.teal : COLORS.bgCardAlt, color: profile.sex === s ? COLORS.onAccent : COLORS.textSecondary, border: "none", textTransform: "capitalize" }}>{s}</button>
+                <button key={s} onClick={() => persistProfile({ ...profile, sex: s })} style={{ flex: 1, padding: "11px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", background: profile.sex === s ? COLORS.teal : COLORS.bgCardAlt, color: profile.sex === s ? COLORS.onAccent : COLORS.textSecondary, border: "none", textTransform: "capitalize" }}>{s}</button>
               ))}
             </div>
           </div>
@@ -187,7 +218,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
               { key: "familyOrPersonalCancer", label: "Personal or family history of cancer" },
               { key: "diabetesOrPrediabetes", label: "Diabetes or pre-diabetes (personal or family)" },
             ].map(item => (
-              <button key={item.key} onClick={() => setProfile(p => ({ ...p, [item.key]: !p[item.key] }))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: profile[item.key] ? `${COLORS.teal}20` : COLORS.bgCardAlt, border: `1px solid ${profile[item.key] ? COLORS.teal : COLORS.border}`, borderRadius: 10, padding: "10px 14px", cursor: "pointer", marginBottom: 8, textAlign: "left" }}>
+              <button key={item.key} onClick={() => persistProfile({ ...profile, [item.key]: !profile[item.key] })} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: profile[item.key] ? `${COLORS.teal}20` : COLORS.bgCardAlt, border: `1px solid ${profile[item.key] ? COLORS.teal : COLORS.border}`, borderRadius: 10, padding: "10px 14px", cursor: "pointer", marginBottom: 8, textAlign: "left" }}>
                 <div style={{ width: 18, height: 18, borderRadius: 9, flexShrink: 0, background: profile[item.key] ? COLORS.teal : "none", border: `2px solid ${profile[item.key] ? COLORS.teal : COLORS.textMuted}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {profile[item.key] && <div style={{ width: 8, height: 8, borderRadius: 4, background: COLORS.onAccent }} />}
                 </div>
@@ -239,7 +270,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
                       )}
                     </div>
                     <button
-                      onClick={() => setCompletedItems(p => ({ ...p, [item.id]: !p[item.id] }))}
+                      onClick={() => toggleScreeningDone(item.id)}
                       style={{
                         flexShrink: 0, display: "flex", alignItems: "center", gap: 5,
                         // Unchecked state uses the app's interactive blue: a grey outline
@@ -284,6 +315,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>What's the one health thing you most want help with?</div>
             <textarea value={intake.primaryConcern} onChange={e => setIntake(p => ({ ...p, primaryConcern: e.target.value }))}
+              onBlur={() => onStepComplete?.({ profile, intake, schedule, completedItems }, step)}
               placeholder="e.g. I've been feeling tired all the time and can't figure out why, or I want to understand my cholesterol results better..."
               rows={3} style={{ width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 12px", color: COLORS.textPrimary, fontSize: 13, outline: "none", resize: "none", lineHeight: 1.5 }} />
           </div>
@@ -293,7 +325,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Current conditions — tap all that apply</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
               {commonConditions.map(c => (
-                <button key={c} onClick={() => toggleChip(intake.conditions, "conditions", c)} style={{ padding: "6px 11px", borderRadius: 18, fontSize: 12, cursor: "pointer", background: intake.conditions.includes(c) ? COLORS.teal : COLORS.bgCardAlt, color: intake.conditions.includes(c) ? COLORS.onAccent : COLORS.textSecondary, border: `1px solid ${intake.conditions.includes(c) ? COLORS.teal : COLORS.border}`, fontWeight: intake.conditions.includes(c) ? 600 : 400 }}>{c}</button>
+                <button key={c} onClick={() => toggleChip("conditions", c)} style={{ padding: "6px 11px", borderRadius: 18, fontSize: 12, cursor: "pointer", background: intake.conditions.includes(c) ? COLORS.teal : COLORS.bgCardAlt, color: intake.conditions.includes(c) ? COLORS.onAccent : COLORS.textSecondary, border: `1px solid ${intake.conditions.includes(c) ? COLORS.teal : COLORS.border}`, fontWeight: intake.conditions.includes(c) ? 600 : 400 }}>{c}</button>
               ))}
             </div>
           </div>
@@ -304,12 +336,12 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             {intake.medications.map((m, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${COLORS.border}` }}>
                 <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{m}</span>
-                <button onClick={() => setIntake(p => ({ ...p, medications: p.medications.filter((_, j) => j !== i) }))} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted }}><X size={13} /></button>
+                <button onClick={() => persistMedications(intake.medications.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted }}><X size={13} /></button>
               </div>
             ))}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <input value={intake.medInput} onChange={e => setIntake(p => ({ ...p, medInput: e.target.value }))} onKeyDown={e => { if (e.key === "Enter" && intake.medInput.trim()) { setIntake(p => ({ ...p, medications: [...p.medications, p.medInput.trim()], medInput: "" })); } }} placeholder="Type a medication or supplement, press Enter" style={{ flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 12, outline: "none" }} />
-              <button onClick={() => { if (intake.medInput.trim()) setIntake(p => ({ ...p, medications: [...p.medications, p.medInput.trim()], medInput: "" })); }} style={{ background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 12px", color: COLORS.tealLight, fontSize: 12, cursor: "pointer" }}>Add</button>
+              <input value={intake.medInput} onChange={e => setIntake(p => ({ ...p, medInput: e.target.value }))} onKeyDown={e => { if (e.key === "Enter" && intake.medInput.trim()) { persistMedications([...intake.medications, intake.medInput.trim()]); } }} placeholder="Type a medication or supplement, press Enter" style={{ flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 12, outline: "none" }} />
+              <button onClick={() => { if (intake.medInput.trim()) persistMedications([...intake.medications, intake.medInput.trim()]); }} style={{ background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 12px", color: COLORS.tealLight, fontSize: 12, cursor: "pointer" }}>Add</button>
             </div>
           </div>
 
@@ -318,7 +350,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Family history — first-degree relatives</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
               {familyConditions.map(c => (
-                <button key={c} onClick={() => toggleChip(intake.familyHistory, "familyHistory", c)} style={{ padding: "6px 11px", borderRadius: 18, fontSize: 12, cursor: "pointer", background: intake.familyHistory.includes(c) ? `${COLORS.warning}30` : COLORS.bgCardAlt, color: intake.familyHistory.includes(c) ? COLORS.warning : COLORS.textSecondary, border: `1px solid ${intake.familyHistory.includes(c) ? COLORS.warning : COLORS.border}`, fontWeight: intake.familyHistory.includes(c) ? 600 : 400 }}>{c}</button>
+                <button key={c} onClick={() => toggleChip("familyHistory", c)} style={{ padding: "6px 11px", borderRadius: 18, fontSize: 12, cursor: "pointer", background: intake.familyHistory.includes(c) ? `${COLORS.warning}30` : COLORS.bgCardAlt, color: intake.familyHistory.includes(c) ? COLORS.warning : COLORS.textSecondary, border: `1px solid ${intake.familyHistory.includes(c) ? COLORS.warning : COLORS.border}`, fontWeight: intake.familyHistory.includes(c) ? 600 : 400 }}>{c}</button>
               ))}
             </div>
           </div>
@@ -328,13 +360,13 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Exercise frequency</div>
               {["Rarely", "1-2x/week", "3-4x/week", "5+/week"].map(opt => (
-                <button key={opt} onClick={() => setIntake(p => ({ ...p, exercise: opt }))} style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", textAlign: "left", marginBottom: 5, background: intake.exercise === opt ? `${COLORS.teal}20` : COLORS.bgCardAlt, color: intake.exercise === opt ? COLORS.tealLight : COLORS.textSecondary, border: `1px solid ${intake.exercise === opt ? COLORS.tealLight : COLORS.border}` }}>{opt}</button>
+                <button key={opt} onClick={() => persistIntake({ ...intake, exercise: opt })} style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", textAlign: "left", marginBottom: 5, background: intake.exercise === opt ? `${COLORS.teal}20` : COLORS.bgCardAlt, color: intake.exercise === opt ? COLORS.tealLight : COLORS.textSecondary, border: `1px solid ${intake.exercise === opt ? COLORS.tealLight : COLORS.border}` }}>{opt}</button>
               ))}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Sleep quality</div>
               {["Poor", "Fair", "Good", "Excellent"].map(opt => (
-                <button key={opt} onClick={() => setIntake(p => ({ ...p, sleep: opt }))} style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", textAlign: "left", marginBottom: 5, background: intake.sleep === opt ? `${COLORS.teal}20` : COLORS.bgCardAlt, color: intake.sleep === opt ? COLORS.tealLight : COLORS.textSecondary, border: `1px solid ${intake.sleep === opt ? COLORS.tealLight : COLORS.border}` }}>{opt}</button>
+                <button key={opt} onClick={() => persistIntake({ ...intake, sleep: opt })} style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", textAlign: "left", marginBottom: 5, background: intake.sleep === opt ? `${COLORS.teal}20` : COLORS.bgCardAlt, color: intake.sleep === opt ? COLORS.tealLight : COLORS.textSecondary, border: `1px solid ${intake.sleep === opt ? COLORS.tealLight : COLORS.border}` }}>{opt}</button>
               ))}
             </div>
           </div>

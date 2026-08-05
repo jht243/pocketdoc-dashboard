@@ -7,6 +7,19 @@
  * here so there is exactly one place that knows both shapes.
  */
 import { supabase, isConfigured } from "./supabase";
+import { buildPreventiveCareSchedule } from "./preventiveCare";
+
+function ageFromDob(dob) {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  return (
+    today.getFullYear() -
+    birthDate.getFullYear() -
+    (today < new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate()) ? 1 : 0)
+  );
+}
 
 /* ---------------- profile ---------------- */
 
@@ -75,6 +88,42 @@ export async function loadProfile(userId) {
   return fromRow(data);
 }
 
+/**
+ * Profile row + medications + screenings, shaped the same way onboarding complete
+ * leaves in memory — so home / preventive care / AI chat survive a reload.
+ */
+export async function loadFullProfile(userId) {
+  if (!isConfigured || !userId) return null;
+  const stored = await loadProfile(userId);
+  if (!stored) return null;
+
+  const [meds, screenings] = await Promise.all([
+    loadMedications(userId),
+    loadScreenings(userId),
+  ]);
+
+  const medications = (meds || []).map((m) => m.name).filter(Boolean);
+  const age = ageFromDob(stored.profile.dob);
+  const schedule =
+    age != null && stored.profile.dob
+      ? buildPreventiveCareSchedule({ ...stored.profile, age })
+      : [];
+
+  const completedItems = {};
+  for (const row of screenings || []) {
+    if (row.urgency === "done" || row.completed_at) {
+      completedItems[row.key] = true;
+    }
+  }
+
+  return {
+    ...stored,
+    intake: { ...stored.intake, medications },
+    schedule,
+    completedItems,
+  };
+}
+
 export async function saveProfile(userId, data, extra = {}) {
   if (!isConfigured || !userId) return { error: new Error("not configured") };
   // onConflict on user_id makes this idempotent — re-running onboarding updates
@@ -119,22 +168,35 @@ export async function acceptConsent(userId, version = "v1") {
 /* ---------------- medications ---------------- */
 
 /**
- * Onboarding collects medications as free-text strings. They were being dropped
- * entirely; this lands them in ghai.medications so the AI and the meds screen can
- * both read the same list.
+ * Onboarding collects medications as free-text strings. Replace the user's list
+ * so re-saving onboarding (or step progress) never duplicates rows.
  */
 export async function saveMedications(userId, meds = []) {
-  if (!isConfigured || !userId || !meds.length) return { error: null };
-  const rows = meds
+  if (!isConfigured || !userId) return { error: null };
+
+  const { error: delErr } = await supabase
+    .from("medications")
+    .delete()
+    .eq("user_id", userId);
+  if (delErr) {
+    console.error("saveMedications/delete", delErr);
+    return { error: delErr };
+  }
+
+  const rows = (meds || [])
     .filter(Boolean)
     .map((m) => (typeof m === "string" ? { name: m } : m))
+    .filter((m) => m.name)
     .map((m) => ({
       user_id: userId,
       name: m.name,
       dose: m.dose || null,
       frequency: m.frequency || null,
       type: m.type || "prescription",
+      active: true,
     }));
+  if (!rows.length) return { error: null };
+
   const { error } = await supabase.from("medications").insert(rows);
   if (error) console.error("saveMedications", error);
   return { error };

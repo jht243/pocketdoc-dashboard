@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GHAI email previews</title>
+  <style>
+    body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #e8ecf0; color: #0f172a; }
+    header { padding: 20px 24px; background: #fff; border-bottom: 1px solid #e5eaf0; }
+    h1 { margin: 0 0 4px; font-family: Georgia, serif; font-size: 22px; font-weight: 500; }
+    p { margin: 0; color: #55657a; font-size: 13px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px; }
+    button {
+      border: 1px solid #e5eaf0; background: #fff; border-radius: 10px;
+      padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    button.active { background: #0284c7; color: #fff; border-color: #0284c7; }
+    iframe {
+      display: block; width: min(600px, 100%); height: 720px; margin: 0 auto 40px;
+      border: 1px solid #e5eaf0; border-radius: 16px; background: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email previews</h1>
+    <p>Open on desktop or shrink the window to check mobile. Auth templates use Go placeholders until applied in Supabase.</p>
+  </header>
+  <nav id="nav"></nav>
+  <iframe id="frame" title="Email preview"></iframe>
+  <script type="module">
+    import { AUTH_EMAIL_TEMPLATES, renderEmailLayout, EMAIL_COLORS } from "../src/lib/emailLayout.js";
+
+    const samples = {
+      "Confirm signup": AUTH_EMAIL_TEMPLATES.confirmation.content(),
+      "Magic link": AUTH_EMAIL_TEMPLATES.magic_link.content(),
+      "Reset password": AUTH_EMAIL_TEMPLATES.recovery.content(),
+      Invite: AUTH_EMAIL_TEMPLATES.invite.content(),
+      "Email change": AUTH_EMAIL_TEMPLATES.email_change.content(),
+      "Reauth code": AUTH_EMAIL_TEMPLATES.reauthentication.content(),
+      "Screening reminder": renderEmailLayout({
+        preheader: "2 screenings are due — review your preventive care schedule.",
+        headline: "Screenings due",
+        subheader: "Hi Adam — based on your age and health profile, the following 2 preventive screenings are due.",
+        bodyHtml: `<ul style="margin-top:0;margin-bottom:16px;padding-left:20px;font-size:14px;line-height:1.5;color:${EMAIL_COLORS.text}">
+          <li style="margin-bottom:8px"><strong>Colonoscopy</strong> — <span style="color:${EMAIL_COLORS.textSecondary}">Every 10 years</span></li>
+          <li style="margin-bottom:8px"><strong>Lipid panel</strong> — <span style="color:${EMAIL_COLORS.textSecondary}">Every 1–2 years</span></li>
+        </ul>
+        <p style="margin:0">These are standard preventive-care recommendations — worth raising with your clinician at your next visit.</p>`,
+        ctaLabel: "Open Guided Health AI",
+        ctaUrl: "https://example.com",
+      }),
+      "Generic CTA": renderEmailLayout({
+        preheader: "Your labs are ready to review.",
+        headline: "Your lab results are in",
+        subheader: "We extracted 34 markers from your Quest PDF.",
+        bodyHtml: `<p style="margin:0 0 12px">Review the values, then ask the assistant anything about what changed.</p>
+          <p style="margin:0;color:${EMAIL_COLORS.textSecondary}">6 markers need attention · 9 borderline · 87 optimal</p>`,
+        ctaLabel: "Review labs",
+        ctaUrl: "https://example.com/labs",
+      }),
+    };
+
+    const nav = document.getElementById("nav");
+    const frame = document.getElementById("frame");
+    const keys = Object.keys(samples);
+
+    function show(key) {
+      frame.srcdoc = samples[key];
+      [...nav.children].forEach((b) => b.classList.toggle("active", b.textContent === key));
+    }
+
+    keys.forEach((key) => {
+      const b = document.createElement("button");
+      b.textContent = key;
+      b.onclick = () => show(key);
+      nav.appendChild(b);
+    });
+    show(keys[0]);
+  </script>
+</body>
+</html>

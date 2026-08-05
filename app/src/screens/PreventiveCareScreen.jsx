@@ -3,13 +3,25 @@ import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
+import { useAuth } from "../lib/AuthContext";
+import { saveScreenings } from "../lib/profileStore";
 
-function PreventiveCareScreen({ setActive, userProfile }) {
+function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }) {
+  const { user } = useAuth();
   const [completedItems, setCompletedItems] = useState(userProfile?.completedItems || {});
   const schedule = userProfile?.schedule || [];
   const urgencyColor = { overdue: COLORS.danger, due_soon: COLORS.warning, upcoming: COLORS.tealLight };
   const urgencyLabel = { overdue: "Overdue", due_soon: "Due soon", upcoming: "Upcoming" };
   const categories = [...new Set(schedule.map(i => i.category))];
+
+  const toggleDone = (id) => {
+    const next = { ...completedItems, [id]: !completedItems[id] };
+    setCompletedItems(next);
+    onCompletedItemsChange?.(next);
+    if (user && schedule.length) {
+      saveScreenings(user.id, schedule, next);
+    }
+  };
 
   if (!userProfile || schedule.length === 0) {
     return (
@@ -78,7 +90,7 @@ function PreventiveCareScreen({ setActive, userProfile }) {
                           color: urgencyColor[item.urgency], background: `${urgencyColor[item.urgency]}20`
                         }}>{urgencyLabel[item.urgency]}</span>
                       )}
-                      <button onClick={() => setCompletedItems(p => ({ ...p, [item.id]: !p[item.id] }))} style={{
+                      <button onClick={() => toggleDone(item.id)} style={{
                         background: done ? COLORS.tealLight : "none",
                         border: `1.5px solid ${done ? COLORS.tealLight : COLORS.border}`,
                         borderRadius: 14, width: 28, height: 28, cursor: "pointer",

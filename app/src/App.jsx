@@ -6,7 +6,7 @@ import { useAuth } from "./lib/AuthContext";
 import { isConfigured } from "./lib/supabase";
 import { scrollPhoneToTop } from "./lib/scroll";
 import {
-  loadProfile,
+  loadFullProfile,
   loadDocuments,
   loadLabMarkers,
   saveScreenings,
@@ -86,7 +86,7 @@ function App() {
       return;
     }
     setProfileLoading(true);
-    Promise.all([loadProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id)]).then(([stored, testMode, documents, labMarkers]) => {
+    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id)]).then(([stored, testMode, documents, labMarkers]) => {
       if (cancelled) return;
       setLiveHealthData({
         labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
@@ -106,7 +106,8 @@ function App() {
         setActive("home");
       } else {
         // Partially onboarded (or brand new): hand what we have back to the form
-        // so they resume where they stopped instead of starting over.
+        // so they resume where they stopped instead of starting over — including
+        // medications and any screenings already marked done.
         setResumeData(stored?.profile?.dob ? stored : null);
         setTestModeEnabled(false);
         setTestSnapshot(null);
@@ -136,9 +137,18 @@ function App() {
     setActive("market");
   };
 
-  // Persist after each step so a drop-off resumes instead of restarting.
+  // Persist after each step (and on screening/med toggles) so a drop-off keeps
+  // profile fields, mark-done screenings, and medications — not just the step number.
   const handleStepComplete = (data, nextStep) => {
-    if (user) saveOnboardingProgress(user.id, data, nextStep);
+    if (!user) return;
+    saveOnboardingProgress(user.id, data, nextStep);
+    if (data.schedule?.length) {
+      saveScreenings(user.id, data.schedule, data.completedItems || {});
+    }
+    // Health-history is step 3; once we're on or past it, keep medications in sync.
+    if (nextStep >= 3) {
+      saveMedications(user.id, data.intake?.medications || []);
+    }
   };
 
   const handleOnboardingComplete = async (data) => {
@@ -148,7 +158,7 @@ function App() {
     // The user shouldn't wait on the network to reach home; these settle behind it.
     await completeOnboarding(user.id, data);
     await saveScreenings(user.id, data.schedule, data.completedItems);
-    await saveMedications(user.id, data.intake?.medications);
+    await saveMedications(user.id, data.intake?.medications || []);
     // Uploads are no longer deferred to here — OnboardingScreen stores the file the
     // moment it's picked, so abandoning steps 4/5 can't lose it.
   };
@@ -168,7 +178,7 @@ function App() {
     } else {
       const { error } = await disableTestMode(user.id);
       if (!error) {
-        const stored = await loadProfile(user.id);
+        const stored = await loadFullProfile(user.id);
         const [documents, labMarkers] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id)]);
         setTestModeEnabled(false);
         setTestSnapshot(null);
@@ -214,7 +224,7 @@ function App() {
     importlabs: <ImportLabsScreen setActive={setActive} />,
     geneticprofile: <GeneticProfileScreen setActive={setActive} />,
     medications: <MedicationScreen setActive={setActive} />,
-    preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} />,
+    preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={setActive} onSave={(data) => { setHealthHistory(data); }} />,
   };
 

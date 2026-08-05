@@ -42,6 +42,10 @@ Copy `.env.example` to `.env.local`.
 | `VITE_AI_ENDPOINT` | AI gateway URL. Empty = Anthropic direct. |
 | `VITE_AI_MODEL` | Model id for all AI calls. |
 
+## Emails
+
+Branded transactional mail (header → subheader → body → CTA) lives in `src/lib/emailLayout.js`. Preview at `/emails/preview.html`. Auth templates (confirm signup, reset, etc.) are in `emails/auth/` — apply them to Supabase Auth with `npm run emails:apply` (needs a personal access token) or paste via the dashboard. See `emails/README.md`.
+
 ## Status
 
 This is the V1 frontend, ported from the single-file mockup. Working today:
