@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertCircle, ChevronRight, Plus, TrendingUp } from "lucide-react";
+import { AlertCircle, ChevronRight, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
@@ -66,7 +66,8 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
           return (
             <Card key={i} style={{ border: `1px solid ${color}40`, background: bg }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <AlertCircle size={18} color={color} style={{ marginTop: 2, flexShrink: 0 }} />
+                {/* Star marks these as AI-authored. */}
+                <Sparkles size={18} color={color} style={{ marginTop: 2, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{c.title}</div>
                   <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.action ? 10 : 0 }}>{c.body}</div>

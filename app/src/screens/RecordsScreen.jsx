@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight, FileText, Sparkles, Upload } from "lucide-react";
+import { AlertCircle, ChevronRight, FileText, Sparkles, Upload } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
@@ -51,7 +51,10 @@ function RecordsScreen({ setActive, healthData, aiInsights }) {
       {insight && <><SectionLabel>Data insight</SectionLabel>
       <Card style={{ border: `1px solid ${COLORS.gold}50`, background: COLORS.warnDim }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <Sparkles size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />
+          {/* Star = AI-authored; deterministic fallback shows a normal icon. */}
+          {insight.ai
+            ? <Sparkles size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />
+            : <AlertCircle size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />}
           <div>
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
               {insight.title}

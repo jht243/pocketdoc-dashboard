@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Activity, AlertTriangle, Bell, ChevronRight, Moon, Sparkles } from "lucide-react";
+import { Activity, AlertCircle, AlertTriangle, Bell, ChevronRight, Moon, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { ScoreBreakdownModal } from "../components/ScoreBreakdownModal";
 import { ScoreGauge } from "../components/ScoreGauge";
@@ -137,8 +137,10 @@ function HomeScreen({
 
       {/* Element 2: One action card — the single highest-priority signal */}
       {rec && (() => {
-        const iconMap = { alert: AlertTriangle, moon: Moon, activity: Activity, sparkles: Sparkles };
-        const Icon = iconMap[rec.icon] || Sparkles;
+        // Hard rule: the sparkle icon means "AI-authored". Deterministic fallback
+        // cards use a normal icon and never the star.
+        const iconMap = { alert: AlertTriangle, moon: Moon, activity: Activity, sparkles: AlertCircle };
+        const Icon = rec.ai ? Sparkles : (iconMap[rec.icon] || AlertCircle);
         const isUrgent = rec.priority >= 90;
         const color = isUrgent ? COLORS.warning : COLORS.tealLight;
         return (

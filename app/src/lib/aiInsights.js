@@ -59,9 +59,12 @@ function sanitizeAction(action) {
   return { label: String(action.label), target: action.target };
 }
 
+// `ai: true` on every card is how the UI knows to show the AI (sparkle) icon.
+// Deterministic fallback cards never carry this flag, so they show a normal icon.
 function sanitizeDaily(d) {
   if (!d || typeof d !== "object" || !d.title || !d.body) return null;
   return {
+    ai: true,
     type: "ai_daily",
     priority: Number.isFinite(d.priority) ? d.priority : (d.icon === "alert" ? 100 : 60),
     icon: ALLOWED_ICONS.has(d.icon) ? d.icon : "sparkles",
@@ -74,6 +77,7 @@ function sanitizeDaily(d) {
 function sanitizeRecord(r) {
   if (!r || typeof r !== "object" || !r.title || !r.body) return null;
   return {
+    ai: true,
     type: "ai_record",
     title: String(r.title),
     body: String(r.body),
@@ -88,6 +92,7 @@ function sanitizeLabs(list) {
     .filter((l) => l && l.title && l.body)
     .slice(0, 3)
     .map((l) => ({
+      ai: true,
       title: String(l.title),
       body: String(l.body),
       severity: ALLOWED_SEVERITY.has(l.severity) ? l.severity : "warn",
