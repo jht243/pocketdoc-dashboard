@@ -5,8 +5,9 @@ import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 
-function LabsScreen({ setActive, goToMarket, healthData, testModeEnabled }) {
+function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
   const markers = healthData?.labs || [];
+  const aiLabs = aiInsights?.labs || [];
   const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   return (
     <div style={{ padding: "24px 18px" }}>
@@ -52,7 +53,36 @@ function LabsScreen({ setActive, goToMarket, healthData, testModeEnabled }) {
         rows={4}
       />}
 
-      {testModeEnabled && <Card style={{ border: `1px solid ${COLORS.danger}40`, background: COLORS.badDim }}>
+      {/* AI-generated lab insights once available; otherwise the seeded demo cards. */}
+      {aiLabs.length > 0 && <><SectionLabel>Insights</SectionLabel>
+        {aiLabs.map((c, i) => {
+          const color = c.severity === "danger" ? COLORS.danger : c.severity === "info" ? COLORS.tealLight : COLORS.warning;
+          const bg = c.severity === "danger" ? COLORS.badDim : c.severity === "info" ? COLORS.bgCard : COLORS.warnDim;
+          const onAction = () => {
+            if (!c.action) return;
+            if (c.action.target === "discussion" || c.action.target === "bodyfat_history") setActive(c.action.target === "bodyfat_history" ? "body" : "discussion");
+            else goToMarket(c.action.target);
+          };
+          return (
+            <Card key={i} style={{ border: `1px solid ${color}40`, background: bg }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <AlertCircle size={18} color={color} style={{ marginTop: 2, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{c.title}</div>
+                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.action ? 10 : 0 }}>{c.body}</div>
+                  {c.action && (
+                    <button onClick={onAction} style={{ background: "none", border: `1px solid ${color}`, color, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>
+                      {c.action.label} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </>}
+
+      {aiLabs.length === 0 && testModeEnabled && <Card style={{ border: `1px solid ${COLORS.danger}40`, background: COLORS.badDim }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <AlertCircle size={18} color={COLORS.danger} style={{ marginTop: 2, flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
@@ -74,7 +104,7 @@ function LabsScreen({ setActive, goToMarket, healthData, testModeEnabled }) {
         </div>
       </Card>}
 
-      {testModeEnabled && <><SectionLabel>Trend</SectionLabel>
+      {aiLabs.length === 0 && testModeEnabled && <><SectionLabel>Trend</SectionLabel>
       <Card>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
           <TrendingUp size={16} color={COLORS.warning} />

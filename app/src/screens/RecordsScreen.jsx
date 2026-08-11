@@ -7,9 +7,11 @@ import { COLORS, SERIF } from "../theme/tokens";
 import { getRecordInsight } from "../lib/deterministicInsights";
 import DocumentList from "../components/DocumentList";
 
-function RecordsScreen({ setActive, healthData }) {
+function RecordsScreen({ setActive, healthData, aiInsights }) {
   const records = healthData?.records || [];
-  const insight = getRecordInsight(healthData);
+  // AI insight once loaded (may be null = nothing stands out); deterministic fallback
+  // until it resolves or if the AI is unavailable.
+  const insight = aiInsights ? aiInsights.record : getRecordInsight(healthData);
   return (
     <div style={{ padding: "24px 18px" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your records</div>

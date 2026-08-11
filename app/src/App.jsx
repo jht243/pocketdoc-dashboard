@@ -21,6 +21,7 @@ import {
   enableTestMode,
   loadTestModeSnapshot,
 } from "./lib/testMode";
+import { generateAIInsights } from "./lib/aiInsights";
 import AuthScreen from "./screens/AuthScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import WelcomeScreen from "./screens/WelcomeScreen";
@@ -69,9 +70,29 @@ function App() {
   const [testSnapshot, setTestSnapshot] = useState(null);
   const [testModeSaving, setTestModeSaving] = useState(false);
   const [liveHealthData, setLiveHealthData] = useState(null);
+  // AI-generated insight cards for Home / Records / Labs. null = not ready yet or
+  // AI unavailable → screens fall back to their deterministic templates.
+  const [aiInsights, setAiInsights] = useState(null);
   // Pre-auth routing: welcome → auth, with privacy reachable from either.
   const [gate, setGate] = useState("welcome");
   const [resumeData, setResumeData] = useState(null);
+
+  // Health snapshot in play: the seeded test-mode snapshot, or live records.
+  const healthData = testModeEnabled ? testSnapshot?.health || null : liveHealthData;
+
+  // Regenerate AI insights whenever the snapshot changes. Reset to null first so a
+  // stale set never lingers over new data; screens fall back to deterministic
+  // templates until this resolves (and if it fails).
+  useEffect(() => {
+    if (!user || !healthData) { setAiInsights(null); return; }
+    let cancelled = false;
+    setAiInsights(null);
+    generateAIInsights(healthData, userProfile).then((res) => {
+      if (!cancelled) setAiInsights(res);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, healthData]);
 
   // On sign-in, pull the stored profile. Completion — not merely having a dob — is
   // what decides home-vs-onboarding, now that we save partway through.
@@ -202,8 +223,6 @@ function App() {
     setTestModeSaving(false);
   };
 
-  const healthData = testModeEnabled ? testSnapshot?.health || null : liveHealthData;
-
   const screens = {
     onboarding: (
       <OnboardingScreen
@@ -212,11 +231,11 @@ function App() {
         initial={resumeData}
       />
     ),
-    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
+    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
     checkin: <CheckInScreen />,
     aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} testModeEnabled={testModeEnabled} />,
-    records: <RecordsScreen setActive={setActive} healthData={healthData} />,
-    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} testModeEnabled={testModeEnabled} />,
+    records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} />,
+    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,

@@ -9,13 +9,16 @@ import { useScoreModel } from "../lib/scoring";
 import { COLORS, SERIF, SHADOW } from "../theme/tokens";
 
 function HomeScreen({
-  setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData,
+  setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
   testModeEnabled, testModeSaving, onTestModeChange,
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const score = useScoreModel(nutritionEnabled, healthData);
   const { baseDisplay, dailyDisplay } = score;
-  const rec = getDailyRecommendation(healthData);
+  // Once the AI insights have loaded (aiInsights !== null) they govern this card —
+  // including deliberately showing nothing. Until then (or if the AI is unavailable)
+  // fall back to the deterministic recommendation so the card is never empty.
+  const rec = aiInsights ? aiInsights.daily : getDailyRecommendation(healthData);
   const hasHealthData = Boolean(
     healthData?.labs?.length || healthData?.records?.length || healthData?.vitals?.length || healthData?.today || healthData?.score
   );
