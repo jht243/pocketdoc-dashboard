@@ -4,8 +4,8 @@ import { COLORS, SHADOW, SERIF, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 
 export default function AuthScreen({ onPrivacy }) {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState("signin");
+  const { signIn, signUp, resetPassword } = useAuth();
+  const [mode, setMode] = useState("signin"); // signin | signup | reset
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
@@ -17,6 +17,17 @@ export default function AuthScreen({ onPrivacy }) {
     e.preventDefault();
     setError("");
     setNotice("");
+    // Password reset: email only, no password. We always report success (even if the
+    // email isn't registered) so the form can't be used to probe which emails exist.
+    if (mode === "reset") {
+      setBusy(true);
+      const { error: err } = await resetPassword(email.trim());
+      setBusy(false);
+      if (err) { setError(err.message); return; }
+      setNotice("If an account exists for that email, a password reset link is on its way.");
+      setMode("signin");
+      return;
+    }
     // Consent is captured before any health data is collected, not after.
     if (mode === "signup" && !consent) {
       setError("Please accept the terms to create an account.");
@@ -31,10 +42,19 @@ export default function AuthScreen({ onPrivacy }) {
       setError(err.message);
       return;
     }
-    // With email confirmation switched on, sign-up returns a user but no session —
-    // the app can't proceed until they confirm, so say so rather than appearing stuck.
+    // Sign-up returns a user but no session in two different situations, and they
+    // need different messages:
+    //  1. The email is already registered. Supabase hides this for anti-enumeration
+    //     by returning a user with an empty `identities` array — detect that and
+    //     tell them to sign in instead of "check your email" (which never arrives).
+    //  2. A genuinely new account that must confirm via email before first sign-in.
     if (mode === "signup" && !data?.session) {
-      setNotice("Check your email to confirm your account, then sign in.");
+      const alreadyRegistered = data?.user?.identities?.length === 0;
+      setNotice(
+        alreadyRegistered
+          ? "An account with this email already exists — sign in below."
+          : "Check your email to confirm your account, then sign in."
+      );
       setMode("signin");
     }
   };
@@ -94,7 +114,11 @@ export default function AuthScreen({ onPrivacy }) {
           marginBottom: 6,
         }}
       >
-        {mode === "signin" ? "Welcome back" : "Create your account"}
+        {mode === "signin"
+          ? "Welcome back"
+          : mode === "reset"
+            ? "Reset your password"
+            : "Create your account"}
       </h1>
       <p
         style={{
@@ -106,7 +130,9 @@ export default function AuthScreen({ onPrivacy }) {
       >
         {mode === "signin"
           ? "Sign in to pick up where you left off."
-          : "Your health profile, screenings, and records stay private to you."}
+          : mode === "reset"
+            ? "Enter your email and we'll send you a link to set a new password."
+            : "Your health profile, screenings, and records stay private to you."}
       </p>
 
       <form onSubmit={submit}>
@@ -122,21 +148,37 @@ export default function AuthScreen({ onPrivacy }) {
             placeholder="you@example.com"
           />
         </div>
-        <div style={{ marginBottom: 18 }}>
-          <label style={label}>Password</label>
-          <input
-            style={field}
-            type="password"
-            required
-            minLength={6}
-            autoComplete={
-              mode === "signin" ? "current-password" : "new-password"
-            }
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 6 characters"
-          />
-        </div>
+        {mode !== "reset" && (
+          <div style={{ marginBottom: mode === "signin" ? 8 : 18 }}>
+            <label style={label}>Password</label>
+            <input
+              style={field}
+              type="password"
+              required
+              minLength={6}
+              autoComplete={
+                mode === "signin" ? "current-password" : "new-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 6 characters"
+            />
+          </div>
+        )}
+
+        {mode === "signin" && (
+          <button
+            type="button"
+            onClick={() => { setMode("reset"); setError(""); setNotice(""); }}
+            style={{
+              background: "none", border: "none", color: COLORS.accent,
+              fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0,
+              marginBottom: 18, display: "block",
+            }}
+          >
+            Forgot password?
+          </button>
+        )}
 
         {error && (
           <div
@@ -218,12 +260,15 @@ export default function AuthScreen({ onPrivacy }) {
             ? "One moment…"
             : mode === "signin"
               ? "Sign in"
-              : "Create account"}
+              : mode === "reset"
+                ? "Send reset link"
+                : "Create account"}
         </button>
       </form>
 
       <button
         onClick={() => {
+          // From reset, go back to sign in; otherwise toggle sign in / sign up.
           setMode(mode === "signin" ? "signup" : "signin");
           setError("");
           setNotice("");
@@ -241,7 +286,9 @@ export default function AuthScreen({ onPrivacy }) {
       >
         {mode === "signin"
           ? "Need an account? Sign up"
-          : "Already have an account? Sign in"}
+          : mode === "reset"
+            ? "Back to sign in"
+            : "Already have an account? Sign in"}
       </button>
     </div>
   );

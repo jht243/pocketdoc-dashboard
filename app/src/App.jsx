@@ -14,6 +14,7 @@ import {
   completeOnboarding,
   acceptConsent,
   saveMedications,
+  saveHealthHistory,
 } from "./lib/profileStore";
 import {
   disableTestMode,
@@ -21,6 +22,7 @@ import {
   loadTestModeSnapshot,
 } from "./lib/testMode";
 import AuthScreen from "./screens/AuthScreen";
+import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import WelcomeScreen from "./screens/WelcomeScreen";
 import PrivacyScreen, { CONSENT_VERSION } from "./screens/PrivacyScreen";
 import { AIChatScreen } from "./screens/AIChatScreen";
@@ -56,7 +58,7 @@ const Splash = ({ children }) => (
 );
 
 function App() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, recovering } = useAuth();
   const [active, setActive] = useState("onboarding");
   const [marketHighlight, setMarketHighlight] = useState(null);
   const [nutritionEnabled, setNutritionEnabled] = useState(false);
@@ -215,8 +217,8 @@ function App() {
     aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} testModeEnabled={testModeEnabled} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} testModeEnabled={testModeEnabled} />,
-    market: <MarketScreen highlight={marketHighlight} setActive={setActive} />,
-    discussion: <DiscussionPageScreen setActive={setActive} />,
+    market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
+    discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
     profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} />,
@@ -225,14 +227,14 @@ function App() {
     geneticprofile: <GeneticProfileScreen setActive={setActive} />,
     medications: <MedicationScreen setActive={setActive} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
-    healthhistory: <HealthHistoryScreen setActive={setActive} onSave={(data) => { setHealthHistory(data); }} />,
+    healthhistory: <HealthHistoryScreen setActive={setActive} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
   };
 
   const hiddenTabBar = [
     "onboarding", "discussion", "orderlabs", "browsesupplements", "body",
     "importlabs", "geneticprofile", "medications", "preventivecare", "healthhistory",
   ];
-  const showTabBar = user && !hiddenTabBar.includes(active);
+  const showTabBar = user && !recovering && !hiddenTabBar.includes(active);
 
   let content;
   if (!isConfigured) {
@@ -245,7 +247,13 @@ function App() {
         <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>.
       </Splash>
     );
-  } else if (authLoading || profileLoading) {
+  } else if (authLoading) {
+    content = <Splash>Loading…</Splash>;
+  } else if (recovering) {
+    // Arrived from a password-reset link — set the new password before anything else,
+    // even though a (temporary) recovery session exists.
+    content = <ResetPasswordScreen />;
+  } else if (profileLoading) {
     content = <Splash>Loading…</Splash>;
   } else if (!user) {
     if (gate === "privacy") {

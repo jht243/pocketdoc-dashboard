@@ -1,112 +1,187 @@
-import React, { useState } from "react";
-import { Activity, AlertCircle, ChevronRight, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Activity, AlertCircle, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { IVTherapyCard } from "../components/IVTherapyCard";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
+import { searchProducts } from "../lib/amazon";
 
-function MarketScreen({ highlight, setActive }) {
-  const [cart, setCart] = useState([]);
+// The app's own reasoning still decides WHICH supplement categories to surface and
+// WHY (from the user's labs/profile). Amazon PA-API supplies the real product for
+// each "slot" — image, title, brand, price, and an affiliate buy link. If the API
+// is unavailable, each card falls back to a plain Amazon search link so the page
+// still works.
 
-  // Tier 1: necessary based on actual bloodwork results
-  const urgentProducts = [
-    {
+// Derive the supplement slots from real health data where present, else demo defaults.
+function buildSlots(healthData) {
+  const labs = healthData?.labs || [];
+  const vitD = labs.find((l) => /vitamin d/i.test(l.name || ""));
+
+  const slots = [];
+
+  if (vitD && Number(vitD.value) < 30) {
+    slots.push({
       id: "vitd3",
-      name: "Vitamin D3 + K2",
-      brand: "Thorne",
-      why: "Necessary: your Vitamin D result is low (28 ng/mL)",
-      detail: "5,000 IU D3 with 100mcg K2, 90 day supply. Take daily with a meal containing fat.",
-      price: "$24",
-    },
-  ];
+      tier: "urgent",
+      keywords: "vitamin d3 k2 5000 iu",
+      fallbackName: "Vitamin D3 + K2",
+      why: `Necessary: your Vitamin D result is low (${vitD.value} ${vitD.unit || "ng/mL"}).`,
+    });
+  } else {
+    // Demo default so the page is populated without a live snapshot.
+    slots.push({
+      id: "vitd3",
+      tier: "urgent",
+      keywords: "vitamin d3 k2 5000 iu",
+      fallbackName: "Vitamin D3 + K2",
+      why: "Necessary: your Vitamin D result is low (28 ng/mL).",
+    });
+  }
 
-  // Tier 2: general daily recommendations based on profile (age, sex, goals, therapies)
-  const recommendedProducts = [
+  slots.push(
     {
       id: "multi",
-      name: "Daily Multivitamin",
-      brand: "Thorne",
-      why: "Recommended as a daily foundation for your profile",
-      detail: "Comprehensive daily multivitamin, 30 day supply.",
-      price: "$32",
+      tier: "suggested",
+      keywords: "daily multivitamin third party tested",
+      fallbackName: "Daily Multivitamin",
+      why: "Recommended as a daily foundation for your profile.",
     },
     {
       id: "omega3",
-      name: "Omega-3 Fish Oil",
-      brand: "PurePharmaceuticals",
-      why: "Recommended to support cardiovascular and joint health given your training volume",
-      detail: "1,200mg EPA/DHA per serving, 60 day supply.",
-      price: "$28",
+      tier: "suggested",
+      keywords: "omega 3 fish oil epa dha",
+      fallbackName: "Omega-3 Fish Oil",
+      why: "Recommended to support cardiovascular and joint health given your training volume.",
     },
     {
       id: "magnesium",
-      name: "Magnesium Glycinate",
-      brand: "Thorne",
-      why: "Recommended to support sleep and recovery alongside your training load",
-      detail: "200mg per serving, third-party tested, 60 day supply.",
-      price: "$22",
+      tier: "suggested",
+      keywords: "magnesium glycinate",
+      fallbackName: "Magnesium Glycinate",
+      why: "Recommended to support sleep and recovery alongside your training load.",
     },
-  ];
+  );
 
-  const allProducts = [...urgentProducts, ...recommendedProducts];
-  const toggleCart = (id) => setCart(c => c.includes(id) ? c.filter(x => x !== id) : [...c, id]);
-  const cartTotal = cart.reduce((sum, id) => {
-    const p = allProducts.find(p => p.id === id);
-    return sum + (p ? parseInt(p.price.replace("$", "")) : 0);
-  }, 0);
+  return slots;
+}
 
-  const SupplementCard = ({ p, tier }) => {
-    const inCart = cart.includes(p.id);
-    const isHighlighted = highlight === p.id;
+function amazonSearchUrl(keywords) {
+  return `https://www.amazon.com/s?k=${encodeURIComponent(keywords)}`;
+}
+
+function MarketScreen({ highlight, setActive, healthData }) {
+  const slots = React.useMemo(() => buildSlots(healthData), [healthData]);
+  // { [slotId]: { loading, product, error } }
+  const [products, setProducts] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    setProducts(Object.fromEntries(slots.map((s) => [s.id, { loading: true }])));
+
+    slots.forEach(async (slot) => {
+      const { items, error } = await searchProducts(slot.keywords, { itemCount: 1 });
+      if (cancelled) return;
+      setProducts((prev) => ({
+        ...prev,
+        [slot.id]: { loading: false, product: items?.[0] || null, error },
+      }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slots]);
+
+  const SupplementCard = ({ slot }) => {
+    const state = products[slot.id] || { loading: true };
+    const product = state.product;
+    const isHighlighted = highlight === slot.id;
+    const tier = slot.tier;
     const tierColor = tier === "urgent" ? COLORS.danger : COLORS.tealLight;
     const tierBg = tier === "urgent" ? COLORS.badDim : COLORS.bgCard;
     const tierLabel = tier === "urgent" ? "NECESSARY · FROM YOUR BLOODWORK" : "SUGGESTED FOR YOU";
+
+    const title = product?.title || slot.fallbackName;
+    const buyUrl = product?.url || amazonSearchUrl(slot.keywords);
+
     return (
       <Card style={{
         border: isHighlighted ? `1.5px solid ${COLORS.tealLight}` : `1px solid ${tierColor}50`,
         background: tierBg
       }}>
         <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8,
+          display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 10,
           background: `${tierColor}20`, color: tierColor, fontSize: 9,
           fontWeight: 700, padding: "3px 8px", borderRadius: 6, letterSpacing: 0.5
         }}>
           {tier === "urgent" ? <AlertCircle size={9} /> : <Sparkles size={9} />} {tierLabel}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.tealLight }}>{p.price}</span>
+
+        <div style={{ display: "flex", gap: 12 }}>
+          {/* Product image (real, from Amazon) */}
+          <div style={{
+            width: 74, height: 74, borderRadius: 10, flexShrink: 0, overflow: "hidden",
+            background: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+            border: `1px solid ${COLORS.border}`
+          }}>
+            {state.loading ? (
+              <div style={{ fontSize: 9, color: COLORS.textMuted }}>…</div>
+            ) : product?.image ? (
+              <img src={product.image} alt={title} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+            ) : (
+              <Activity size={20} color={COLORS.textMuted} />
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
+                {state.loading ? "Finding the best option…" : title}
+              </div>
+              {product?.price && (
+                <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.tealLight, flexShrink: 0 }}>{product.price}</span>
+              )}
+            </div>
+            {product?.brand && (
+              <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2 }}>{product.brand}</div>
+            )}
+            <div style={{ fontSize: 11, color: tierColor, marginTop: 6, lineHeight: 1.4 }}>{slot.why}</div>
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: COLORS.textMuted, marginBottom: 6 }}>{p.brand}</div>
-        <div style={{ fontSize: 11, color: tierColor, marginBottom: 6 }}>{p.why}</div>
-        <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 12 }}>
-          {p.detail}
-        </div>
-        <button onClick={() => toggleCart(p.id)} style={{
-          width: "100%", background: inCart ? COLORS.bgCardAlt : COLORS.teal,
-          border: inCart ? `1px solid ${COLORS.tealLight}` : "none",
-          color: inCart ? COLORS.tealLight : COLORS.onAccent,
-          fontSize: 13, fontWeight: 700, padding: "10px", borderRadius: 8, cursor: "pointer"
-        }}>
-          {inCart ? "Added to order" : "Add to order"}
-        </button>
+
+        <a
+          href={buyUrl}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          style={{
+            marginTop: 12, width: "100%", boxSizing: "border-box", background: COLORS.teal,
+            color: COLORS.onAccent, textDecoration: "none", fontSize: 13, fontWeight: 700,
+            padding: "10px", borderRadius: 8, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6
+          }}
+        >
+          {product ? "View on Amazon" : "Search on Amazon"} <ExternalLink size={13} />
+        </a>
       </Card>
     );
   };
 
+  const urgentSlots = slots.filter((s) => s.tier === "urgent");
+  const suggestedSlots = slots.filter((s) => s.tier === "suggested");
+
   return (
-    <div style={{ padding: "24px 18px", paddingBottom: cart.length ? 100 : 24, position: "relative" }}>
+    <div style={{ padding: "24px 18px", position: "relative" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Marketplace</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
-        Suggestions based on your current signals. Supplements ship directly from our
-        partners. Local services open as they become available in your area.
+        Suggestions based on your current signals. Products and prices are live from
+        Amazon. Local services open as they become available in your area.
       </div>
 
       <SectionLabel>Necessary, based on your bloodwork</SectionLabel>
-      {urgentProducts.map(p => <SupplementCard key={p.id} p={p} tier="urgent" />)}
+      {urgentSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
 
       <SectionLabel>Suggested for your profile</SectionLabel>
-      {recommendedProducts.map(p => <SupplementCard key={p.id} p={p} tier="suggested" />)}
+      {suggestedSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
 
       <button onClick={() => setActive && setActive("browsesupplements")} style={{
         width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.textMuted}60`,
@@ -114,8 +189,21 @@ function MarketScreen({ highlight, setActive }) {
         justifyContent: "center", gap: 8, color: COLORS.textSecondary, fontSize: 13, fontWeight: 600,
         cursor: "pointer", marginBottom: 18
       }}>
-        Browse all supplements from Thorne &amp; PurePharmaceuticals <ChevronRight size={14} />
+        Browse all supplements <ChevronRight size={14} />
       </button>
+
+      <div style={{
+        padding: 12, background: COLORS.warnDim, border: `1px solid ${COLORS.warning}50`,
+        borderRadius: 10, display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 18
+      }}>
+        <AlertCircle size={14} color={COLORS.warning} style={{ marginTop: 1, flexShrink: 0 }} />
+        <div style={{ fontSize: 11, color: COLORS.textSecondary, lineHeight: 1.5 }}>
+          <span style={{ color: COLORS.warning, fontWeight: 600 }}>Before starting anything new: </span>
+          review supplements against your current medications and therapies with your
+          prescribing physician or pharmacist. As an Amazon Associate, purchases made
+          through these links may earn the app a commission.
+        </div>
+      </div>
 
       <SectionLabel>Local services</SectionLabel>
       <IVTherapyCard highlighted={highlight === "iv"} />
@@ -138,47 +226,6 @@ function MarketScreen({ highlight, setActive }) {
           </div>
         </div>
       </Card>
-
-      {cart.length > 0 && (() => {
-        // Simple interaction flag: this user is on TRT (established elsewhere in the app).
-        // The check is visible rather than silently passing for everything in the cart.
-        const checkedItems = cart
-          .map(id => allProducts.find(p => p.id === id)?.name)
-          .filter(Boolean);
-        return (
-          <>
-            <div style={{
-              marginTop: 14, padding: 12, background: COLORS.warnDim, border: `1px solid ${COLORS.warning}50`,
-              borderRadius: 10, display: "flex", gap: 8, alignItems: "flex-start"
-            }}>
-              <AlertCircle size={14} color={COLORS.warning} style={{ marginTop: 1, flexShrink: 0 }} />
-              <div style={{ fontSize: 11, color: COLORS.textSecondary, lineHeight: 1.5 }}>
-                <span style={{ color: COLORS.warning, fontWeight: 600 }}>Checked against your current therapies (TRT): </span>
-                no known interactions found for {checkedItems.join(", ")}. This is not a
-                substitute for review by your prescribing physician or pharmacist, especially
-                if you're taking other medications not listed in your profile.
-              </div>
-            </div>
-            <div style={{
-              position: "sticky", bottom: 0, left: 0, right: 0, marginTop: 14,
-              background: COLORS.bgCard, borderTop: `1px solid ${COLORS.border}`,
-              padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center",
-              marginLeft: -18, marginRight: -18, marginBottom: -24
-            }}>
-              <div>
-                <div style={{ fontSize: 11, color: COLORS.textSecondary }}>{cart.length} item{cart.length > 1 ? "s" : ""}</div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>${cartTotal}</div>
-              </div>
-              <button style={{
-                background: COLORS.teal, border: "none", color: COLORS.onAccent,
-                fontSize: 13, fontWeight: 700, padding: "12px 22px", borderRadius: 10, cursor: "pointer"
-              }}>
-                Checkout
-              </button>
-            </div>
-          </>
-        );
-      })()}
     </div>
   );
 }

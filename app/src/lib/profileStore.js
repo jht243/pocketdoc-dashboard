@@ -40,9 +40,23 @@ function toRow(userId, { profile = {}, intake = {} }, extra = {}) {
     family_history: intake.familyHistory || [],
     past_events: intake.pastEvents || null,
     primary_concern: intake.primaryConcern || null,
+    // The typed columns above capture only a slice of the questionnaire. The full
+    // answer set (GAHT/TRT/peptides, screening history, environmental, goals, …) is
+    // stored verbatim so nothing the user enters is lost. `medications` is dropped
+    // from the blob because it lives in its own table (loadFullProfile rehydrates it).
+    intake_answers: stripMedications(intake),
     updated_at: new Date().toISOString(),
     ...extra,
   };
+}
+
+// The medications table is the source of truth for meds; keep them out of the JSON
+// blob so the two can't drift.
+function stripMedications(intake) {
+  // `lifestyle` is a derived duplicate of the flat exercise/sleep/alcohol keys;
+  // the *Input fields are transient UI buffers. None belong in the stored blob.
+  const { medications, medInput, conditionInput, lifestyle, ...rest } = intake || {};
+  return rest;
 }
 
 function fromRow(row) {
@@ -58,15 +72,16 @@ function fromRow(row) {
       diabetesOrPrediabetes: row.diabetes_or_prediabetes,
     },
     intake: {
+      // Full questionnaire answer set first, then the typed columns win for the
+      // handful of fields they own (so a legacy row with no blob still hydrates).
+      ...(row.intake_answers || {}),
       conditions: row.conditions || [],
       familyHistory: row.family_history || [],
       pastEvents: row.past_events || "",
       primaryConcern: row.primary_concern || "",
       exercise: row.exercise_frequency || "",
       sleep: row.sleep_quality || "",
-      // input buffers the form expects to exist
-      conditionInput: "",
-      medInput: "",
+      // medications live in their own table; loadFullProfile fills this in.
       medications: [],
     },
     onboardingStep: row.onboarding_step || 1,
@@ -148,6 +163,32 @@ export async function completeOnboarding(userId, data) {
     onboarding_step: 5,
     onboarding_completed_at: new Date().toISOString(),
   });
+}
+
+/**
+ * Persist the standalone Health History questionnaire onto the user's existing
+ * profile row. Uses UPDATE (not upsert) so it can never null out onboarding-owned
+ * columns like first_name/dob, and syncs medications into their own table.
+ * `answers` is the flat questionnaire answer set (a superset of the typed columns).
+ */
+export async function saveHealthHistory(userId, answers = {}) {
+  if (!isConfigured || !userId) return { error: null };
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      conditions: answers.conditions || [],
+      family_history: answers.familyHistory || [],
+      past_events: answers.pastEvents || null,
+      primary_concern: answers.primaryConcern || null,
+      exercise_frequency: answers.exercise || null,
+      sleep_quality: answers.sleep || null,
+      intake_answers: stripMedications(answers),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+  if (error) console.error("saveHealthHistory", error);
+  await saveMedications(userId, answers.medications || []);
+  return { error };
 }
 
 export async function acceptConsent(userId, version = "v1") {
