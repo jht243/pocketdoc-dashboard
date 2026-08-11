@@ -19,6 +19,17 @@ if (!isConfigured) {
 export const supabase = isConfigured
   ? createClient(url, anonKey, {
       db: { schema },
-      auth: { persistSession: true, autoRefreshToken: true },
+      auth: {
+        // Keep users signed in for the long haul — we don't want to prompt a daily
+        // login. The session is written to localStorage (survives tab/browser
+        // restarts) and the short-lived access token is refreshed silently in the
+        // background, so a returning user stays logged in as long as their refresh
+        // token is valid. How long that is (target: 30 days) is governed by the
+        // project's Auth → Sessions settings in the Supabase dashboard.
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true, // required for the password-recovery redirect
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
+      },
     })
   : null;
