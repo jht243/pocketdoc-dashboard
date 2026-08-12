@@ -149,3 +149,38 @@ Guidance:
     return null;
   }
 }
+
+/**
+ * Suggest over-the-counter supplements based on the user's own profile (goals,
+ * conditions, current meds). Returns [{name, keywords, reason}] — `keywords` is an
+ * Amazon search string the caller uses to pull real product cards. OTC supplements
+ * only, never prescription drugs. [] on any failure.
+ */
+export async function suggestSupplements(profile) {
+  const p = buildProfileSummary(profile);
+  const meds = profile?.intake?.medications || [];
+  const system = `You are a health advocate AI. Suggest a short list of OVER-THE-COUNTER supplements (vitamins, minerals, common OTC supplements) that fit the user's stated goals and profile. Rules:
+- OTC supplements only. NEVER suggest prescription medications, hormones, peptides, or controlled substances.
+- Base suggestions on the user's goals/conditions; keep them mainstream and evidence-informed.
+- Do not give doses. Do not diagnose. This is not medical advice.
+- Output STRICT JSON only.`;
+  const user = `User profile: ${JSON.stringify({ ...p, currentMeds: meds })}
+
+Return JSON: { "suggestions": [ { "name": string, "keywords": string, "reason": string } ] }
+- 2 to 4 suggestions, most relevant first.
+- "keywords": a concise Amazon search query (e.g. "vitamin d3 k2 supplement").
+- "reason": one short sentence tying it to the user's goals/profile.
+Return JSON only.`;
+  try {
+    const data = await callAI({ system, messages: [{ role: "user", content: [{ type: "text", text: user }] }], maxTokens: 500 });
+    const parsed = JSON.parse(stripFences(firstText(data)));
+    if (!Array.isArray(parsed.suggestions)) return [];
+    return parsed.suggestions
+      .filter((s) => s && s.name && s.keywords)
+      .slice(0, 4)
+      .map((s) => ({ name: String(s.name), keywords: String(s.keywords), reason: s.reason ? String(s.reason) : "" }));
+  } catch (err) {
+    console.warn("suggestSupplements failed:", err?.message || err);
+    return [];
+  }
+}

@@ -233,6 +233,7 @@ export async function saveMedications(userId, meds = []) {
       name: m.name,
       dose: m.dose || null,
       frequency: m.frequency || null,
+      prescriber: m.prescriber || null,
       type: m.type || "prescription",
       active: true,
     }));

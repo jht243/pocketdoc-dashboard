@@ -21,19 +21,6 @@ function ImportLabsScreen({ setActive }) {
   const [storeError, setStoreError] = useState(null);
   const [stage, setStage] = useState("idle"); // idle | extracting | review | saved
   const [importType, setImportType] = useState("labs"); // labs | genetic
-  const [copied, setCopied] = useState(false);
-  const intakeEmail = "adam.locker.3f7a@records.hello-app.health"; // user-unique intake address
-
-  const copyEmail = () => {
-    navigator.clipboard?.writeText(intakeEmail).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }).catch(() => {
-      // Fallback for environments without clipboard API
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
-  };
   const [imageData, setImageData] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [fileName, setFileName] = useState(null);
@@ -271,62 +258,6 @@ If you cannot find lab data in the document, return an empty array [].`,
                     padding: "2px 7px", borderRadius: 5
                   }}>Coming soon</span>
                 </div>
-              </div>
-            ))}
-          </Card>
-
-          <SectionLabel>Email your results in</SectionLabel>
-          <Card>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 14 }}>
-              Your personal intake address. Any lab results sent here are automatically
-              processed and added to your health record.
-            </div>
-            <div style={{
-              background: COLORS.bgDeep, borderRadius: 8, padding: "10px 12px",
-              fontFamily: "monospace", fontSize: 12, color: COLORS.tealLight,
-              marginBottom: 12, wordBreak: "break-all"
-            }}>
-              {intakeEmail}
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <button onClick={copyEmail} style={{
-                flex: 1, background: copied ? COLORS.bgCardAlt : COLORS.teal,
-                border: copied ? `1px solid ${COLORS.tealLight}` : "none",
-                color: copied ? COLORS.tealLight : COLORS.onAccent,
-                fontSize: 12, fontWeight: 700, padding: "10px", borderRadius: 8, cursor: "pointer"
-              }}>
-                {copied ? "Copied!" : "Copy address"}
-              </button>
-              <a href={`mailto:?to=${encodeURIComponent(intakeEmail)}&subject=${encodeURIComponent("Lab results")}&body=${encodeURIComponent("Attaching my lab results for import.")}`}
-                style={{
-                  flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
-                  color: COLORS.textSecondary, fontSize: 12, fontWeight: 700, padding: "10px",
-                  borderRadius: 8, cursor: "pointer", textDecoration: "none",
-                  display: "flex", alignItems: "center", justifyContent: "center"
-                }}>
-                Open in email
-              </a>
-            </div>
-
-            <div style={{ height: 1, background: COLORS.border, marginBottom: 14 }} />
-
-            <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textSecondary, marginBottom: 8 }}>
-              Set up automatic delivery from your lab
-            </div>
-            <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.6, marginBottom: 10 }}>
-              Many labs let you add an email address to your account so future results are
-              sent automatically. Copy your intake address and paste it into your lab account settings.
-            </div>
-            {[
-              { name: "Quest Diagnostics", steps: "MyQuest account → Profile → Notification settings → Add email" },
-              { name: "LabCorp", steps: "Patient portal → Account settings → Result notifications → Add email" },
-            ].map((lab, i) => (
-              <div key={lab.name} style={{
-                padding: "9px 0", borderTop: `1px solid ${COLORS.border}`
-              }}>
-                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{lab.name}</div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted }}>{lab.steps}</div>
               </div>
             ))}
           </Card>

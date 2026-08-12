@@ -244,7 +244,7 @@ function App() {
     body: <BodyScreen setActive={setActive} />,
     importlabs: <ImportLabsScreen setActive={setActive} />,
     geneticprofile: <GeneticProfileScreen setActive={setActive} />,
-    medications: <MedicationScreen setActive={setActive} />,
+    medications: <MedicationScreen setActive={setActive} userProfile={userProfile} goToMarket={goToMarket} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={setActive} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
   };

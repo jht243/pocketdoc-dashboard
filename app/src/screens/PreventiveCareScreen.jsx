@@ -129,6 +129,7 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
                     <ScreeningMonthYear
                       value={completedItems[item.id]}
                       onChange={(value) => setCompletedAt(item.id, value)}
+                      onDelete={() => toggleDone(item.id)}
                     />
                   )}
                 </div>

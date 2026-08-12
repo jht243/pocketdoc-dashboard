@@ -336,9 +336,6 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
                 <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textPrimary }}>Upload PDF or photo</div>
                 <div style={{ fontSize: 12, color: COLORS.textSecondary }}>From Quest, LabCorp, or any lab report</div>
               </button>
-              <div style={{ fontSize: 11, color: COLORS.textMuted, textAlign: "center", marginBottom: 20 }}>
-                Or forward results to <span style={{ color: COLORS.tealLight }}>records@hello-app.health</span>
-              </div>
             </>
           ) : (
             <Card style={{

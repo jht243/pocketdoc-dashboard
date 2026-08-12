@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { COLORS } from "../theme/tokens";
 import {
   MONTH_OPTIONS,
   currentYearMonth,
-  formatCompletedMonth,
   yearOptions,
 } from "../lib/screeningDates";
 
@@ -19,54 +18,30 @@ const selectStyle = {
 };
 
 /**
- * Inline month/year picker shown under a screening after it's marked done.
- * Matches the compact field styling used across onboarding and medications.
+ * Inline month/year editor shown under a screening after it's marked done.
+ * Edits are held locally as a draft and only committed when the user taps Save,
+ * so changing the dropdowns no longer silently persists. Delete removes the
+ * completion entirely (un-marks the screening).
  */
-function ScreeningMonthYear({ value, onChange }) {
-  const label = formatCompletedMonth(typeof value === "string" ? value : null);
+function ScreeningMonthYear({ value, onChange, onDelete }) {
+  const isNoMonth = value === true;
+  const initialYm = typeof value === "string" ? value : currentYearMonth();
+  const [ym, setYm] = useState(initialYm);
+  const [noMonth, setNoMonth] = useState(isNoMonth);
+  const [saved, setSaved] = useState(false);
 
-  if (value === true) {
-    return (
-      <div
-        style={{
-          marginTop: 8,
-          background: COLORS.bgCardAlt,
-          borderRadius: 8,
-          padding: "8px 10px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-        }}
-      >
-        <span style={{ fontSize: 11, color: COLORS.textMuted }}>Month not recorded</span>
-        <button
-          type="button"
-          onClick={() => onChange?.(currentYearMonth())}
-          style={{
-            background: COLORS.accentDim,
-            border: `1px solid ${COLORS.accent}40`,
-            color: COLORS.accent,
-            borderRadius: 999,
-            padding: "5px 10px",
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Add month
-        </button>
-      </div>
-    );
-  }
-
-  const ym = typeof value === "string" ? value : currentYearMonth();
   const [year, month] = ym.split("-");
   const years = yearOptions();
 
-  const setParts = (nextYear, nextMonth) => {
-    onChange?.(`${nextYear}-${nextMonth}`);
+  const update = (nextYear, nextMonth) => {
+    setYm(`${nextYear}-${nextMonth}`);
+    setSaved(false);
+  };
+
+  const save = () => {
+    onChange?.(noMonth ? true : ym);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -75,41 +50,49 @@ function ScreeningMonthYear({ value, onChange }) {
         marginTop: 8,
         background: COLORS.bgCardAlt,
         borderRadius: 8,
-        padding: "8px 10px",
+        padding: "10px 12px",
       }}
     >
       <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6 }}>
-        {label ? `Completed ${label}` : "When did you complete this?"}
+        When did you complete this?
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <select
-          aria-label="Completion month"
-          value={month}
-          onChange={(e) => setParts(year, e.target.value)}
-          style={selectStyle}
-        >
-          {MONTH_OPTIONS.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Completion year"
-          value={year}
-          onChange={(e) => setParts(e.target.value, month)}
-          style={selectStyle}
-        >
-          {years.map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
+
+      {noMonth ? (
+        <div style={{ fontSize: 12, color: COLORS.textSecondary, padding: "6px 0" }}>
+          Month not recorded
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8 }}>
+          <select
+            aria-label="Completion month"
+            value={month}
+            onChange={(e) => update(year, e.target.value)}
+            style={selectStyle}
+          >
+            {MONTH_OPTIONS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Completion year"
+            value={year}
+            onChange={(e) => update(e.target.value, month)}
+            style={selectStyle}
+          >
+            {years.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <button
         type="button"
-        onClick={() => onChange?.(true)}
+        onClick={() => { setNoMonth((v) => !v); setSaved(false); }}
         style={{
           background: "none",
           border: "none",
@@ -119,8 +102,45 @@ function ScreeningMonthYear({ value, onChange }) {
           cursor: "pointer",
         }}
       >
-        I don’t remember the month
+        {noMonth ? "Add the month" : "I don’t remember the month"}
       </button>
+
+      {/* Save (commit the draft) + Delete (remove the completion) */}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button
+          type="button"
+          onClick={save}
+          style={{
+            flex: 1,
+            background: saved ? COLORS.goodDim : COLORS.teal,
+            border: saved ? `1px solid ${COLORS.good}` : "none",
+            color: saved ? COLORS.good : COLORS.onAccent,
+            borderRadius: 8,
+            padding: "9px",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          {saved ? "Saved ✓" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete?.()}
+          style={{
+            background: "none",
+            border: `1px solid ${COLORS.danger}40`,
+            color: COLORS.danger,
+            borderRadius: 8,
+            padding: "9px 16px",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }

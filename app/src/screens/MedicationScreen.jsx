@@ -1,62 +1,102 @@
-import React, { useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronRight, Plus, Search, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ChevronRight, ExternalLink, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
+import { useAuth } from "../lib/AuthContext";
+import { loadMedications, saveMedications } from "../lib/profileStore";
+import { suggestSupplements } from "../lib/aiInsights";
+import { searchProducts } from "../lib/amazon";
 
-// ---- LABS SCREEN ----
 // ---- MEDICATION SCREEN ----
-// Central medication list with real-time interaction checking, pharmacogenomic
-// alerts, and a cross-physician reconciliation report for Discussion Page use.
-function MedicationScreen({ setActive }) {
-  const [medications, setMedications] = useState([
-    { id: 1, name: "Testosterone Cypionate", dose: "150mg", frequency: "Weekly injection", prescriber: "Dr. Martinez (Endocrinology)", refillDate: "Jul 20, 2026", type: "rx" },
-    { id: 2, name: "Anastrozole", dose: "0.25mg", frequency: "Twice weekly", prescriber: "Dr. Martinez (Endocrinology)", refillDate: "Jul 20, 2026", type: "rx" },
-    { id: 3, name: "Vitamin D3 + K2", dose: "5,000 IU / 100mcg", frequency: "Daily with food", prescriber: "Self-ordered", refillDate: null, type: "supplement" },
-    { id: 4, name: "Magnesium Glycinate", dose: "400mg", frequency: "Nightly", prescriber: "Self-ordered", refillDate: null, type: "supplement" },
-  ]);
+// The user's real medication + supplement list (entered by them, persisted to
+// ghai.medications). Nothing here is pre-filled or invented. Plus an AI "Suggested
+// for you" section that pulls live Amazon supplement cards from their profile.
+function MedicationScreen({ setActive, userProfile, goToMarket }) {
+  const { user } = useAuth();
+  const [medications, setMedications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newMed, setNewMed] = useState({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" });
-  const [checkResult, setCheckResult] = useState(null);
-  const [checking, setChecking] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [suggestions, setSuggestions] = useState(null); // null = loading; [] = none
 
-  // Severity color mapping
-  const severityColor = {
-    "Contraindicated": COLORS.danger,
-    "Monitor": COLORS.warning,
-    "Dose adjustment": COLORS.warning,
-    "Theoretical": COLORS.textMuted,
-    "No issues found": COLORS.tealLight,
-  };
+  // Map a DB row to the display shape; anything not a supplement lists as a prescription.
+  const fromRow = (r) => ({
+    id: r.id, name: r.name, dose: r.dose || "", frequency: r.frequency || "",
+    prescriber: r.prescriber || "", type: r.type === "supplement" ? "supplement" : "rx",
+  });
 
-  // Simulated interaction check using known patterns from the user's genetic profile.
-  // In production this calls the DrugBank API and overlays the pharmacogenomic markers.
-  const runInteractionCheck = async (newMedName) => {
-    setChecking(true);
-    await new Promise(r => setTimeout(r, 1200));
-    const knownInteractions = {
-      "clarithromycin": [{ severity: "Monitor", drugs: "Clarithromycin + Testosterone", note: "CYP3A4 inhibitor may increase testosterone plasma levels. Monitor for signs of androgen excess.", route: "pharmacist" }],
-      "ibuprofen": [{ severity: "Monitor", drugs: "Ibuprofen + Anastrozole", note: "NSAIDs may slightly reduce anastrozole effectiveness. Occasional use is generally acceptable; chronic use warrants discussion.", route: "prescriber" }],
-      "st. john's wort": [{ severity: "Contraindicated", drugs: "St. John's Wort + Anastrozole", note: "Strong CYP3A4 inducer. May significantly reduce anastrozole plasma levels and effectiveness. Do not combine.", route: "prescriber" }],
-      "simvastatin": [{ severity: "Monitor", drugs: "Simvastatin + SLCO1B1 variant", note: "Your SLCO1B1 variant significantly elevates myopathy risk with simvastatin. Rosuvastatin or pravastatin are safer alternatives. Discuss with prescriber before filling.", route: "prescriber" }],
-    };
-    const name = newMedName.toLowerCase();
-    const found = Object.entries(knownInteractions).find(([key]) => name.includes(key));
-    setCheckResult(found ? { interactions: found[1], checked: newMedName } : { interactions: [], checked: newMedName });
-    setChecking(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) { setLoading(false); return; }
+      const rows = await loadMedications(user.id);
+      if (!cancelled) { setMedications((rows || []).map(fromRow)); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // AI-suggested supplements → live Amazon product cards.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!userProfile) { setSuggestions([]); return; }
+      const ideas = await suggestSupplements(userProfile);
+      if (cancelled) return;
+      if (!ideas.length) { setSuggestions([]); return; }
+      const withProducts = await Promise.all(ideas.map(async (idea) => {
+        const { items } = await searchProducts(idea.keywords, { itemCount: 1 });
+        return { ...idea, product: items && items[0] ? items[0] : null };
+      }));
+      if (!cancelled) setSuggestions(withProducts);
+    })();
+    return () => { cancelled = true; };
+  }, [userProfile]);
+
+  // Persist the full list (delete + re-insert keeps meds table in sync with the UI).
+  const persist = (list) => {
+    setMedications(list);
+    if (user) saveMedications(user.id, list.map((m) => ({
+      name: m.name, dose: m.dose, frequency: m.frequency, prescriber: m.prescriber,
+      type: m.type === "supplement" ? "supplement" : "prescription",
+    })));
   };
 
   const addMedication = () => {
     if (!newMed.name.trim()) return;
-    setMedications(prev => [...prev, { ...newMed, id: Date.now(), refillDate: null }]);
+    persist([...medications, { ...newMed, id: Date.now() }]);
     setShowAdd(false);
     setNewMed({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" });
-    setCheckResult(null);
   };
 
-  const rxMeds = medications.filter(m => m.type === "rx");
-  const supplements = medications.filter(m => m.type === "supplement");
+  const deleteMedication = (id) => persist(medications.filter((m) => m.id !== id));
+
+  const rxMeds = medications.filter((m) => m.type === "rx");
+  const supplements = medications.filter((m) => m.type === "supplement");
+  const displayName = userProfile?.profile?.name || "Your medications";
+
+  const MedRow = (m, i, arr) => (
+    <div key={m.id} style={{
+      display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10,
+      padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : "none"
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
+        <div style={{ fontSize: 11, color: COLORS.textMuted }}>
+          {[m.dose, m.frequency].filter(Boolean).join(" · ") || "No details added"}
+        </div>
+        {m.prescriber && <div style={{ fontSize: 11, color: COLORS.textMuted }}>{m.prescriber}</div>}
+      </div>
+      <button onClick={() => deleteMedication(m.id)} aria-label={`Delete ${m.name}`} style={{
+        background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, flexShrink: 0, padding: 4
+      }}><Trash2 size={15} /></button>
+    </div>
+  );
+
+  const emptyState = (text) => (
+    <div style={{ fontSize: 12, color: COLORS.textMuted, textAlign: "center", padding: "14px 0" }}>{text}</div>
+  );
 
   return (
     <div style={{ padding: "24px 18px" }}>
@@ -71,93 +111,66 @@ function MedicationScreen({ setActive }) {
         <div>
           <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Medications</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
-            Every medication and supplement in one place, checked against each other.
+            Every medication and supplement you take, in one place.
           </div>
         </div>
-        <button onClick={() => setShowReport(!showReport)} style={{
-          background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
-          borderRadius: 10, padding: "8px 12px", fontSize: 11, fontWeight: 600,
-          color: COLORS.textSecondary, cursor: "pointer"
-        }}>
-          Reconciliation report
-        </button>
+        {medications.length > 0 && (
+          <button onClick={() => setShowReport(!showReport)} style={{
+            background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
+            borderRadius: 10, padding: "8px 12px", fontSize: 11, fontWeight: 600,
+            color: COLORS.textSecondary, cursor: "pointer", flexShrink: 0
+          }}>Reconciliation report</button>
+        )}
       </div>
 
-      {/* Cross-physician reconciliation report */}
-      {showReport && (
+      {/* Reconciliation report — built entirely from the user's own entered list. */}
+      {showReport && medications.length > 0 && (
         <Card style={{ border: `1px solid ${COLORS.gold}50`, background: COLORS.warnDim, marginBottom: 18 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
             <Sparkles size={16} color={COLORS.gold} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.gold }}>Cross-physician reconciliation report</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.gold }}>Medication reconciliation</span>
           </div>
           <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
-            Share this with any new prescribing physician before they write a new prescription.
-            It gives them a complete picture of what every other physician has prescribed.
+            Share this complete list with any new prescriber so they can see everything you're
+            already taking before writing a new prescription.
           </div>
           <div style={{ background: COLORS.bgDeep, borderRadius: 8, padding: 12, marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 8 }}>COMPLETE MEDICATION LIST — Adam Locker — July 6, 2026</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 8 }}>
+              COMPLETE MEDICATION LIST — {displayName}
+            </div>
             {medications.map((m, i) => (
               <div key={m.id} style={{
-                display: "flex", justifyContent: "space-between", padding: "6px 0",
+                display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0",
                 borderBottom: i < medications.length - 1 ? `1px solid ${COLORS.border}` : "none"
               }}>
                 <div>
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{m.name}</span>
-                  <span style={{ fontSize: 11, color: COLORS.textMuted }}> — {m.dose}, {m.frequency}</span>
+                  <span style={{ fontSize: 11, color: COLORS.textMuted }}>
+                    {[m.dose, m.frequency].filter(Boolean).length ? ` — ${[m.dose, m.frequency].filter(Boolean).join(", ")}` : ""}
+                  </span>
                 </div>
-                <span style={{ fontSize: 11, color: COLORS.textMuted }}>{m.prescriber}</span>
+                <span style={{ fontSize: 11, color: COLORS.textMuted, flexShrink: 0 }}>{m.prescriber || "—"}</span>
               </div>
             ))}
-            <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 10, fontStyle: "italic" }}>
-              Pharmacogenomic flags on file: CYP2D6 intermediate metabolizer, CYP1A2 slow metabolizer, SLCO1B1 variant (statin myopathy risk elevated). Please review before prescribing affected drug classes.
-            </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setActive("discussion")} style={{
-              flex: 1, background: COLORS.teal, border: "none", color: COLORS.onAccent,
-              fontSize: 12, fontWeight: 700, padding: "9px", borderRadius: 8, cursor: "pointer"
-            }}>Add to Discussion Page</button>
-            <button style={{
-              flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
-              color: COLORS.textSecondary, fontSize: 12, padding: "9px", borderRadius: 8, cursor: "pointer"
-            }}>Export PDF</button>
-          </div>
+          <button onClick={() => setActive("discussion")} style={{
+            width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent,
+            fontSize: 12, fontWeight: 700, padding: "9px", borderRadius: 8, cursor: "pointer"
+          }}>Add to Discussion Page</button>
         </Card>
       )}
 
       <SectionLabel>Prescriptions</SectionLabel>
       <Card>
-        {rxMeds.map((m, i) => (
-          <div key={m.id} style={{
-            padding: "10px 0", borderBottom: i < rxMeds.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted }}>{m.dose} · {m.frequency}</div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted }}>{m.prescriber}</div>
-              </div>
-              {m.refillDate && (
-                <span style={{ fontSize: 11, color: COLORS.warning }}>Refill {m.refillDate}</span>
-              )}
-            </div>
-          </div>
-        ))}
+        {loading ? emptyState("Loading…") : rxMeds.length ? rxMeds.map((m, i) => MedRow(m, i, rxMeds)) : emptyState("No prescriptions added yet.")}
       </Card>
 
       <SectionLabel>Supplements</SectionLabel>
       <Card>
-        {supplements.map((m, i) => (
-          <div key={m.id} style={{
-            padding: "10px 0", borderBottom: i < supplements.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
-            <div style={{ fontSize: 11, color: COLORS.textMuted }}>{m.dose} · {m.frequency} · {m.prescriber}</div>
-          </div>
-        ))}
+        {loading ? emptyState("Loading…") : supplements.length ? supplements.map((m, i) => MedRow(m, i, supplements)) : emptyState("No supplements added yet.")}
       </Card>
 
-      {/* Add medication flow with inline interaction check */}
+      {/* Add flow — all fields user-entered. */}
       {!showAdd ? (
         <button onClick={() => setShowAdd(true)} style={{
           width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.tealLight}60`,
@@ -171,8 +184,8 @@ function MedicationScreen({ setActive }) {
         <Card style={{ border: `1px solid ${COLORS.tealLight}40` }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Add new</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            {["rx", "supplement"].map(t => (
-              <button key={t} onClick={() => setNewMed(p => ({ ...p, type: t }))} style={{
+            {["rx", "supplement"].map((t) => (
+              <button key={t} onClick={() => setNewMed((p) => ({ ...p, type: t }))} style={{
                 flex: 1, padding: "8px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
                 background: newMed.type === t ? COLORS.teal : COLORS.bgCardAlt,
                 color: newMed.type === t ? COLORS.onAccent : COLORS.textSecondary, border: "none"
@@ -180,77 +193,82 @@ function MedicationScreen({ setActive }) {
             ))}
           </div>
           {[
-            { key: "name", label: "Medication name", placeholder: "e.g. Atorvastatin" },
+            { key: "name", label: "Name", placeholder: newMed.type === "rx" ? "e.g. Atorvastatin" : "e.g. Vitamin D3" },
             { key: "dose", label: "Dose", placeholder: "e.g. 20mg" },
             { key: "frequency", label: "Frequency", placeholder: "e.g. Once daily at bedtime" },
-            { key: "prescriber", label: newMed.type === "rx" ? "Prescribing physician" : "Source", placeholder: newMed.type === "rx" ? "e.g. Dr. Smith (Cardiology)" : "e.g. Self-ordered" },
-          ].map(field => (
+            { key: "prescriber", label: newMed.type === "rx" ? "Prescribing physician" : "Source", placeholder: newMed.type === "rx" ? "e.g. your cardiologist's name" : "e.g. Self-ordered" },
+          ].map((field) => (
             <div key={field.key} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>{field.label}</div>
-              <input value={newMed[field.key]} onChange={e => setNewMed(p => ({ ...p, [field.key]: e.target.value }))}
+              <input value={newMed[field.key]} onChange={(e) => setNewMed((p) => ({ ...p, [field.key]: e.target.value }))}
                 placeholder={field.placeholder} style={{
                   width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
-                  borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none"
+                  borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none", boxSizing: "border-box"
                 }} />
             </div>
           ))}
-
-          {/* Interaction check result */}
-          {checking && (
-            <div style={{ padding: "10px 0", fontSize: 12, color: COLORS.textSecondary, display: "flex", gap: 8, alignItems: "center" }}>
-              <Search size={13} /> Checking against your full medication list and genetic profile...
-            </div>
-          )}
-          {checkResult && !checking && (
-            <div style={{ marginBottom: 12 }}>
-              {checkResult.interactions.length === 0 ? (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 12px", background: COLORS.bgCard, borderRadius: 10 }}>
-                  <CheckCircle2 size={14} color={COLORS.tealLight} />
-                  <span style={{ fontSize: 12, color: COLORS.tealLight }}>No known interactions found with your current medications or your genetic profile.</span>
-                </div>
-              ) : (
-                checkResult.interactions.map((intx, i) => (
-                  <div key={i} style={{
-                    padding: "10px 12px", background: intx.severity === "Contraindicated" ? COLORS.badDim : COLORS.warnDim,
-                    border: `1px solid ${severityColor[intx.severity]}40`, borderRadius: 10, marginBottom: 8
-                  }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                      <AlertCircle size={14} color={severityColor[intx.severity]} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: severityColor[intx.severity] }}>{intx.severity}</span>
-                      <span style={{ fontSize: 11, color: COLORS.textMuted }}>— {intx.drugs}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 8 }}>{intx.note}</div>
-                    <div style={{ fontSize: 11, color: COLORS.textMuted, fontStyle: "italic" }}>
-                      Recommended: discuss with your {intx.route === "pharmacist" ? "pharmacist" : "prescribing physician"} before taking.
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
           <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <button onClick={() => { runInteractionCheck(newMed.name); }} disabled={!newMed.name.trim()} style={{
-              flex: 1, background: !newMed.name.trim() ? COLORS.bgCardAlt : COLORS.bgCardAlt,
-              border: `1px solid ${COLORS.border}`, color: COLORS.tealLight,
-              fontSize: 12, fontWeight: 600, padding: "9px", borderRadius: 8, cursor: newMed.name.trim() ? "pointer" : "default"
-            }}>Check interactions</button>
+            <button onClick={() => { setShowAdd(false); setNewMed({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" }); }} style={{
+              flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, color: COLORS.textSecondary,
+              fontSize: 12, fontWeight: 600, padding: "9px", borderRadius: 8, cursor: "pointer"
+            }}>Cancel</button>
             <button onClick={addMedication} disabled={!newMed.name.trim()} style={{
               flex: 1, background: !newMed.name.trim() ? COLORS.bgCardAlt : COLORS.teal,
               border: "none", color: !newMed.name.trim() ? COLORS.textMuted : COLORS.onAccent,
               fontSize: 12, fontWeight: 700, padding: "9px", borderRadius: 8, cursor: newMed.name.trim() ? "pointer" : "default"
             }}>Save</button>
           </div>
-          <button onClick={() => { setShowAdd(false); setCheckResult(null); }} style={{
-            width: "100%", background: "none", border: "none", color: COLORS.textMuted,
-            fontSize: 12, padding: "8px", cursor: "pointer", marginTop: 4
-          }}>Cancel</button>
-
-          <div style={{ fontSize: 10, color: COLORS.textMuted, lineHeight: 1.5, marginTop: 10 }}>
-            Interaction check uses your full medication list and genetic pharmacogenomic markers.
-            Results reflect only what has been entered. Always verify with your pharmacist or physician.
-          </div>
         </Card>
+      )}
+
+      {/* AI-suggested supplements → live Amazon cards. */}
+      {suggestions && suggestions.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <SectionLabel>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Sparkles size={16} color={COLORS.gold} /> Suggested for you
+            </span>
+          </SectionLabel>
+          <Card>
+            {suggestions.map((s, i) => (
+              <div key={i} style={{
+                padding: "11px 0", borderBottom: i < suggestions.length - 1 ? `1px solid ${COLORS.border}` : "none"
+              }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 8, flexShrink: 0, overflow: "hidden", background: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${COLORS.border}`
+                  }}>
+                    {s.product?.image
+                      ? <img src={s.product.image} alt={s.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                      : <Plus size={16} color={COLORS.textMuted} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 1,
+                      overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      {s.product?.title ? [s.product.brand, s.product.price].filter(Boolean).join(" · ") || s.product.title : s.reason}
+                    </div>
+                  </div>
+                  <a href={s.product?.url || `https://www.amazon.com/s?k=${encodeURIComponent(s.keywords)}`}
+                    target="_blank" rel="noopener noreferrer sponsored" style={{
+                      background: COLORS.teal, color: COLORS.onAccent, textDecoration: "none",
+                      fontSize: 11, fontWeight: 700, padding: "7px 10px", borderRadius: 7,
+                      display: "flex", alignItems: "center", gap: 4, flexShrink: 0
+                    }}>View <ExternalLink size={11} /></a>
+                </div>
+                {s.reason && s.product?.title && (
+                  <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 6, lineHeight: 1.4 }}>{s.reason}</div>
+                )}
+              </div>
+            ))}
+            <div style={{ fontSize: 10, color: COLORS.textMuted, lineHeight: 1.5, marginTop: 12 }}>
+              Suggestions are based on your profile and are not medical advice. Supplements can interact
+              with medications — check with your pharmacist or physician first. As an Amazon Associate,
+              purchases through these links may earn the app a commission.
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
