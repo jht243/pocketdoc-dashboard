@@ -56,7 +56,7 @@ function toOpenAIMessage(message) {
  * @param {boolean} [opts.pdf]       accepted for call-site compatibility; unused (PDFs are auto-handled)
  * @returns {Promise<object>} raw OpenAI response body
  */
-export async function callAI({ system, messages, maxTokens = 1000 }) {
+export async function callAI({ system, messages, maxTokens = 1000, model }) {
   if (!supabase) throw new Error("AI is not configured (Supabase client missing).");
 
   const openAIMessages = [];
@@ -64,7 +64,7 @@ export async function callAI({ system, messages, maxTokens = 1000 }) {
   for (const m of messages) openAIMessages.push(toOpenAIMessage(m));
 
   const { data, error } = await supabase.functions.invoke("ghai-ai", {
-    body: { model: AI_MODEL, messages: openAIMessages, max_tokens: maxTokens },
+    body: { model: model || AI_MODEL, messages: openAIMessages, max_tokens: maxTokens },
   });
 
   if (error) throw new Error(`AI request failed: ${error.message}`);
@@ -75,4 +75,24 @@ export async function callAI({ system, messages, maxTokens = 1000 }) {
 /** Pull the assistant text out of an OpenAI response, with a fallback. */
 export function firstText(data, fallback = "") {
   return data?.choices?.[0]?.message?.content || fallback;
+}
+
+/**
+ * Web-search models (e.g. gpt-4o-search-preview) attach source citations as
+ * `annotations` on the message. Returns a de-duplicated [{title, url}] list.
+ */
+export function firstCitations(data) {
+  const annotations = data?.choices?.[0]?.message?.annotations || [];
+  const seen = new Set();
+  const out = [];
+  for (const a of annotations) {
+    const c = a?.url_citation || a;
+    const url = c?.url;
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    let host = url;
+    try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { /* keep raw */ }
+    out.push({ title: c.title || host, url });
+  }
+  return out;
 }

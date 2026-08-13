@@ -1,61 +1,105 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Camera, Home, Mic, Send, X } from "lucide-react";
+import { Camera, ExternalLink, Mic, Send, X } from "lucide-react";
 import { COLORS, SERIF } from "../theme/tokens";
-import { callAI, firstText } from "../lib/api";
+import { callAI, firstText, firstCitations } from "../lib/api";
+
+// Web-search model does live research + citations; vision model handles image messages.
+const CHAT_MODEL = import.meta.env.VITE_AI_CHAT_MODEL || "gpt-4o-search-preview";
+const VISION_MODEL = import.meta.env.VITE_AI_VISION_MODEL || "gpt-4o";
+
+// The persona: a functional-medicine expert who does live research and gives
+// specific, useful, data-grounded guidance — not a hedging "ask your doctor" bot.
+const PERSONA = `You are Guided Health AI — a knowledgeable functional-medicine health companion. You think like a functional-medicine practitioner: you look for root causes and connect labs, symptoms, lifestyle, medications, and genetics into a clear picture, then give specific, research-backed, actionable guidance tailored to THIS person's data.
+
+How you answer:
+- Be genuinely useful and direct. Give concrete recommendations — specific supplements and typical dosage ranges, lifestyle and nutrition changes, which labs to run next, and how to interpret a result — grounded in current research and the user's own data. Do NOT deflect with a vague "ask your doctor"; give the substance.
+- Do live research. When a question benefits from current evidence, guidelines, recent studies, or specific products, search the web and cite your sources. Prefer recent, reputable sources (peer-reviewed research, major clinical guidelines, .gov/.edu and established medical organizations). Don't rely on stale training knowledge for anything time-sensitive.
+- Always ground answers in the user's actual data below (labs and their trends, medications, conditions, genetics, goals). Generic advice that ignores their profile is a failure.
+- Be concise and structured: lead with the answer, then the reasoning, then next steps.
+
+Safety — keep it light and never let it stop you from being useful:
+- This is educational information personalized to the user's data, not a formal diagnosis or a prescription.
+- For anything urgent or severe (chest pain, stroke signs, severe symptoms, suicidal thoughts, etc.), tell them to seek in-person or emergency care.
+- Before starting/stopping a prescription or making a major dose change, tell them to confirm with their prescriber — but still give them the substantive information and the specific questions to bring.`;
+
+// The search model inlines markdown citations like "([domain](url))" and uses **bold**.
+// We show sources as chips below the message, so strip that markup for a clean reply.
+function cleanReply(text) {
+  return String(text || "")
+    .replace(/\s*\(\[[^\]]+\]\([^)]+\)\)/g, "")   // drop "([label](url))" citation groups
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")        // remaining [label](url) -> label
+    .replace(/\*\*([^*]+)\*\*/g, "$1")               // **bold** -> bold
+    .trim();
+}
+
+function line(label, val) {
+  return val && (Array.isArray(val) ? val.length : true) ? `${label}: ${Array.isArray(val) ? val.join(", ") : val}` : null;
+}
 
 function buildHealthContext(userProfile, healthData, testModeEnabled) {
   const profile = userProfile?.profile;
   if (!profile) {
-    return "You are a personal health advocate AI. The user has not completed a health profile or uploaded any health data yet. Ask concise follow-up questions and never diagnose or prescribe.";
+    return `${PERSONA}\n\nThe user hasn't completed a health profile or added data yet. Ask a couple of concise questions to get their goals and current situation, and still answer their questions usefully with current research.`;
   }
 
-  const age = profile.dob
-    ? new Date().getFullYear() - new Date(profile.dob).getFullYear()
-    : "unknown";
+  const age = profile.dob ? new Date().getFullYear() - new Date(profile.dob).getFullYear() : "unknown";
   const intake = userProfile?.intake || {};
+
   const labs = healthData?.labs?.length
-    ? healthData.labs.map((lab) => `- ${lab.name}: ${lab.value} ${lab.unit} (${lab.status}, ${lab.date})`).join("\n")
-    : "No lab results have been uploaded.";
+    ? healthData.labs.map((l) => `- ${l.name}: ${l.value} ${l.unit || ""} (${l.status || "n/a"}${l.date ? ", " + l.date : ""})`).join("\n")
+    : "No lab results uploaded.";
+  const trends = healthData?.labHistory?.length
+    ? healthData.labHistory.map((s) => `- ${s.name}: ${(s.results || []).map((r) => r.value).join(" → ")} ${s.unit || ""}`).join("\n")
+    : "No multi-panel trends yet.";
   const vitals = healthData?.today
-    ? `Readiness ${healthData.today.readiness} (typical ${healthData.today.readinessTypical}); HRV ${healthData.today.hrv}ms (baseline ${healthData.today.hrvBaseline}); resting heart rate ${healthData.today.restingHR} bpm (baseline ${healthData.today.restingHRBaseline}).`
-    : "No wearable or daily-vitals data has been connected.";
-  const genetics = healthData?.genetics?.length ? healthData.genetics.map((item) => `- ${item}`).join("\n") : "No genetic data has been uploaded.";
+    ? `Readiness ${healthData.today.readiness} (typical ${healthData.today.readinessTypical}); HRV ${healthData.today.hrv}ms (baseline ${healthData.today.hrvBaseline}); resting HR ${healthData.today.restingHR} bpm (baseline ${healthData.today.restingHRBaseline})${healthData.today.recentSymptoms?.length ? "; recent symptoms: " + healthData.today.recentSymptoms.join(", ") : ""}.`
+    : "No wearable/daily-vitals connected.";
+  const genetics = healthData?.genetics?.length ? healthData.genetics.map((g) => `- ${g}`).join("\n") : "No genetic data uploaded.";
 
-  return `You are a personal health advocate AI embedded inside a health platform.
+  // Key labeled fields, then the full intake as JSON so nothing the user entered is lost.
+  const facts = [
+    line("Conditions", intake.conditions),
+    line("Medications & supplements", intake.medications),
+    line("Allergies", intake.hasAllergies === "Yes" ? intake.allergiesList || "yes (unspecified)" : null),
+    line("Primary concern", intake.primaryConcern),
+    line("Goals", intake.goals),
+    line("Family history", intake.familyHistory),
+    line("Exercise", intake.exercise),
+    line("Sleep", intake.sleep),
+    line("Alcohol", intake.alcohol),
+    line("Stress level", intake.stressLevel),
+    line("Testosterone therapy", intake.testosteroneUse && intake.testosteroneUse !== "No" ? `${intake.testosteroneUse}${intake.trtDose ? " (" + intake.trtDose + ")" : ""}` : null),
+    line("Peptides", intake.peptideUse && intake.peptideUse !== "No" ? (intake.peptidesUsed || []).join(", ") || intake.peptideUse : null),
+  ].filter(Boolean).join("\n");
 
-MODE: ${testModeEnabled ? "Persisted test mode — treat this seeded snapshot exactly like client data while clearly remaining a health advocate." : "Live client mode — only use the data below; do not invent missing records."}
-NAME: ${profile.name || "Unknown"}, ${age} years old, ${profile.sex || "unspecified"}
-CONDITIONS: ${(intake.conditions || []).join(", ") || "None recorded"}
-MEDICATIONS: ${(intake.medications || []).join(", ") || "None recorded"}
-PRIMARY CONCERN: ${intake.primaryConcern || "None recorded"}
+  return `${PERSONA}
 
-LABS:
+DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
+
+USER PROFILE
+Name: ${profile.name || "Unknown"}, ${age} years old, ${profile.sex || "unspecified"}
+${facts || "No intake details recorded yet."}
+
+LABS (most recent)
 ${labs}
 
-VITALS:
+LAB TRENDS (across panels)
+${trends}
+
+WEARABLE / TODAY
 ${vitals}
 
-GENETICS:
+GENETICS
 ${genetics}
 
-IMPORTANT RULES:
-- You are a health advocate, not a clinician. Never diagnose or prescribe.
-- Be concise, specific, and grounded only in the data above.
-- Frame pharmacogenomic or medication guidance as a discussion with the prescriber.
-- When a doctor appointment is mentioned, suggest preparing a Discussion Page.`;
+FULL INTAKE (JSON, for anything not summarized above)
+${JSON.stringify(intake)}`;
 }
 
-// Single source of truth for scoring. Both the gauge (Home) and the breakdown modal
-// call this so the two never silently drift out of sync, as they did when each kept
-// its own hardcoded copy of the numbers.
-// Daily recommendation engine. Evaluates every known trigger pattern across wearables,
-// bloodwork, nutrition, and goals, scores each by confidence/severity, and returns only
-// the single highest-priority match. Lower-priority patterns simply don't show on Home;
-// they're still visible in Body/Labs/Records for anyone who goes looking. The goal is one
-// genuinely useful nudge a day, not a notification for every minor fluctuation.
 // ---- AI CHAT SCREEN ----
-// Powers real AI responses via the Anthropic API, with the user's health profile injected
-// into every request so answers are contextual to their actual data, not generic wellness advice.
+// Functional-medicine chat. The user's full health profile is injected as context and
+// the web-search model does live research (with citations) so answers are current and
+// grounded in the user's actual data — not generic, stale wellness advice.
 function AIChatScreen({ setActive, userProfile, healthData, testModeEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -74,61 +118,6 @@ function AIChatScreen({ setActive, userProfile, healthData, testModeEnabled }) {
     const datePattern = /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}\/\d{1,2}|next week|tomorrow|\d{1,2}(?:st|nd|rd|th)?)/i;
     return apptPattern.test(text) && datePattern.test(text);
   };
-
-  // User's health profile injected as context into every AI request.
-  const demoHealthProfile = `
-You are a personal health advocate AI embedded inside a health platform. You have access to this user's health profile:
-
-NAME: Adam Locker, 52 years old, male
-CURRENT THERAPIES: Testosterone Replacement Therapy (TRT), monitored monthly
-CONNECTED DEVICES: Oura Ring, Eight Sleep
-
-RECENT BLOODWORK (Jan 2026):
-- Vitamin D: 28 ng/mL (LOW, range 30-50)
-- TSH: 2.1 mIU/L (normal)
-- TPO antibodies: 118 IU/mL (trending up over 3 panels)
-- Total testosterone: within therapy range
-- Ferritin: 62 ng/mL (normal)
-- Vitamin D3 + K2 supplement ordered
-
-TODAY'S DEVICE DATA:
-- Readiness: 68 (below typical of 78)
-- HRV: 42ms (below baseline of 50ms)
-- Resting heart rate: 64 bpm (baseline 52 bpm)
-- Overnight skin temp deviation: +0.4°F
-- Sleep: 7h 12m (Deep 78m, REM 104m, Light 220m, Awake 30m)
-- Zone 2+ training: 34 min today
-- VO2 max: 46.2 ml/kg/min (up 0.8 over 8 weeks)
-
-BODY COMPOSITION:
-- Current weight: 202 lb (goal: 195 lb)
-- Current body fat: 17.5% (goal: 14%)
-
-GENETIC MARKERS — SUPPLEMENT & LIFESTYLE:
-- MTHFR C677T heterozygous: Reduced folate processing (~65% efficiency). Must use methylfolate not folic acid. Methylcobalamin preferred over cyanocobalamin. Homocysteine should be checked annually.
-- VDR Taq1 TT: Reduced vitamin D receptor efficiency. Target serum level 50-70 ng/mL not standard 30-50. Current 28 ng/mL is more concerning than it would be for standard genotype.
-- COMT Val158Met heterozygous: Slower dopamine and estrogen clearance. More sensitive to stress and slower to recover. Late caffeine worsens sleep more than average. Magnesium and B6 support COMT function.
-- ACTN3 RR: Power-oriented muscle fiber genetics. Creatine monohydrate has stronger evidence base for this genotype. High-intensity training is naturally well-suited.
-- FUT2 non-secretor: Standard probiotic strains less effective. Saccharomyces boulardii and prebiotic fiber (pectin, resistant starch) are better starting points than Lactobacillus products.
-- HLA-DQ2.5 heterozygous: Elevated autoimmune susceptibility. Directly relevant to rising TPO antibody trend. Celiac screening and gluten-autoimmune connection worth discussing at next endocrinology appointment.
-
-GENETIC MARKERS — PHARMACOGENOMIC:
-- CYP2D6 intermediate metabolizer: Processes antidepressants (SSRIs), opioids, tamoxifen, atomoxetine, and beta-blockers more slowly than average. Standard doses may accumulate. Always flag this before any new psychiatric, pain, or cardiac prescription.
-- CYP2C19 normal metabolizer: No concerns for clopidogrel, PPIs, or related drugs.
-- CYP1A2 slow metabolizer: Caffeine clears slowly. Afternoon caffeine is a meaningful contributor to below-baseline HRV and sleep disruption. Clinically significant if clozapine or theophylline ever prescribed.
-- SLCO1B1 rs4149056 heterozygous: Elevated statin myopathy risk. If statins ever needed, rosuvastatin or pravastatin are safer than simvastatin or high-dose atorvastatin. Must inform any prescriber.
-- CYP2C9 normal metabolizer: No concerns for warfarin or NSAIDs.
-
-IMPORTANT RULES:
-- You are a health advocate, not a clinician. You never diagnose or prescribe.
-- When answering supplement questions, always check the genetic markers first. Generic supplement advice that ignores MTHFR, VDR, FUT2 status is incomplete for this user.
-- When trending health claims appear ("everyone should take X"), evaluate them against this user's actual bloodwork and genetic profile before responding.
-- Pharmacogenomic findings must always be framed as "discuss with your prescriber" — never tell the user what medication to take or avoid unilaterally.
-- When reading food labels or nutrition photos, contextualize against body composition goals, training load, and COMT/CYP1A2 status where relevant.
-- When someone mentions a doctor appointment, flag that their Discussion Page can be prepared.
-- Be direct, specific, and grounded in their data. Generic advice that ignores their profile is unhelpful.
-- Keep responses concise and action-oriented.
-`.trim();
 
   const healthProfile = buildHealthContext(userProfile, healthData, testModeEnabled);
 
@@ -208,10 +197,20 @@ IMPORTANT RULES:
       return { role: m.role, content: content.length === 1 && content[0].type === "text" ? content[0].text : content };
     });
 
+    // The web-search model can't read images, so route image conversations to the
+    // vision model; everything else uses the search model for live research + citations.
+    const hasImage = apiMessages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === "image"));
+
     try {
-      const data = await callAI({ system: healthProfile, messages: apiMessages });
-      const reply = firstText(data, "I couldn't generate a response.");
-      setMessages(prev => [...prev, { role: "assistant", text: reply }]);
+      const data = await callAI({
+        system: healthProfile,
+        messages: apiMessages,
+        model: hasImage ? VISION_MODEL : CHAT_MODEL,
+        maxTokens: 1200,
+      });
+      const reply = cleanReply(firstText(data, "I couldn't generate a response."));
+      const citations = firstCitations(data);
+      setMessages(prev => [...prev, { role: "assistant", text: reply, citations }]);
     } catch {
       setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
     }
@@ -225,7 +224,7 @@ IMPORTANT RULES:
       <div style={{ padding: "36px 18px 14px", borderBottom: `1px solid ${COLORS.border}` }}>
         <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em" }}>Ask your health advocate</div>
         <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
-          Answers reference your bloodwork, device data, and goals.
+          Functional-medicine guidance grounded in your data, with live research.
         </div>
       </div>
 
@@ -268,6 +267,22 @@ IMPORTANT RULES:
                 ? <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
                 : m.text}
             </div>
+            {/* Web-research citations */}
+            {m.role === "assistant" && m.citations && m.citations.length > 0 && (
+              <div style={{ maxWidth: "84%", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {m.citations.slice(0, 5).map((c, ci) => (
+                  <a key={ci} href={c.url} target="_blank" rel="noopener noreferrer" style={{
+                    display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none",
+                    background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 999,
+                    padding: "3px 9px", fontSize: 10.5, color: COLORS.tealLight, maxWidth: 220,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                  }}>
+                    <ExternalLink size={10} style={{ flexShrink: 0 }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ))}
 
