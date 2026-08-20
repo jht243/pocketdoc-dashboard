@@ -59,30 +59,18 @@ DEVICE / VITALS:
 ${vitals}`;
 }
 
-// Static content used when no real snapshot is available (keeps the demo intact).
+// Neutral fallback for the AI-generated fields only — used if the model call fails.
+// It invents no specifics (no fake labs, symptoms, or trends) so nothing here can be
+// mistaken for the user's real data.
 const FALLBACK = {
   summary:
-    "Over the past 6 weeks, fatigue and cold sensitivity have been reported repeatedly in daily check-ins, alongside a steady rise in TPO antibodies across the last 3 lab panels while TSH has stayed in normal range. Device data shows a parallel rise in resting heart rate and reduced HRV. None of these signals alone would stand out at a single visit. Together, they're a pattern worth discussing — not a diagnosis, but a reason to ask whether further testing is warranted.",
+    "Your visit summary will appear here once your latest data has been reviewed. Bring any recent lab results, symptoms, and questions to your appointment.",
   questions: [
-    "Given the rising TPO antibodies, should we run a full thyroid antibody panel and consider a thyroid ultrasound?",
-    "Could the fatigue and cold sensitivity be related, even with TSH in normal range?",
-    "Is there a reason to monitor more frequently given the 6-week trend?",
+    "Are there any results in my recent labs that need follow-up?",
+    "Given my history, is there anything you'd recommend monitoring more closely?",
+    "Are there screenings or tests I'm due for?",
   ],
 };
-
-const FALLBACK_SYMPTOMS = [
-  { date: "Jun 14", note: "Fatigue, cold sensitivity" },
-  { date: "Jun 19", note: "Mild fatigue, brain fog" },
-  { date: "Jun 23", note: "Cold sensitivity, hair thinning noted" },
-  { date: "Jun 27", note: "Fatigue, low mood, cold sensitivity" },
-];
-
-const FALLBACK_SIGNALS = [
-  { label: "Resting heart rate", detail: "Trending up 6 bpm over 3 weeks", source: "Oura" },
-  { label: "Overnight body temp", detail: "Elevated 2 of last 4 nights", source: "Oura" },
-  { label: "HRV", detail: "Below baseline 5 of last 7 days", source: "Oura" },
-  { label: "Sleep quality", detail: "Restorative sleep down 14% over 2 weeks", source: "Eight Sleep" },
-];
 
 function DiscussionPageScreen({ setActive, userProfile, healthData }) {
   const [shared, setShared] = useState(false);
@@ -92,7 +80,8 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
 
   const hasRealData = Boolean(userProfile?.profile || healthData?.today || healthData?.labs?.length);
 
-  // Device signals derived from real vitals where we have them.
+  // Device signals derived only from real vitals. No fabricated Oura/Eight Sleep
+  // readings for users who have no device connected — the section simply hides.
   const today = healthData?.today;
   const deviceSignals = today
     ? [
@@ -117,12 +106,20 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
           source: "Device",
         },
       ].filter(Boolean)
-    : FALLBACK_SIGNALS;
+    : [];
 
+  // Only the user's own recorded symptoms — never a demo list.
   const symptomPattern =
     today?.recentSymptoms?.length
       ? today.recentSymptoms.map((note) => ({ date: "Recent", note }))
-      : FALLBACK_SYMPTOMS;
+      : [];
+
+  // Files to share are the user's real uploaded records. Nothing is shown until they
+  // have actually uploaded something.
+  const privateLabFiles = (healthData?.records || []).map((r) => ({
+    name: r.name,
+    source: r.type,
+  }));
 
   useEffect(() => {
     if (!hasRealData) return;
@@ -155,11 +152,6 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
     };
   }, [hasRealData, userProfile, healthData]);
 
-  const privateLabFiles = [
-    { name: "Thyroid antibody panel, self-pay", date: "Jun 21, 2026", source: "Quest Diagnostics (direct order)", size: "412 KB" },
-    { name: "Comprehensive metabolic panel", date: "Jun 21, 2026", source: "Quest Diagnostics (direct order)", size: "286 KB" },
-  ];
-
   return (
     <div style={{ padding: "24px 18px" }}>
       <button onClick={() => setActive("records")} style={{
@@ -187,34 +179,38 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
         </div>
       </Card>
 
-      <SectionLabel>Reported symptom pattern</SectionLabel>
-      <Card>
-        {symptomPattern.map((s, i) => (
-          <div key={`${s.date}-${i}`} style={{
-            display: "flex", gap: 12, padding: "9px 0",
-            borderBottom: i < symptomPattern.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <span style={{ fontSize: 11, color: COLORS.textMuted, width: 48, flexShrink: 0 }}>{s.date}</span>
-            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{s.note}</span>
-          </div>
-        ))}
-      </Card>
-
-      <SectionLabel>Device signals</SectionLabel>
-      <Card>
-        {deviceSignals.map((w, i) => (
-          <div key={w.label} style={{
-            display: "flex", justifyContent: "space-between", padding: "9px 0",
-            borderBottom: i < deviceSignals.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <div>
-              <span style={{ fontSize: 13 }}>{w.label}</span>
-              <span style={{ fontSize: 10, color: COLORS.textMuted, marginLeft: 6 }}>({w.source})</span>
+      {symptomPattern.length > 0 && (<>
+        <SectionLabel>Reported symptom pattern</SectionLabel>
+        <Card>
+          {symptomPattern.map((s, i) => (
+            <div key={`${s.date}-${i}`} style={{
+              display: "flex", gap: 12, padding: "9px 0",
+              borderBottom: i < symptomPattern.length - 1 ? `1px solid ${COLORS.border}` : "none"
+            }}>
+              <span style={{ fontSize: 11, color: COLORS.textMuted, width: 48, flexShrink: 0 }}>{s.date}</span>
+              <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{s.note}</span>
             </div>
-            <span style={{ fontSize: 12, color: COLORS.warning }}>{w.detail}</span>
-          </div>
-        ))}
-      </Card>
+          ))}
+        </Card>
+      </>)}
+
+      {deviceSignals.length > 0 && (<>
+        <SectionLabel>Device signals</SectionLabel>
+        <Card>
+          {deviceSignals.map((w, i) => (
+            <div key={w.label} style={{
+              display: "flex", justifyContent: "space-between", padding: "9px 0",
+              borderBottom: i < deviceSignals.length - 1 ? `1px solid ${COLORS.border}` : "none"
+            }}>
+              <div>
+                <span style={{ fontSize: 13 }}>{w.label}</span>
+                <span style={{ fontSize: 10, color: COLORS.textMuted, marginLeft: 6 }}>({w.source})</span>
+              </div>
+              <span style={{ fontSize: 12, color: COLORS.warning }}>{w.detail}</span>
+            </div>
+          ))}
+        </Card>
+      </>)}
 
       <SectionLabel>Suggested questions to raise</SectionLabel>
       <Card>
@@ -229,28 +225,29 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
         ))}
       </Card>
 
-      <SectionLabel>Private lab files to share</SectionLabel>
-      <Card>
-        {privateLabFiles.map((f, i) => (
-          <div key={f.name} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "10px 0", borderBottom: i < privateLabFiles.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <FileText size={16} color={COLORS.tealLight} />
-              <div>
-                <div style={{ fontSize: 13 }}>{f.name}</div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted }}>{f.source} &middot; {f.date} &middot; {f.size}</div>
+      {privateLabFiles.length > 0 && (<>
+        <SectionLabel>Lab files to share</SectionLabel>
+        <Card>
+          {privateLabFiles.map((f, i) => (
+            <div key={`${f.name}-${i}`} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 0", borderBottom: i < privateLabFiles.length - 1 ? `1px solid ${COLORS.border}` : "none"
+            }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <FileText size={16} color={COLORS.tealLight} />
+                <div>
+                  <div style={{ fontSize: 13 }}>{f.name}</div>
+                  {f.source && <div style={{ fontSize: 11, color: COLORS.textMuted }}>{f.source}</div>}
+                </div>
               </div>
+              <ChevronRight size={14} color={COLORS.textMuted} />
             </div>
-            <ChevronRight size={14} color={COLORS.textMuted} />
-          </div>
-        ))}
-      </Card>
-      <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 18, lineHeight: 1.5 }}>
-        These were ordered and paid for directly, outside insurance, and haven't yet been
-        seen by your doctor.
-      </div>
+          ))}
+        </Card>
+        <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 18, lineHeight: 1.5 }}>
+          Your uploaded records, ready to bring to your appointment.
+        </div>
+      </>)}
 
       <button onClick={() => setShared(true)} style={{
         width: "100%", background: shared ? COLORS.bgCardAlt : COLORS.teal,

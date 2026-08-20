@@ -16,12 +16,9 @@ function CheckInScreen() {
     { text: "Crushing chest pain radiating down my left arm, having trouble breathing.", urgent: true },
   ];
 
-  const recentNotes = [
-    { time: "Today, 7:14 AM", note: "Wake-up: felt rested, slept well." },
-    { time: "Yesterday, 4:52 PM", note: "Mild fatigue, cold sensitivity after the gym." },
-    { time: "Yesterday, 9:10 AM", note: "Wake-up: a little sluggish, slept okay." },
-    { time: "2 days ago, 6:30 PM", note: "Feeling normal, good energy all day." },
-  ];
+  // Real notes are not yet persisted anywhere, so there is no history to show. Never
+  // seed this with fabricated entries — a real person hasn't recorded them.
+  const recentNotes = [];
 
   // Keyword-based urgency check, a stand-in for a real clinical triage model. Any production
   // version of this needs validated clinical logic, not a keyword list, but the UI behavior
@@ -123,17 +120,19 @@ function CheckInScreen() {
         </Card>
       )}
 
-      <SectionLabel>Recent notes</SectionLabel>
-      <Card>
-        {recentNotes.map((n, i) => (
-          <div key={i} style={{
-            padding: "10px 0", borderBottom: i < recentNotes.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 3 }}>{n.time}</div>
-            <div style={{ fontSize: 13, color: COLORS.textSecondary }}>{n.note}</div>
-          </div>
-        ))}
-      </Card>
+      {recentNotes.length > 0 && (<>
+        <SectionLabel>Recent notes</SectionLabel>
+        <Card>
+          {recentNotes.map((n, i) => (
+            <div key={i} style={{
+              padding: "10px 0", borderBottom: i < recentNotes.length - 1 ? `1px solid ${COLORS.border}` : "none"
+            }}>
+              <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 3 }}>{n.time}</div>
+              <div style={{ fontSize: 13, color: COLORS.textSecondary }}>{n.note}</div>
+            </div>
+          ))}
+        </Card>
+      </>)}
     </div>
   );
 }
