@@ -25,7 +25,7 @@ const DEMO_INTAKE = {
   medInput: "",
 };
 
-const TEST_SNAPSHOT_VERSION = 2;
+const TEST_SNAPSHOT_VERSION = 3;
 
 function completedSchedule() {
   const schedule = buildPreventiveCareSchedule({
@@ -124,7 +124,12 @@ export function createTestSnapshot() {
           ],
         },
       ],
-      body: { weight: "202 lb", weightGoal: "195 lb", bodyFat: "17.5%", bodyFatGoal: "14%", vo2Max: "46.2" },
+      body: {
+        weight: "202 lb", weightGoal: "195 lb", bodyFat: "17.5%", bodyFatGoal: "14%", vo2Max: "46.2",
+        // Weekly readings (oldest → today) powering the tap-in trend view in test mode.
+        weightSeries: [211, 210, 209, 208.5, 207, 206, 205.5, 204, 203.5, 203, 202.5, 202],
+        bodyFatSeries: [19.8, 19.5, 19.1, 18.8, 18.5, 18.2, 17.9, 17.8, 17.7, 17.6, 17.5, 17.5],
+      },
       genetics: [
         "MTHFR C677T heterozygous — methylfolate is preferred over folic acid.",
         "VDR Taq1 TT — vitamin D status deserves closer follow-up.",

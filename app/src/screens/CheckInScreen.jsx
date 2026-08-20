@@ -4,13 +4,15 @@ import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 
-function CheckInScreen() {
+function CheckInScreen({ testModeEnabled }) {
   const [recording, setRecording] = useState(false);
-  const [resultType, setResultType] = useState(null); // null | "routine" | "emergency"
+  const [resultType, setResultType] = useState(null); // null | "routine" | "emergency" | "unavailable"
   const [transcript, setTranscript] = useState("");
 
   // Simulated transcripts to demonstrate the triage split. In production this would be
   // real speech-to-text run through an urgency classifier before anything else happens.
+  // These are DEMO ONLY — never injected for a real user, who would otherwise see a
+  // fabricated "chest pain" note that isn't theirs.
   const sampleTranscripts = [
     { text: "Feeling a little run down, some chills, slept okay but woke up sore.", urgent: false },
     { text: "Crushing chest pain radiating down my left arm, having trouble breathing.", urgent: true },
@@ -31,6 +33,14 @@ function CheckInScreen() {
   const checkUrgency = (text) => URGENT_KEYWORDS.some(k => text.toLowerCase().includes(k));
 
   const finishRecording = () => {
+    // Real speech-to-text isn't wired up yet. For a real user, say so honestly rather
+    // than injecting a fabricated transcript. The simulated triage demo runs only in
+    // test mode.
+    if (!testModeEnabled) {
+      setTranscript("");
+      setResultType("unavailable");
+      return;
+    }
     const sample = sampleTranscripts[Math.floor(Math.random() * sampleTranscripts.length)];
     setTranscript(sample.text);
     setResultType(checkUrgency(sample.text) ? "emergency" : "routine");
@@ -57,11 +67,30 @@ function CheckInScreen() {
           <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
             {recording ? "Listening... tap to finish" : "Tap to speak, anytime"}
           </div>
-          {recording && (
+          {recording && testModeEnabled && (
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>
               (Demo: tap finish twice to see both a routine and an urgent example)
             </div>
           )}
+        </Card>
+      ) : resultType === "unavailable" ? (
+        <Card>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+            <Sparkles size={16} color={COLORS.tealLight} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.tealLight }}>Voice notes are coming soon</span>
+          </div>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
+            Spoken check-ins aren't available yet. When they are, you'll be able to speak
+            naturally and have your note logged and triaged here. Nothing is recorded in
+            the meantime.
+          </div>
+          <button onClick={() => { setResultType(null); setRecording(false); }} style={{
+            background: "none", border: `1px solid ${COLORS.border}`, color: COLORS.tealLight,
+            fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+            width: "100%"
+          }}>
+            Back
+          </button>
         </Card>
       ) : resultType === "emergency" ? (
         <Card style={{ border: `1.5px solid ${COLORS.danger}`, background: COLORS.badDim }}>

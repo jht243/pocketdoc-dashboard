@@ -326,7 +326,7 @@ function App() {
       />
     ),
     home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
-    checkin: <CheckInScreen />,
+    checkin: <CheckInScreen testModeEnabled={testModeEnabled} />,
     aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} testModeEnabled={testModeEnabled} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
@@ -337,7 +337,7 @@ function App() {
     profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={setActive} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={setActive} />,
-    geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} />,
+    geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} testModeEnabled={testModeEnabled} />,
     medications: <MedicationScreen setActive={setActive} userProfile={userProfile} goToMarket={goToMarket} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={setActive} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,

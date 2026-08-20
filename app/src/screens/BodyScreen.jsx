@@ -73,7 +73,14 @@ function BodyScreen({ setActive, healthData }) {
 
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
-      {historyMetric && <BodyMetricHistory metric={historyMetric} onClose={() => setHistoryMetric(null)} />}
+      {historyMetric && (
+        <BodyMetricHistory
+          metric={historyMetric}
+          series={historyMetric === "weight" ? body?.weightSeries : body?.bodyFatSeries}
+          goal={historyMetric === "weight" ? weightGoal : bodyFatGoal}
+          onClose={() => setHistoryMetric(null)}
+        />
+      )}
 
       <Header />
 

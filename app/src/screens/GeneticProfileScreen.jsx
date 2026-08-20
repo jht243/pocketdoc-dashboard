@@ -11,16 +11,14 @@ import { COLORS, SERIF } from "../theme/tokens";
 // 1. Supplement & lifestyle markers (lower stakes, actionable at user level)
 // 2. Pharmacogenomic markers (medication metabolism, higher stakes, physician-discussion framing)
 // Each marker shows what it means for this specific user, not a generic description.
-function GeneticProfileScreen({ setActive, healthData }) {
+function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
   const [activeSection, setActiveSection] = useState("lifestyle"); // lifestyle | pharma
 
-  // Real imported genomes are rich objects (from ghai.genetic_markers). Test mode
-  // instead puts a handful of plain strings on `healthData.genetics` and expects the
-  // illustrative demo set below to stand in for a real import. So: if we have any
-  // object-shaped markers, those are the user's real data and win; a string-only
-  // array means test mode, where the demo set is the intended display.
+  // Real imported genomes are rich objects (from ghai.genetic_markers) and always win.
+  // The illustrative demo set below is shown ONLY in test mode — never to a real user,
+  // even if some future live path ever handed us a bare-string genetics array.
   const importedMarkers = (healthData?.genetics || []).filter((g) => g && typeof g === "object" && g.gene);
-  const isDemo = !importedMarkers.length && Boolean(healthData?.genetics?.length);
+  const isDemo = Boolean(testModeEnabled) && !importedMarkers.length && Boolean(healthData?.genetics?.length);
   const hasGenetics = importedMarkers.length > 0 || isDemo;
 
   // Supplement & lifestyle markers — illustrative demo set, shown only in test mode.

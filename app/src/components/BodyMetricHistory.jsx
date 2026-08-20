@@ -5,25 +5,26 @@ import { Card } from "./Card";
 
 // ---- BODY SCREEN (vitals, sleep detail, weight & composition) ----
 // ---- WEIGHT / BODY FAT HISTORY (tap-in trend view) ----
-function BodyMetricHistory({ metric, onClose }) {
+// `series` and `goal` are the user's REAL data, passed down from BodyScreen. Nothing
+// is fabricated here: with fewer than two real readings there is no trend to draw, so
+// the view shows an honest empty state instead of an invented line.
+function BodyMetricHistory({ metric, series, goal, onClose }) {
   const isWeight = metric === "weight";
   const unit = isWeight ? "lb" : "%";
   const label = isWeight ? "Weight" : "Body fat";
   const color = isWeight ? COLORS.tealLight : COLORS.gold;
 
-  // 12 weeks of data, weekly cadence rather than daily, since daily weight/body fat
-  // readings are noisy (water, sodium, glycogen) and a daily trend would visually
-  // overstate normal fluctuation as if it were meaningful progress or regression.
-  const weightData = [211, 210, 209, 208.5, 207, 206, 205.5, 204, 203.5, 203, 202.5, 202];
-  const bodyFatData = [19.8, 19.5, 19.1, 18.8, 18.5, 18.2, 17.9, 17.8, 17.7, 17.6, 17.5, 17.5];
-  const data = isWeight ? weightData : bodyFatData;
-  const goal = isWeight ? 195 : 14;
+  // Weekly cadence rather than daily, since daily weight/body fat readings are noisy
+  // (water, sodium, glycogen) and a daily trend would visually overstate normal
+  // fluctuation as if it were meaningful progress or regression.
+  const data = (series || []).filter((v) => typeof v === "number" && Number.isFinite(v));
+  const hasTrend = data.length >= 2;
 
   const [hoverIdx, setHoverIdx] = useState(null);
   const w = 320, h = 140, padTop = 16, padBottom = 24;
   const innerH = h - padTop - padBottom;
-  const stepX = w / (data.length - 1);
-  const allVals = [...data, goal];
+  const stepX = w / Math.max(1, data.length - 1);
+  const allVals = goal != null ? [...data, goal] : data;
   const maxV = Math.max(...allVals) + 1;
   const minV = Math.min(...allVals) - 1;
   const toY = (v) => padTop + innerH * (1 - (v - minV) / (maxV - minV));
@@ -58,6 +59,14 @@ function BodyMetricHistory({ metric, onClose }) {
         }}><X size={16} color={COLORS.textSecondary} /></button>
       </div>
 
+      {!hasTrend ? (
+        <Card>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6 }}>
+            Not enough history yet to show a {label.toLowerCase()} trend. Once you have a
+            few weeks of readings, your progress toward your goal will appear here.
+          </div>
+        </Card>
+      ) : (<>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
         <div>
           <div style={{ fontSize: 11, color: COLORS.textMuted }}>Start</div>
@@ -67,10 +76,12 @@ function BodyMetricHistory({ metric, onClose }) {
           <div style={{ fontSize: 11, color: COLORS.textMuted }}>Current</div>
           <div style={{ fontSize: 16, fontWeight: 700, color }}>{data[data.length - 1]} {unit}</div>
         </div>
-        <div>
-          <div style={{ fontSize: 11, color: COLORS.textMuted }}>Goal</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.gold }}>{goal} {unit}</div>
-        </div>
+        {goal != null && (
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted }}>Goal</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.gold }}>{goal} {unit}</div>
+          </div>
+        )}
       </div>
 
       <Card>
@@ -89,7 +100,9 @@ function BodyMetricHistory({ metric, onClose }) {
           )}
           <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
             onMouseMove={handleMove} onMouseLeave={() => setHoverIdx(null)}>
-            <line x1={0} y1={goalY} x2={w} y2={goalY} stroke={COLORS.gold} strokeWidth="1.5" strokeDasharray="4 4" />
+            {goal != null && (
+              <line x1={0} y1={goalY} x2={w} y2={goalY} stroke={COLORS.gold} strokeWidth="1.5" strokeDasharray="4 4" />
+            )}
             <path d={path} fill="none" stroke={color} strokeWidth="2.5" />
             {hoverIdx !== null && (
               <circle cx={hoverIdx * stepX} cy={toY(data[hoverIdx])} r="4" fill={color} stroke={COLORS.bgDeep} strokeWidth="1.5" />
@@ -107,6 +120,7 @@ function BodyMetricHistory({ metric, onClose }) {
         with water, sodium, and glycogen, a single day's number isn't a meaningful read on
         progress.
       </div>
+      </>)}
     </div>
   );
 }
