@@ -6,6 +6,7 @@ import { ScoreGauge } from "../components/ScoreGauge";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
+import { formatHoursMinutes } from "../lib/wearableShape";
 import { COLORS, SERIF, SHADOW } from "../theme/tokens";
 
 function HomeScreen({
@@ -33,6 +34,24 @@ function HomeScreen({
     ...v,
     color: v.color === "warning" ? COLORS.warning : v.color === "danger" ? COLORS.danger : COLORS.tealLight,
   }));
+
+  // Last-night glance — sleep score + steps, the two daily-refresh numbers worth
+  // seeing without opening Body. Each half renders only when its metric exists.
+  const today = healthData?.today;
+  const dailyGlance = today && (today.sleepScore != null || today.steps != null)
+    ? [
+        today.sleepScore != null && {
+          icon: Moon, label: "Sleep",
+          value: String(today.sleepScore),
+          sub: today.totalSleepMinutes != null ? formatHoursMinutes(today.totalSleepMinutes) : "score",
+        },
+        today.steps != null && {
+          icon: Activity, label: "Steps",
+          value: today.steps.toLocaleString(),
+          sub: today.activeCalories != null ? `${today.activeCalories.toLocaleString()} kcal` : "today",
+        },
+      ].filter(Boolean)
+    : [];
 
   // One contextual action button — the single most time-sensitive thing
   const contextualAction = (() => {
@@ -173,6 +192,30 @@ function HomeScreen({
                 <div style={{ fontSize: 10, color: v.color }}>{v.sub}</div>
               </div>
             ))}
+            <div style={{ display: "flex", alignItems: "center", paddingLeft: 12 }}>
+              <ChevronRight size={14} color={COLORS.textMuted} />
+            </div>
+          </div>
+        </Card>
+      </button>}
+
+      {/* Element 3b: Last-night glance — sleep + steps */}
+      {dailyGlance.length > 0 && <button onClick={() => setActive("body")} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
+        <Card style={{ marginBottom: 0 }}>
+          <div style={{ display: "flex", gap: 0 }}>
+            {dailyGlance.map((g, i) => {
+              const Icon = g.icon;
+              return (
+                <div key={g.label} style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "2px 0", borderRight: i < dailyGlance.length - 1 ? `1px solid ${COLORS.border}` : "none", paddingLeft: i > 0 ? 14 : 0 }}>
+                  <Icon size={18} color={COLORS.tealLight} style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 10, color: COLORS.textMuted }}>{g.label}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.1 }}>{g.value}</div>
+                    <div style={{ fontSize: 10, color: COLORS.textMuted }}>{g.sub}</div>
+                  </div>
+                </div>
+              );
+            })}
             <div style={{ display: "flex", alignItems: "center", paddingLeft: 12 }}>
               <ChevronRight size={14} color={COLORS.textMuted} />
             </div>

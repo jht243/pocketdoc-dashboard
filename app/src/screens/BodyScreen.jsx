@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import { BodyMetricHistory } from "../components/BodyMetricHistory";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
+import { formatHoursMinutes } from "../lib/wearableShape";
 import { COLORS, SERIF } from "../theme/tokens";
 
 // ---- BODY SCREEN (vitals, sleep detail, weight & composition) ----
@@ -13,9 +14,11 @@ import { COLORS, SERIF } from "../theme/tokens";
 function BodyScreen({ setActive, healthData }) {
   const [editingGoals, setEditingGoals] = useState(false);
   const [historyMetric, setHistoryMetric] = useState(null); // null | "weight" | "bodyfat"
+  const [showAllMetrics, setShowAllMetrics] = useState(false); // collapsed by default
 
   const today = healthData?.today;
   const body = healthData?.body;
+  const metrics = healthData?.metrics || [];
 
   // Parse the leading number out of snapshot strings like "202 lb" / "17.5%".
   const num = (v) => {
@@ -104,7 +107,7 @@ function BodyScreen({ setActive, healthData }) {
         </Card>
       </>)}
 
-      {today && (today.hrv != null || today.restingHR != null || today.skinTempDeviation != null) && (<>
+      {today && (today.hrv != null || today.restingHR != null || today.skinTempDeviation != null || today.spo2 != null) && (<>
         <SectionLabel>Vitals</SectionLabel>
         <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           {today.hrv != null && (
@@ -118,10 +121,98 @@ function BodyScreen({ setActive, healthData }) {
               subColor={rhrAbove ? COLORS.warning : COLORS.tealLight} />
           )}
           {today.skinTempDeviation != null && (
-            <StatCard label="Skin temp deviation" value={`${today.skinTempDeviation > 0 ? "+" : ""}${today.skinTempDeviation}`} unit="°F"
+            <StatCard label="Skin temp deviation" value={`${today.skinTempDeviation > 0 ? "+" : ""}${today.skinTempDeviation}`} unit="°C"
               sub="vs. baseline" subColor={today.skinTempDeviation > 0 ? COLORS.warning : COLORS.tealLight} />
           )}
+          {today.spo2 != null && (
+            <StatCard label="Blood oxygen" value={today.spo2} unit="%"
+              sub={today.spo2 >= 95 ? "Normal range" : "Below typical"}
+              subColor={today.spo2 >= 95 ? COLORS.tealLight : COLORS.warning} />
+          )}
         </div>
+      </>)}
+
+      {today && today.sleepScore != null && (<>
+        <SectionLabel>Sleep last night</SectionLabel>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Sleep score</div>
+              <div style={{ fontSize: 28, fontWeight: 700 }}>{today.sleepScore}</div>
+            </div>
+            {today.totalSleepMinutes != null && (
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Time asleep</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{formatHoursMinutes(today.totalSleepMinutes)}</div>
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 0, flexWrap: "wrap", borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
+            {[
+              { label: "Deep", value: today.deepSleepMinutes != null ? formatHoursMinutes(today.deepSleepMinutes) : null },
+              { label: "REM", value: today.remSleepMinutes != null ? formatHoursMinutes(today.remSleepMinutes) : null },
+              { label: "Awake", value: today.awakeMinutes != null ? formatHoursMinutes(today.awakeMinutes) : null },
+              { label: "Efficiency", value: today.sleepEfficiency != null ? `${Math.round(today.sleepEfficiency * 100)}%` : null },
+              { label: "Avg HR", value: today.averageHR != null ? `${today.averageHR} bpm` : null },
+            ].filter((s) => s.value != null).map((s, i, arr) => (
+              <div key={s.label} style={{ flex: "1 0 33%", textAlign: "center", padding: "4px 0" }}>
+                <div style={{ fontSize: 10, color: COLORS.textMuted, marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </>)}
+
+      {today && (today.steps != null || today.activityScore != null || today.activeCalories != null) && (<>
+        <SectionLabel>Activity</SectionLabel>
+        <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          {today.steps != null && (
+            <StatCard label="Steps" value={today.steps.toLocaleString()} unit="" />
+          )}
+          {today.activeCalories != null && (
+            <StatCard label="Active calories" value={today.activeCalories.toLocaleString()} unit="kcal" />
+          )}
+          {today.activityScore != null && (
+            <StatCard label="Activity score" value={today.activityScore} unit="" />
+          )}
+          {today.zone2Minutes != null && (
+            <StatCard label="Active minutes" value={today.zone2Minutes} unit="min" sub="MET 4+" />
+          )}
+        </div>
+      </>)}
+
+      {metrics.length > 0 && (<>
+        <button onClick={() => setShowAllMetrics((v) => !v)} style={{
+          width: "100%", background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 10,
+          color: COLORS.textSecondary, fontSize: 12, fontWeight: 600, padding: "10px 14px", cursor: "pointer",
+          display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14
+        }}>
+          <span>All collected metrics ({metrics.length})</span>
+          <ChevronDown size={14} style={{ transform: showAllMetrics ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+        </button>
+
+        {showAllMetrics && (
+          <Card>
+            <div style={{ display: "flex", fontSize: 10, color: COLORS.textMuted, paddingBottom: 8, borderBottom: `1px solid ${COLORS.border}`, marginBottom: 4 }}>
+              <div style={{ flex: 2 }}>Metric</div>
+              <div style={{ flex: 1, textAlign: "right" }}>Latest</div>
+              <div style={{ flex: 1.4, textAlign: "right" }}>Range (30d)</div>
+            </div>
+            {metrics.map((m) => (
+              <div key={m.key} style={{ display: "flex", alignItems: "center", fontSize: 12, padding: "7px 0", borderBottom: `1px solid ${COLORS.border}40` }}>
+                <div style={{ flex: 2, color: COLORS.textSecondary }}>{m.label}</div>
+                <div style={{ flex: 1, textAlign: "right", fontWeight: 700 }}>{m.current ?? "—"}</div>
+                <div style={{ flex: 1.4, textAlign: "right", color: COLORS.textMuted, fontSize: 11 }}>
+                  {m.samples > 1 ? `${m.low}–${m.high}` : "—"}
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 10 }}>
+              Range shows the lowest and highest readings over the last 30 days synced from your device.
+            </div>
+          </Card>
+        )}
       </>)}
 
       {(currentWeight != null || currentBodyFat != null) && (<>
