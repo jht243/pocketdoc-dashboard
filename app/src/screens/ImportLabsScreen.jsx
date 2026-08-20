@@ -7,6 +7,35 @@ import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument } from "../lib/profileStore";
 
+/**
+ * Turn the model's raw reply into a marker array — tolerantly.
+ *
+ * The happy path is a clean JSON array, but the response can arrive fenced in
+ * ```json, wrapped in a sentence of prose, or truncated by a max_tokens cutoff
+ * mid-object. A single JSON.parse over the whole string throws on any of those and
+ * loses every marker. Instead: try the whole thing first, then fall back to
+ * recovering each complete flat {…} object individually. Marker objects have no
+ * nested braces, so the non-nested match is safe and simply drops the one incomplete
+ * trailing object a cutoff leaves behind.
+ */
+function parseMarkerArray(raw) {
+  const clean = (raw || "").replace(/```json|```/g, "").trim();
+  try {
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.markers)) return parsed.markers;
+  } catch { /* fall through to per-object salvage */ }
+
+  const out = [];
+  for (const chunk of clean.match(/\{[^{}]*\}/g) || []) {
+    try {
+      const obj = JSON.parse(chunk);
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) out.push(obj);
+    } catch { /* skip the truncated trailing object */ }
+  }
+  return out;
+}
+
 // ---- RECORDS SCREEN ----
 // ---- IMPORT LABS SCREEN ----
 // Full pipeline: upload PDF or capture photo → AI extracts markers → user confirms → catalogued.
@@ -97,17 +126,20 @@ If you cannot find lab data in the document, return an empty array [].`,
             ]
           }
         ],
+        // A full panel is dozens of markers; the 1000-token default truncated the JSON
+        // mid-object, so JSON.parse threw and every marker was lost. Give the array room.
+        maxTokens: 4096,
         pdf: true,
       });
       const raw = firstText(data, "[]");
-      const clean = raw.replace(/```json|```/g, "").trim();
-      let parsed;
-      try {
-        parsed = JSON.parse(clean);
-      } catch {
-        throw new Error("Response wasn't valid JSON: " + raw.slice(0, 100));
+      const parsed = parseMarkerArray(raw);
+      // parseMarkerArray never throws — it salvages complete markers even from a
+      // truncated or prose-wrapped response. An empty result is only an error if the
+      // model returned something other than a clean empty array.
+      if (!parsed.length && !/^\s*\[\s*\]\s*$/.test(raw.replace(/```json|```/g, ""))) {
+        setExtractionError("Couldn't read any markers from this file. You can add them manually below, or try a clearer scan.");
       }
-      setExtractedMarkers(Array.isArray(parsed) ? parsed : []);
+      setExtractedMarkers(parsed);
       setStage("review");
     } catch (err) {
       console.error("Extraction error:", err);

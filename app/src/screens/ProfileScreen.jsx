@@ -53,10 +53,27 @@ const NOTICE_TEXT = {
 };
 
 function ProfileScreen({
-  setActive, nutritionEnabled, setNutritionEnabled,
+  setActive, nutritionEnabled, setNutritionEnabled, userProfile, healthHistory, healthData,
   testModeEnabled, ouraNotice, onOuraNoticeSeen, onWearableChange,
 }) {
   const { user } = useAuth();
+
+  // Identity is derived from the real profile — never hardcoded. Nothing about the
+  // demo user ("Adam Locker") should ever appear for a real signed-in person.
+  const displayName = userProfile?.profile?.name || null;
+  const memberSince = userProfile?.onboardingCompletedAt
+    ? new Date(userProfile.onboardingCompletedAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
+    : null;
+  const identityParts = [displayName, memberSince ? `Member since ${memberSince}` : null].filter(Boolean);
+
+  // Real medications/therapies the user actually entered (or the demo snapshot in
+  // test mode). No pre-filled prescriptions, no invented "On TRT" status.
+  const medications = userProfile?.intake?.medications || healthHistory?.medications || [];
+  const conditions = userProfile?.intake?.conditions || healthHistory?.conditions || [];
+
+  // Genetic markers are only real once a source is imported; there is no live
+  // ingestion yet, so this is populated only by the demo snapshot.
+  const hasGenetics = Boolean(healthData?.genetics?.length);
   const [oura, setOura] = useState(null);      // null = still loading
   const [busy, setBusy] = useState(null);      // "connect" | "sync" | "disconnect"
   const [notice, setNotice] = useState(null);
@@ -126,9 +143,11 @@ function ProfileScreen({
       </button>
 
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your profile</div>
-      <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
-        Adam Locker &middot; On TRT &middot; Member since Jun 2026
-      </div>
+      {identityParts.length > 0 && (
+        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
+          {identityParts.join(" · ")}
+        </div>
+      )}
 
       <SectionLabel>Genetic profile</SectionLabel>
       <button onClick={() => setActive("geneticprofile")} style={{
@@ -139,8 +158,14 @@ function ProfileScreen({
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <Dna size={18} color={COLORS.gold} />
           <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>View genetic markers</div>
-            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>6 lifestyle markers · 5 pharmacogenomic markers</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>
+              {hasGenetics ? "View genetic markers" : "Connect genetic data"}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
+              {hasGenetics
+                ? "Supplement, lifestyle & pharmacogenomic markers"
+                : "Not connected — import 23andMe or a clinical panel"}
+            </div>
           </div>
         </div>
         <ChevronRight size={16} color={COLORS.textMuted} />
@@ -156,7 +181,11 @@ function ProfileScreen({
           <FlaskConical size={18} color={COLORS.tealLight} />
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>Medications & interactions</div>
-            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>2 prescriptions · 2 supplements · no flags</div>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
+              {medications.length
+                ? `${medications.length} on file · check interactions`
+                : "Add your prescriptions & supplements"}
+            </div>
           </div>
         </div>
         <ChevronRight size={16} color={COLORS.textMuted} />
@@ -202,15 +231,17 @@ function ProfileScreen({
         </div>
       </Card>
 
-      <SectionLabel>Current therapies</SectionLabel>
-      <Card>
-        <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
-          Testosterone Replacement Therapy (TRT), monitored monthly
-        </div>
-        <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4 }}>
-          Used to recommend monthly panels and check supplement interactions.
-        </div>
-      </Card>
+      {conditions.length > 0 && (<>
+        <SectionLabel>Conditions & therapies</SectionLabel>
+        <Card>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
+            {conditions.join(" · ")}
+          </div>
+          <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4 }}>
+            Used to recommend relevant panels and check supplement interactions.
+          </div>
+        </Card>
+      </>)}
 
       <SectionLabel>Connected devices</SectionLabel>
       <Card>

@@ -87,6 +87,19 @@ function buildLiveScore(storedProfile, wearable) {
   return { baseItems, ...(wearable?.score || {}) };
 }
 
+// Shape the DB rows (labs, uploaded documents, wearable) plus the derived score into
+// the single `liveHealthData` object every screen reads. Kept here so the mount load,
+// the onboarding hand-off, and the test-mode-off path can never drift apart.
+function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null) {
+  return {
+    labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
+    records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
+    today: wearable?.today,
+    vitals: wearable?.vitals || [],
+    score: buildLiveScore(stored, wearable),
+  };
+}
+
 function App() {
   const { user, loading: authLoading, recovering } = useAuth();
   const [active, setActive] = useState("onboarding");
@@ -165,20 +178,12 @@ function App() {
     setProfileLoading(true);
     Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id)]).then(([stored, testMode, documents, labMarkers, wearable]) => {
       if (cancelled) return;
-      setLiveHealthData({
-        labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
-        records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
-        // Wearable slice. `score` is what switches the health-score ring on —
-        // useScoreModel returns hasData:false without it, which is why live users
-        // have never seen it.
-        today: wearable?.today,
-        vitals: wearable?.vitals || [],
-        // Both halves of the ring: base = preventive-care coverage (from the same
-        // schedule the Preventive Care screen renders), daily = today's wearable.
-        // Stays undefined until at least one half has real data, so the ring is
-        // hidden rather than rendering an honest-looking zero.
-        score: buildLiveScore(stored, wearable),
-      });
+      // Both halves of the ring come from `buildLiveHealthData`: base = preventive-care
+      // coverage (the same schedule the Preventive Care screen renders), daily = today's
+      // wearable. `score` is what switches the health-score ring on — useScoreModel
+      // returns hasData:false without it — and stays undefined until at least one half
+      // has real data, so the ring is hidden rather than rendering an honest-looking zero.
+      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable));
       // Coming back from Oura's consent screen lands on Profile, where the device
       // list and the result notice are — otherwise the user is dropped on Home with
       // no confirmation that anything happened.
@@ -244,6 +249,16 @@ function App() {
 
   const handleOnboardingComplete = async (data) => {
     setUserProfile(data);
+    // Unlock the health-score ring the instant they land on Home. The mount effect is
+    // what normally builds liveHealthData, but it's keyed on `user` and doesn't re-run
+    // on completion — so without this the score stayed locked ("import a lab to unlock")
+    // until a full reload, even though onboarding just produced a schedule and labs.
+    // Derive the score synchronously from the schedule the user just built; labs,
+    // records, and wearable merge in below once their tables come back.
+    setLiveHealthData((prev) => ({
+      ...(prev || {}),
+      score: buildLiveScore(data, null),
+    }));
     setActive("home");
     if (!user) return;
     // The user shouldn't wait on the network to reach home; these settle behind it.
@@ -251,7 +266,14 @@ function App() {
     await saveScreenings(user.id, data.schedule, data.completedItems);
     await saveMedications(user.id, data.intake?.medications || []);
     // Uploads are no longer deferred to here — OnboardingScreen stores the file the
-    // moment it's picked, so abandoning steps 4/5 can't lose it.
+    // moment it's picked, so abandoning steps 4/5 can't lose it. Pull the labs, records,
+    // and wearable saved during onboarding and fold them in over the interim score.
+    const [documents, labMarkers, wearable] = await Promise.all([
+      loadDocuments(user.id),
+      loadLabMarkers(user.id),
+      loadWearableSnapshot(user.id),
+    ]);
+    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable));
   };
 
   const handleTestModeChange = async (nextEnabled) => {
@@ -270,14 +292,13 @@ function App() {
       const { error } = await disableTestMode(user.id);
       if (!error) {
         const stored = await loadFullProfile(user.id);
-        const [documents, labMarkers] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id)]);
+        const [documents, labMarkers, wearable] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id)]);
         setTestModeEnabled(false);
         setTestSnapshot(null);
         setHealthHistory(null);
-        setLiveHealthData({
-          labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
-          records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
-        });
+        // Rebuild the full live snapshot — including `score`, which this path used to
+        // omit, leaving the ring locked after leaving test mode.
+        setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable));
         if (stored?.onboardingCompletedAt) {
           setUserProfile(stored);
           setActive("home");
@@ -308,10 +329,10 @@ function App() {
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
-    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
-    body: <BodyScreen setActive={setActive} />,
+    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
+    body: <BodyScreen setActive={setActive} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={setActive} />,
-    geneticprofile: <GeneticProfileScreen setActive={setActive} />,
+    geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} />,
     medications: <MedicationScreen setActive={setActive} userProfile={userProfile} goToMarket={goToMarket} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={setActive} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,

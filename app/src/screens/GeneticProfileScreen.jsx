@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChevronRight, Dna, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
+import { LockedDataSection } from "../components/LockedDataSection";
 import { COLORS, SERIF } from "../theme/tokens";
 
 // ---- HOME SCREEN ----
@@ -10,11 +11,19 @@ import { COLORS, SERIF } from "../theme/tokens";
 // 1. Supplement & lifestyle markers (lower stakes, actionable at user level)
 // 2. Pharmacogenomic markers (medication metabolism, higher stakes, physician-discussion framing)
 // Each marker shows what it means for this specific user, not a generic description.
-function GeneticProfileScreen({ setActive }) {
+function GeneticProfileScreen({ setActive, healthData }) {
   const [activeSection, setActiveSection] = useState("lifestyle"); // lifestyle | pharma
 
-  // Supplement & lifestyle markers. These are from the user's imported 23andMe data
-  // and the clinical genetic panel. In production, populated from the actual import.
+  // Genetic markers only exist once the user has actually imported a source
+  // (23andMe export or a clinical panel). There is no live genetic ingestion yet,
+  // so real users have nothing here — the demo snapshot is the only thing that
+  // populates `healthData.genetics`. Never render the sample marker set below to a
+  // user who hasn't connected a source; it is illustrative demo data, not theirs.
+  const hasGenetics = Boolean(healthData?.genetics?.length);
+
+  // Supplement & lifestyle markers — illustrative demo set, shown only when the
+  // user has connected a genetic source. In production these are populated from the
+  // actual import rather than this static array.
   const lifestyleMarkers = [
     {
       gene: "MTHFR",
@@ -330,8 +339,24 @@ function GeneticProfileScreen({ setActive }) {
 
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Genetic profile</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 6 }}>
-        Based on your imported 23andMe data and clinical panel.
+        {hasGenetics
+          ? "Based on your imported genetic data."
+          : "Import a genetic source to see your markers."}
       </div>
+
+      {!hasGenetics && (
+        <div style={{ marginTop: 16 }}>
+          <LockedDataSection
+            title="No genetic data connected"
+            description="Connect 23andMe or import a clinical genetic panel to see your supplement, lifestyle, and pharmacogenomic markers here. Nothing is shown until your own data is imported."
+            actionLabel="Import genetic data"
+            onAction={() => setActive("importlabs")}
+            rows={3}
+          />
+        </div>
+      )}
+
+      {hasGenetics && (<>
       <div style={{
         fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, marginBottom: 22,
         padding: "10px 12px", background: COLORS.bgCardAlt, borderRadius: 10
@@ -384,6 +409,7 @@ function GeneticProfileScreen({ setActive }) {
           {pharmaMarkers.map(m => <PharmaMarkerCard key={m.gene} m={m} />)}
         </>
       )}
+      </>)}
     </div>
   );
 }
