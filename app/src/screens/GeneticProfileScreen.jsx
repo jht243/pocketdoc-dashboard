@@ -14,17 +14,18 @@ import { COLORS, SERIF } from "../theme/tokens";
 function GeneticProfileScreen({ setActive, healthData }) {
   const [activeSection, setActiveSection] = useState("lifestyle"); // lifestyle | pharma
 
-  // Genetic markers only exist once the user has actually imported a source
-  // (23andMe export or a clinical panel). There is no live genetic ingestion yet,
-  // so real users have nothing here — the demo snapshot is the only thing that
-  // populates `healthData.genetics`. Never render the sample marker set below to a
-  // user who hasn't connected a source; it is illustrative demo data, not theirs.
-  const hasGenetics = Boolean(healthData?.genetics?.length);
+  // Real imported genomes are rich objects (from ghai.genetic_markers). Test mode
+  // instead puts a handful of plain strings on `healthData.genetics` and expects the
+  // illustrative demo set below to stand in for a real import. So: if we have any
+  // object-shaped markers, those are the user's real data and win; a string-only
+  // array means test mode, where the demo set is the intended display.
+  const importedMarkers = (healthData?.genetics || []).filter((g) => g && typeof g === "object" && g.gene);
+  const isDemo = !importedMarkers.length && Boolean(healthData?.genetics?.length);
+  const hasGenetics = importedMarkers.length > 0 || isDemo;
 
-  // Supplement & lifestyle markers — illustrative demo set, shown only when the
-  // user has connected a genetic source. In production these are populated from the
-  // actual import rather than this static array.
-  const lifestyleMarkers = [
+  // Supplement & lifestyle markers — illustrative demo set, shown only in test mode.
+  // Real users see their own imported genomes rendered from `importedMarkers` instead.
+  const demoLifestyleMarkers = [
     {
       gene: "MTHFR",
       variant: "C677T heterozygous",
@@ -118,7 +119,7 @@ function GeneticProfileScreen({ setActive, healthData }) {
 
   // Pharmacogenomic markers. These govern drug metabolism and carry different framing:
   // always described as "discuss with your prescriber" not "here's what to do."
-  const pharmaMarkers = [
+  const demoPharmaMarkers = [
     {
       gene: "CYP2D6",
       variant: "Intermediate metabolizer",
@@ -196,11 +197,21 @@ function GeneticProfileScreen({ setActive, healthData }) {
     },
   ];
 
+  // The sets actually rendered: the user's imported genomes when present, split by
+  // the `category` the extraction assigned; the demo set in test mode.
+  const lifestyleMarkers = isDemo
+    ? demoLifestyleMarkers
+    : importedMarkers.filter((m) => m.category !== "pharma");
+  const pharmaMarkers = isDemo
+    ? demoPharmaMarkers
+    : importedMarkers.filter((m) => m.category === "pharma");
+
   const statusColors = {
     normal: COLORS.tealLight,
     favorable: COLORS.tealLight,
     variant: COLORS.warning,
     watch: COLORS.danger,
+    unknown: COLORS.textMuted,
   };
 
   const impactBg = {
@@ -221,10 +232,10 @@ function GeneticProfileScreen({ setActive, healthData }) {
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{m.gene}</span>
-                <span style={{
+                {m.variant && <span style={{
                   fontSize: 10, color: statusColors[m.status], background: `${statusColors[m.status]}20`,
                   padding: "2px 7px", borderRadius: 5, fontWeight: 600
-                }}>{m.variant}</span>
+                }}>{m.variant}</span>}
               </div>
               <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{m.title}</div>
             </div>
@@ -233,13 +244,25 @@ function GeneticProfileScreen({ setActive, healthData }) {
         </button>
         {open && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
-              {m.what}
-            </div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 8, letterSpacing: 0.5 }}>
-              WHAT THIS MEANS FOR YOU
-            </div>
-            {m.forYou.map((point, i) => (
+            {m.what && (
+              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
+                {m.what}
+              </div>
+            )}
+            {m.notes && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", background: COLORS.bgCard, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 6, letterSpacing: 0.5 }}>
+                  FROM YOUR REPORT
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6 }}>{m.notes}</div>
+              </div>
+            )}
+            {(m.forYou || []).length > 0 && (
+              <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 8, letterSpacing: 0.5 }}>
+                WHAT THIS MEANS FOR YOU
+              </div>
+            )}
+            {(m.forYou || []).map((point, i) => (
               <div key={i} style={{ display: "flex", gap: 8, marginBottom: 7 }}>
                 <span style={{ color: COLORS.tealLight, flexShrink: 0, marginTop: 1 }}>·</span>
                 <span style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>{point}</span>
@@ -271,10 +294,10 @@ function GeneticProfileScreen({ setActive, healthData }) {
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 3 }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{m.gene}</span>
-                <span style={{
+                {m.variant && <span style={{
                   fontSize: 10, color: statusColors[m.status], background: `${statusColors[m.status]}20`,
                   padding: "2px 7px", borderRadius: 5, fontWeight: 600
-                }}>{m.variant}</span>
+                }}>{m.variant}</span>}
                 <span style={{
                   fontSize: 10, color: m.impact === "Clinical" ? COLORS.danger : COLORS.textMuted,
                   background: COLORS.bgCardAlt, padding: "2px 7px", borderRadius: 5
@@ -287,13 +310,25 @@ function GeneticProfileScreen({ setActive, healthData }) {
         </button>
         {open && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
-              {m.what}
-            </div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.warning, marginBottom: 8, letterSpacing: 0.5 }}>
-              AFFECTED MEDICATIONS
-            </div>
-            {m.medications.map((med, i) => (
+            {m.what && (
+              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
+                {m.what}
+              </div>
+            )}
+            {m.notes && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", background: COLORS.bgCard, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 6, letterSpacing: 0.5 }}>
+                  FROM YOUR REPORT
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6 }}>{m.notes}</div>
+              </div>
+            )}
+            {(m.medications || []).length > 0 && (
+              <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.warning, marginBottom: 8, letterSpacing: 0.5 }}>
+                AFFECTED MEDICATIONS
+              </div>
+            )}
+            {(m.medications || []).map((med, i) => (
               <div key={i} style={{
                 display: "flex", justifyContent: "space-between", padding: "7px 0",
                 borderBottom: i < m.medications.length - 1 ? `1px solid ${COLORS.border}` : "none"
@@ -311,7 +346,9 @@ function GeneticProfileScreen({ setActive, healthData }) {
               <div style={{ fontSize: 11, fontWeight: 600, color: m.status === "normal" ? COLORS.tealLight : COLORS.warning, marginBottom: 4 }}>
                 DISCUSS WITH YOUR PRESCRIBER
               </div>
-              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>{m.discuss}</div>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
+                {m.discuss || "Share this pharmacogenomic result with your prescriber before starting or changing any affected medication."}
+              </div>
             </div>
             <div style={{
               marginTop: 10, padding: "8px 10px", background: COLORS.bgCard,
@@ -384,7 +421,7 @@ function GeneticProfileScreen({ setActive, healthData }) {
           <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 14, lineHeight: 1.5 }}>
             Tap any marker to see what it means for your supplement and lifestyle decisions specifically.
           </div>
-          {lifestyleMarkers.map(m => <LifestyleMarkerCard key={m.gene} m={m} />)}
+          {lifestyleMarkers.map((m, i) => <LifestyleMarkerCard key={m.id || `${m.gene}-${i}`} m={m} />)}
           <button onClick={() => setActive("importlabs")} style={{
             width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.gold}50`,
             borderRadius: 14, padding: "14px", display: "flex", alignItems: "center",
@@ -406,7 +443,7 @@ function GeneticProfileScreen({ setActive, healthData }) {
             is for discussion with your prescriber only. Never adjust or stop a medication based
             on this screen alone.
           </div>
-          {pharmaMarkers.map(m => <PharmaMarkerCard key={m.gene} m={m} />)}
+          {pharmaMarkers.map((m, i) => <PharmaMarkerCard key={m.id || `${m.gene}-${i}`} m={m} />)}
         </>
       )}
       </>)}

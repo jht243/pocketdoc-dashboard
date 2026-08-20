@@ -373,6 +373,107 @@ export async function loadLabMarkers(userId) {
   return data || [];
 }
 
+/* ---------------- genetic markers ---------------- */
+
+/**
+ * Persist the genomes extracted (and user-confirmed) from a genetic report.
+ *
+ * A genetic report is imported as a whole, so a re-import of the *same* source
+ * document replaces that document's prior rows rather than stacking duplicates —
+ * but genomes from other documents are left untouched. Passing no documentId
+ * (e.g. a manual entry) simply appends.
+ *
+ * `markers` is the app-shaped array the review screen holds; the field names are
+ * mapped to the flat table columns here so the screen never has to know the schema.
+ */
+export async function saveGeneticMarkers(userId, markers = [], documentId = null) {
+  if (!isConfigured || !userId) return { error: null, markers: [] };
+
+  if (documentId) {
+    const { error: delErr } = await supabase
+      .from("genetic_markers")
+      .delete()
+      .eq("user_id", userId)
+      .eq("document_id", documentId);
+    if (delErr) {
+      console.error("saveGeneticMarkers/delete", delErr);
+      return { error: delErr, markers: [] };
+    }
+  }
+
+  const rows = (markers || [])
+    .filter((m) => m && m.gene && String(m.gene).trim())
+    .map((m) => ({
+      user_id: userId,
+      document_id: documentId,
+      category: m.category === "pharma" ? "pharma" : "lifestyle",
+      gene: String(m.gene).trim(),
+      variant: m.variant || null,
+      genotype: m.genotype || null,
+      rsid: m.rsid || null,
+      status: ["normal", "favorable", "variant", "watch", "unknown"].includes(m.status)
+        ? m.status
+        : "unknown",
+      impact: m.impact || null,
+      title: m.title || null,
+      summary: m.summary || m.what || null,
+      notes: m.notes || null,
+      recommendations: Array.isArray(m.recommendations)
+        ? m.recommendations
+        : Array.isArray(m.forYou)
+          ? m.forYou
+          : [],
+      medications: Array.isArray(m.medications) ? m.medications : [],
+      ai_context: m.aiContext || m.ai_context || null,
+      source: m.source || null,
+      confirmed: m.confirmed !== false,
+    }));
+  if (!rows.length) return { error: null, markers: [] };
+
+  const { data, error } = await supabase
+    .from("genetic_markers")
+    .insert(rows)
+    .select();
+  if (error) console.error("saveGeneticMarkers", error);
+  return { error, markers: data || [] };
+}
+
+/** Every genome the user has imported, newest first, in the app's card shape. */
+export async function loadGeneticMarkers(userId) {
+  if (!isConfigured || !userId) return [];
+  const { data, error } = await supabase
+    .from("genetic_markers")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("loadGeneticMarkers", error);
+    return [];
+  }
+  return (data || []).map(fromGeneticRow);
+}
+
+/** DB row → the object shape the Genetic Profile cards render. */
+function fromGeneticRow(row) {
+  return {
+    id: row.id,
+    category: row.category || "lifestyle",
+    gene: row.gene,
+    variant: row.variant || "",
+    genotype: row.genotype || "",
+    rsid: row.rsid || "",
+    status: row.status || "unknown",
+    impact: row.impact || "Informative",
+    title: row.title || "",
+    what: row.summary || "",
+    notes: row.notes || "",
+    forYou: Array.isArray(row.recommendations) ? row.recommendations : [],
+    medications: Array.isArray(row.medications) ? row.medications : [],
+    aiContext: row.ai_context || "",
+    source: row.source || "",
+  };
+}
+
 /* ---------------- screenings ---------------- */
 
 /**

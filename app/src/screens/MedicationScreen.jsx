@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronRight, ExternalLink, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, ExternalLink, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
@@ -17,6 +17,7 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editId, setEditId] = useState(null); // id of the med being edited, or null for a new one
   const [newMed, setNewMed] = useState({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" });
   const [showReport, setShowReport] = useState(false);
   const [suggestions, setSuggestions] = useState(null); // null = loading; [] = none
@@ -63,11 +64,26 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
     })));
   };
 
-  const addMedication = () => {
-    if (!newMed.name.trim()) return;
-    persist([...medications, { ...newMed, id: Date.now() }]);
+  const resetForm = () => {
     setShowAdd(false);
+    setEditId(null);
     setNewMed({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" });
+  };
+
+  const saveMedication = () => {
+    if (!newMed.name.trim()) return;
+    if (editId != null) {
+      persist(medications.map((m) => (m.id === editId ? { ...m, ...newMed } : m)));
+    } else {
+      persist([...medications, { ...newMed, id: Date.now() }]);
+    }
+    resetForm();
+  };
+
+  const startEdit = (m) => {
+    setEditId(m.id);
+    setNewMed({ name: m.name, dose: m.dose, frequency: m.frequency, prescriber: m.prescriber, type: m.type });
+    setShowAdd(true);
   };
 
   const deleteMedication = (id) => persist(medications.filter((m) => m.id !== id));
@@ -81,16 +97,23 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
       display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10,
       padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : "none"
     }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
-        <div style={{ fontSize: 11, color: COLORS.textMuted }}>
-          {[m.dose, m.frequency].filter(Boolean).join(" · ") || "No details added"}
+      <button onClick={() => startEdit(m)} aria-label={`Edit ${m.name}`} style={{
+        minWidth: 0, flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>{m.name}</div>
+        <div style={{ fontSize: 11, color: [m.dose, m.frequency].some(Boolean) ? COLORS.textMuted : COLORS.tealLight }}>
+          {[m.dose, m.frequency].filter(Boolean).join(" · ") || "Add dose & frequency"}
         </div>
         {m.prescriber && <div style={{ fontSize: 11, color: COLORS.textMuted }}>{m.prescriber}</div>}
+      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+        <button onClick={() => startEdit(m)} aria-label={`Edit ${m.name}`} style={{
+          background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, padding: 4
+        }}><Pencil size={14} /></button>
+        <button onClick={() => deleteMedication(m.id)} aria-label={`Delete ${m.name}`} style={{
+          background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, padding: 4
+        }}><Trash2 size={15} /></button>
       </div>
-      <button onClick={() => deleteMedication(m.id)} aria-label={`Delete ${m.name}`} style={{
-        background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, flexShrink: 0, padding: 4
-      }}><Trash2 size={15} /></button>
     </div>
   );
 
@@ -172,7 +195,7 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
 
       {/* Add flow — all fields user-entered. */}
       {!showAdd ? (
-        <button onClick={() => setShowAdd(true)} style={{
+        <button onClick={() => { setEditId(null); setShowAdd(true); }} style={{
           width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.tealLight}60`,
           borderRadius: 14, padding: "14px", display: "flex", alignItems: "center",
           justifyContent: "center", gap: 8, color: COLORS.tealLight, fontSize: 13,
@@ -182,7 +205,7 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
         </button>
       ) : (
         <Card style={{ border: `1px solid ${COLORS.tealLight}40` }}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Add new</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>{editId != null ? "Edit" : "Add new"}</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             {["rx", "supplement"].map((t) => (
               <button key={t} onClick={() => setNewMed((p) => ({ ...p, type: t }))} style={{
@@ -208,11 +231,11 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
             </div>
           ))}
           <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <button onClick={() => { setShowAdd(false); setNewMed({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" }); }} style={{
+            <button onClick={resetForm} style={{
               flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, color: COLORS.textSecondary,
               fontSize: 12, fontWeight: 600, padding: "9px", borderRadius: 8, cursor: "pointer"
             }}>Cancel</button>
-            <button onClick={addMedication} disabled={!newMed.name.trim()} style={{
+            <button onClick={saveMedication} disabled={!newMed.name.trim()} style={{
               flex: 1, background: !newMed.name.trim() ? COLORS.bgCardAlt : COLORS.teal,
               border: "none", color: !newMed.name.trim() ? COLORS.textMuted : COLORS.onAccent,
               fontSize: 12, fontWeight: 700, padding: "9px", borderRadius: 8, cursor: newMed.name.trim() ? "pointer" : "default"

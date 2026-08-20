@@ -9,6 +9,7 @@ import {
   loadFullProfile,
   loadDocuments,
   loadLabMarkers,
+  loadGeneticMarkers,
   saveScreenings,
   saveOnboardingProgress,
   completeOnboarding,
@@ -90,10 +91,13 @@ function buildLiveScore(storedProfile, wearable) {
 // Shape the DB rows (labs, uploaded documents, wearable) plus the derived score into
 // the single `liveHealthData` object every screen reads. Kept here so the mount load,
 // the onboarding hand-off, and the test-mode-off path can never drift apart.
-function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null) {
+function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = []) {
   return {
     labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
     records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
+    // Real imported genomes (rich objects), read by the Genetic Profile screen and
+    // summarized into the AI chat's health context. Empty until the user imports a source.
+    genetics: geneticMarkers,
     today: wearable?.today,
     vitals: wearable?.vitals || [],
     score: buildLiveScore(stored, wearable),
@@ -176,14 +180,14 @@ function App() {
       return;
     }
     setProfileLoading(true);
-    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id)]).then(([stored, testMode, documents, labMarkers, wearable]) => {
+    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id)]).then(([stored, testMode, documents, labMarkers, wearable, geneticMarkers]) => {
       if (cancelled) return;
       // Both halves of the ring come from `buildLiveHealthData`: base = preventive-care
       // coverage (the same schedule the Preventive Care screen renders), daily = today's
       // wearable. `score` is what switches the health-score ring on — useScoreModel
       // returns hasData:false without it — and stays undefined until at least one half
       // has real data, so the ring is hidden rather than rendering an honest-looking zero.
-      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable));
+      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
       // Coming back from Oura's consent screen lands on Profile, where the device
       // list and the result notice are — otherwise the user is dropped on Home with
       // no confirmation that anything happened.
@@ -268,12 +272,13 @@ function App() {
     // Uploads are no longer deferred to here — OnboardingScreen stores the file the
     // moment it's picked, so abandoning steps 4/5 can't lose it. Pull the labs, records,
     // and wearable saved during onboarding and fold them in over the interim score.
-    const [documents, labMarkers, wearable] = await Promise.all([
+    const [documents, labMarkers, wearable, geneticMarkers] = await Promise.all([
       loadDocuments(user.id),
       loadLabMarkers(user.id),
       loadWearableSnapshot(user.id),
+      loadGeneticMarkers(user.id),
     ]);
-    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable));
+    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable, geneticMarkers));
   };
 
   const handleTestModeChange = async (nextEnabled) => {
@@ -292,13 +297,13 @@ function App() {
       const { error } = await disableTestMode(user.id);
       if (!error) {
         const stored = await loadFullProfile(user.id);
-        const [documents, labMarkers, wearable] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id)]);
+        const [documents, labMarkers, wearable, geneticMarkers] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id)]);
         setTestModeEnabled(false);
         setTestSnapshot(null);
         setHealthHistory(null);
         // Rebuild the full live snapshot — including `score`, which this path used to
         // omit, leaving the ring locked after leaving test mode.
-        setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable));
+        setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
         if (stored?.onboardingCompletedAt) {
           setUserProfile(stored);
           setActive("home");

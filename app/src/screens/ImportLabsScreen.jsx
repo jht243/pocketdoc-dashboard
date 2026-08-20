@@ -5,7 +5,7 @@ import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
-import { uploadDocument } from "../lib/profileStore";
+import { uploadDocument, saveGeneticMarkers } from "../lib/profileStore";
 
 /**
  * Turn the model's raw reply into a marker array — tolerantly.
@@ -36,6 +36,75 @@ function parseMarkerArray(raw) {
   return out;
 }
 
+/**
+ * Turn the model's raw reply into a genome array — tolerantly.
+ *
+ * Genetic objects are NOT flat: each carries nested `recommendations` / `medications`
+ * arrays, so the non-nested `{…}` salvage that parseMarkerArray uses would shatter
+ * them. Here the fallback walks the string tracking brace depth (outside of strings)
+ * and slices each complete top-level object, so a max_tokens cutoff only loses the
+ * single unfinished trailing genome instead of every one.
+ */
+function parseGeneticArray(raw) {
+  const clean = (raw || "").replace(/```json|```/g, "").trim();
+  try {
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.markers)) return parsed.markers;
+    if (parsed && Array.isArray(parsed.genes)) return parsed.genes;
+  } catch { /* fall through to depth-aware salvage */ }
+
+  const out = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") { if (depth === 0) start = i; depth++; }
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        try {
+          const obj = JSON.parse(clean.slice(start, i + 1));
+          if (obj && typeof obj === "object" && !Array.isArray(obj)) out.push(obj);
+        } catch { /* skip a malformed object */ }
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
+
+// Coerce one model-produced genome into the exact shape the review UI and the
+// store expect — defaulting missing fields rather than trusting the model to have
+// filled every one, and forcing the enum-ish fields onto known values.
+function normalizeGenome(g) {
+  const status = ["favorable", "normal", "variant", "watch", "unknown"].includes(g?.status) ? g.status : "unknown";
+  const category = g?.category === "pharma" ? "pharma" : "lifestyle";
+  return {
+    gene: (g?.gene || "").toString().trim(),
+    variant: g?.variant || "",
+    genotype: g?.genotype || "",
+    rsid: g?.rsid || "",
+    category,
+    status,
+    impact: g?.impact || "Informative",
+    title: g?.title || "",
+    summary: g?.summary || "",
+    notes: g?.notes || "",
+    recommendations: Array.isArray(g?.recommendations) ? g.recommendations.filter(Boolean) : [],
+    medications: Array.isArray(g?.medications)
+      ? g.medications.filter((m) => m && (m.name || typeof m === "string")).map((m) => (typeof m === "string" ? { name: m, note: "" } : m))
+      : [],
+    aiContext: g?.aiContext || "",
+  };
+}
+
 // ---- RECORDS SCREEN ----
 // ---- IMPORT LABS SCREEN ----
 // Full pipeline: upload PDF or capture photo → AI extracts markers → user confirms → catalogued.
@@ -54,7 +123,9 @@ function ImportLabsScreen({ setActive }) {
   const [imagePreview, setImagePreview] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [extractedMarkers, setExtractedMarkers] = useState([]);
+  const [extractedGenetics, setExtractedGenetics] = useState([]);
   const [extractionError, setExtractionError] = useState(null);
+  const [savingGenetics, setSavingGenetics] = useState(false);
   const [labDate, setLabDate] = useState("");
   const [labSource, setLabSource] = useState("");
   const fileRef = useRef(null);
@@ -90,7 +161,8 @@ function ImportLabsScreen({ setActive }) {
       setImageData({ base64, mediaType });
       if (file.type?.startsWith("image")) setImagePreview(dataUrl);
       else setImagePreview(null);
-      await extractMarkers(base64, mediaType);
+      if (importType === "genetic") await extractGenetics(base64, mediaType);
+      else await extractMarkers(base64, mediaType);
     };
     reader.readAsDataURL(file);
   };
@@ -149,7 +221,91 @@ If you cannot find lab data in the document, return an empty array [].`,
     }
   };
 
+  // Genetic reports are a different animal from lab panels: what matters is the gene,
+  // the variant/genotype, and — critically — the interpretive NOTES the report gives
+  // for it. We extract those verbatim rather than paraphrasing, and classify each
+  // genome as lifestyle-actionable or pharmacogenomic so the profile can file it
+  // under the right tab.
+  const extractGenetics = async (base64, mediaType) => {
+    setStage("extracting");
+    setExtractionError(null);
+    try {
+      const cleanType = (mediaType || "").toLowerCase();
+      const isImage = cleanType.startsWith("image/") && !cleanType.includes("pdf");
+      const contentBlock = isImage
+        ? { type: "image", source: { type: "base64", media_type: cleanType, data: base64 } }
+        : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
+
+      const data = await callAI({
+        system: `You are extracting structured genetic data from a consumer genetic report (e.g. AncestryDNA, 23andMe, a longevity or pharmacogenomic report).
+Return ONLY a JSON array with no other text, no markdown, no backticks. One object per gene/variant the report discusses.
+Each object must have exactly these fields:
+{
+  "gene": "gene symbol, e.g. MTHFR",
+  "variant": "human-readable variant/genotype label the report uses, e.g. C677T heterozygous, or null",
+  "genotype": "raw allele call if shown, e.g. CT, or null",
+  "rsid": "dbSNP rs id if shown, e.g. rs1801133, or null",
+  "category": "pharma if this genome is about drug/medication metabolism, otherwise lifestyle",
+  "status": "favorable | normal | variant | watch | unknown",
+  "impact": "Informative | Moderate | Clinical | Watch",
+  "title": "short plain-language headline for what this genome affects",
+  "summary": "1-2 sentence explanation of what this gene/variant does",
+  "notes": "the report's OWN interpretive notes/description for this genome, quoted as closely as possible — do not invent, do not omit",
+  "recommendations": ["actionable point the report makes for lifestyle genomes", "..."],
+  "medications": [{ "name": "drug or drug class", "note": "the report's note about it" }],
+  "aiContext": "one compact line an AI health assistant can use as context"
+}
+Rules:
+- "notes" must come from the report. If the report gives no interpretation for a genome, set notes to null rather than fabricating one.
+- Use "medications" only for pharmacogenomic (category: pharma) genomes; use "recommendations" for lifestyle genomes. The unused one is an empty array [].
+- Set status to "favorable"/"normal" when the report frames the result as no concern, "variant" for an actionable difference, "watch" for higher-stakes findings that warrant follow-up.
+- If the document contains no genetic data at all, return an empty array [].`,
+        messages: [
+          {
+            role: "user",
+            content: [
+              contentBlock,
+              { type: "text", text: "Extract every gene/variant this genetic report discusses, with the report's own notes, as a JSON array." },
+            ],
+          },
+        ],
+        // Genomes carry nested notes + recommendations; a full report is many of them.
+        // Give the array plenty of room so the JSON isn't truncated mid-genome.
+        maxTokens: 8192,
+        pdf: true,
+      });
+      const raw = firstText(data, "[]");
+      const parsed = parseGeneticArray(raw).filter((g) => g && g.gene);
+      if (!parsed.length && !/^\s*\[\s*\]\s*$/.test(raw.replace(/```json|```/g, ""))) {
+        setExtractionError("Couldn't read any genomes from this file. You can add them manually below, or try a clearer scan.");
+      }
+      setExtractedGenetics(parsed.map(normalizeGenome));
+      setStage("review");
+    } catch (err) {
+      console.error("Genetic extraction error:", err);
+      setExtractionError(`Extraction failed: ${err.message}. You can add genomes manually below, or try a clearer scan.`);
+      setExtractedGenetics([]);
+      setStage("review");
+    }
+  };
+
+  const saveGenetics = async () => {
+    const kept = extractedGenetics.filter((g) => g.gene && g.gene.trim());
+    if (user && kept.length) {
+      setSavingGenetics(true);
+      const withSource = kept.map((g) => ({ ...g, source: g.source || labSource || storedDoc?.file_name || null }));
+      const { error } = await saveGeneticMarkers(user.id, withSource, storedDoc?.id || null);
+      setSavingGenetics(false);
+      if (error) {
+        setExtractionError(`Couldn't save your genomes: ${error.message || error}. Your file is still saved to your records.`);
+        return;
+      }
+    }
+    setStage("saved");
+  };
+
   const statusColor = { normal: COLORS.tealLight, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
+  const geneStatusColor = { favorable: COLORS.tealLight, normal: COLORS.tealLight, variant: COLORS.warning, watch: COLORS.danger, unknown: COLORS.textMuted };
 
   return (
     <div style={{ padding: "24px 18px" }}>
@@ -186,10 +342,10 @@ If you cannot find lab data in the document, return an empty array [].`,
 
       {stage === "idle" && (
         <>
-          <input type="file" ref={fileRef} accept=".pdf,image/*" onChange={handleFile} style={{ display: "none" }} />
+          <input type="file" ref={fileRef} accept=".pdf,.txt,image/*" onChange={handleFile} style={{ display: "none" }} />
           <input type="file" ref={cameraRef} accept="image/*" capture="environment" onChange={(e) => handleFile(e, true)} style={{ display: "none" }} />
 
-          <button onClick={() => fileRef.current?.click()} style={{
+          <button onClick={() => { setImportType("labs"); fileRef.current?.click(); }} style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
             borderRadius: 14, padding: "18px 16px", display: "flex", alignItems: "center",
             gap: 14, cursor: "pointer", marginBottom: 12, textAlign: "left"
@@ -203,7 +359,7 @@ If you cannot find lab data in the document, return an empty array [].`,
             </div>
           </button>
 
-          <button onClick={() => cameraRef.current?.click()} style={{
+          <button onClick={() => { setImportType("labs"); cameraRef.current?.click(); }} style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
             borderRadius: 14, padding: "18px 16px", display: "flex", alignItems: "center",
             gap: 14, cursor: "pointer", marginBottom: 12, textAlign: "left"
@@ -217,7 +373,7 @@ If you cannot find lab data in the document, return an empty array [].`,
             </div>
           </button>
 
-          <button onClick={() => { setExtractedMarkers([{ name: "", value: "", unit: "", range: "", status: "unknown" }]); setStage("review"); }} style={{
+          <button onClick={() => { setImportType("labs"); setExtractedMarkers([{ name: "", value: "", unit: "", range: "", status: "unknown" }]); setStage("review"); }} style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
             borderRadius: 14, padding: "18px 16px", display: "flex", alignItems: "center",
             gap: 14, cursor: "pointer", marginBottom: 12, textAlign: "left"
@@ -231,7 +387,7 @@ If you cannot find lab data in the document, return an empty array [].`,
             </div>
           </button>
 
-          <button onClick={() => { setImportType("genetic"); setFileRef; fileRef.current?.click(); }} style={{
+          <button onClick={() => { setImportType("genetic"); fileRef.current?.click(); }} style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.gold}50`,
             borderRadius: 14, padding: "18px 16px", display: "flex", alignItems: "center",
             gap: 14, cursor: "pointer", marginBottom: 18, textAlign: "left"
@@ -241,7 +397,7 @@ If you cannot find lab data in the document, return an empty array [].`,
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textPrimary }}>Import genetic data</div>
-              <div style={{ fontSize: 12, color: COLORS.textSecondary }}>Upload your 23andMe or AncestryDNA raw data file (.txt)</div>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary }}>Upload a 23andMe / AncestryDNA report or raw data file (PDF, image, or .txt)</div>
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 3 }}>Consumer genotyping, not equivalent to whole genome sequencing</div>
             </div>
           </button>
@@ -302,15 +458,102 @@ If you cannot find lab data in the document, return an empty array [].`,
             <img src={imagePreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 16, maxHeight: 180, objectFit: "cover" }} />
           )}
           <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 10 }}>
-            Reading your lab report...
+            {importType === "genetic" ? "Reading your genetic report..." : "Reading your lab report..."}
           </div>
           <div style={{ fontSize: 11, color: COLORS.textMuted }}>
-            The AI is extracting marker names, values, and reference ranges
+            {importType === "genetic"
+              ? "The AI is extracting genes, variants, and the report's own notes"
+              : "The AI is extracting marker names, values, and reference ranges"}
           </div>
         </Card>
       )}
 
-      {stage === "review" && (
+      {stage === "review" && importType === "genetic" && (
+        <>
+          {extractionError && (
+            <div style={{
+              padding: 12, background: COLORS.badDim, border: `1px solid ${COLORS.danger}40`,
+              borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14
+            }}>{extractionError}</div>
+          )}
+
+          <div style={{
+            fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, marginBottom: 14,
+            padding: "10px 12px", background: COLORS.bgCardAlt, borderRadius: 10
+          }}>
+            Review the genomes we read from your report before saving. The report's own notes
+            are shown under each gene — check they read correctly, then save to your profile.
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>Source (optional)</div>
+            <input value={labSource} onChange={e => setLabSource(e.target.value)} placeholder="e.g. AncestryDNA, 23andMe" style={{
+              width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
+              borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none"
+            }} />
+          </div>
+
+          <SectionLabel>
+            {extractedGenetics.length > 0 && !extractionError
+              ? `${extractedGenetics.length} genome${extractedGenetics.length === 1 ? "" : "s"} extracted — review before saving`
+              : "Add genomes manually"}
+          </SectionLabel>
+
+          <Card>
+            {extractedGenetics.map((g, i) => (
+              <div key={i} style={{
+                padding: "12px 0", borderBottom: i < extractedGenetics.length - 1 ? `1px solid ${COLORS.border}` : "none"
+              }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <input value={g.gene} onChange={e => setExtractedGenetics(prev => prev.map((x, j) => j === i ? { ...x, gene: e.target.value } : x))}
+                    placeholder="Gene" style={{ flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "6px 9px", color: COLORS.textPrimary, fontSize: 12, fontWeight: 600, outline: "none" }} />
+                  <input value={g.variant} onChange={e => setExtractedGenetics(prev => prev.map((x, j) => j === i ? { ...x, variant: e.target.value } : x))}
+                    placeholder="Variant / genotype" style={{ flex: 2, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "6px 9px", color: COLORS.textPrimary, fontSize: 12, outline: "none" }} />
+                  <button onClick={() => setExtractedGenetics(prev => prev.filter((_, j) => j !== i))} style={{
+                    background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, flexShrink: 0
+                  }}><X size={14} /></button>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: g.title || g.notes ? 6 : 0 }}>
+                  <span style={{ fontSize: 10, color: geneStatusColor[g.status] || COLORS.textMuted, background: COLORS.bgCardAlt, padding: "2px 8px", borderRadius: 6 }}>{g.status}</span>
+                  <button onClick={() => setExtractedGenetics(prev => prev.map((x, j) => j === i ? { ...x, category: x.category === "pharma" ? "lifestyle" : "pharma" } : x))} style={{
+                    fontSize: 10, color: g.category === "pharma" ? COLORS.warning : COLORS.tealLight,
+                    background: COLORS.bgCardAlt, padding: "2px 8px", borderRadius: 6, border: "none", cursor: "pointer"
+                  }}>{g.category === "pharma" ? "Pharmacogenomic" : "Supplement & lifestyle"}</button>
+                  {g.rsid && <span style={{ fontSize: 10, color: COLORS.textMuted }}>{g.rsid}</span>}
+                </div>
+                {g.title && <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>{g.title}</div>}
+                {g.notes && (
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, background: COLORS.bgCard, borderRadius: 8, padding: "8px 10px" }}>
+                    <span style={{ fontWeight: 600, color: COLORS.gold, letterSpacing: 0.4 }}>REPORT NOTES · </span>{g.notes}
+                  </div>
+                )}
+              </div>
+            ))}
+            <button onClick={() => setExtractedGenetics(prev => [...prev, normalizeGenome({ gene: "", status: "unknown", category: "lifestyle" })])} style={{
+              width: "100%", background: "none", border: `1px dashed ${COLORS.border}`, borderRadius: 8,
+              padding: "8px", color: COLORS.textMuted, fontSize: 12, cursor: "pointer", marginTop: 10
+            }}>
+              + Add a genome
+            </button>
+          </Card>
+
+          <button onClick={saveGenetics} disabled={savingGenetics} style={{
+            width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent,
+            fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
+            cursor: savingGenetics ? "default" : "pointer", opacity: savingGenetics ? 0.7 : 1, marginTop: 14
+          }}>
+            {savingGenetics ? "Saving to your profile…" : "Save to genetic profile"}
+          </button>
+          <button onClick={() => { setStage("idle"); setExtractedGenetics([]); setImagePreview(null); }} style={{
+            width: "100%", background: "none", border: "none", color: COLORS.textMuted,
+            fontSize: 12, padding: "10px", cursor: "pointer"
+          }}>
+            Start over
+          </button>
+        </>
+      )}
+
+      {stage === "review" && importType !== "genetic" && (
         <>
           {imagePreview && (
             <img src={imagePreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 14, maxHeight: 120, objectFit: "cover" }} />
@@ -393,18 +636,20 @@ If you cannot find lab data in the document, return an empty array [].`,
       {stage === "saved" && (
         <Card style={{ textAlign: "center", padding: "32px 20px" }}>
           <CheckCircle2 size={40} color={COLORS.tealLight} style={{ marginBottom: 14 }} />
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Saved to your health record</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+            {importType === "genetic" ? "Saved to your genetic profile" : "Saved to your health record"}
+          </div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
-            {extractedMarkers.filter(m => m.name).length} markers added from {labSource || "this lab report"}.
-            These are now part of your longitudinal record and will inform your AI conversations,
-            pattern review, and Discussion Page.
+            {importType === "genetic"
+              ? <>{extractedGenetics.filter(g => g.gene).length} genome{extractedGenetics.filter(g => g.gene).length === 1 ? "" : "s"} added from {labSource || "your genetic report"}. These now inform your Genetic Profile, supplement and pharmacogenomic guidance, and your AI conversations.</>
+              : <>{extractedMarkers.filter(m => m.name).length} markers added from {labSource || "this lab report"}. These are now part of your longitudinal record and will inform your AI conversations, pattern review, and Discussion Page.</>}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setActive("aichat")} style={{
+            <button onClick={() => setActive(importType === "genetic" ? "geneticprofile" : "aichat")} style={{
               flex: 1, background: COLORS.teal, border: "none", color: COLORS.onAccent,
               fontSize: 13, fontWeight: 700, padding: "11px", borderRadius: 10, cursor: "pointer"
-            }}>Ask AI about results</button>
-            <button onClick={() => { setStage("idle"); setExtractedMarkers([]); setImagePreview(null); setLabDate(""); setLabSource(""); }} style={{
+            }}>{importType === "genetic" ? "View genetic profile" : "Ask AI about results"}</button>
+            <button onClick={() => { setStage("idle"); setImportType("labs"); setExtractedMarkers([]); setExtractedGenetics([]); setImagePreview(null); setLabDate(""); setLabSource(""); }} style={{
               flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, color: COLORS.textSecondary,
               fontSize: 13, padding: "11px", borderRadius: 10, cursor: "pointer"
             }}>Import another</button>

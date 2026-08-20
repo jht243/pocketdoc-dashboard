@@ -54,7 +54,16 @@ function buildHealthContext(userProfile, healthData, testModeEnabled) {
   const vitals = healthData?.today
     ? `Readiness ${healthData.today.readiness} (typical ${healthData.today.readinessTypical}); HRV ${healthData.today.hrv}ms (baseline ${healthData.today.hrvBaseline}); resting HR ${healthData.today.restingHR} bpm (baseline ${healthData.today.restingHRBaseline})${healthData.today.recentSymptoms?.length ? "; recent symptoms: " + healthData.today.recentSymptoms.join(", ") : ""}.`
     : "No wearable/daily-vitals connected.";
-  const genetics = healthData?.genetics?.length ? healthData.genetics.map((g) => `- ${g}`).join("\n") : "No genetic data uploaded.";
+  // Genetics arrive in two shapes: test mode puts plain strings here; a real import
+  // puts rich marker objects. Render either into one context line per genome, and
+  // prefer the report's own notes / the AI-context line the extraction produced.
+  const geneticLine = (g) => {
+    if (typeof g === "string") return `- ${g}`;
+    const label = [g.gene, g.variant].filter(Boolean).join(" ");
+    const detail = g.aiContext || g.notes || g.what || "";
+    return `- ${label}${detail ? " — " + detail : ""}`;
+  };
+  const genetics = healthData?.genetics?.length ? healthData.genetics.map(geneticLine).join("\n") : "No genetic data uploaded.";
 
   // Key labeled fields, then the full intake as JSON so nothing the user entered is lost.
   const facts = [

@@ -12,7 +12,10 @@ import { searchProducts } from "../lib/amazon";
 // is unavailable, each card falls back to a plain Amazon search link so the page
 // still works.
 
-// Derive the supplement slots from real health data where present, else demo defaults.
+// Derive the supplement slots from real health data only. The "urgent, from your
+// bloodwork" slot appears ONLY when a real lab actually supports it — never as a
+// demo fallback, which would show a fabricated reading to a real user. The
+// general suggestions below carry no personalized claims about data we don't have.
 function buildSlots(healthData) {
   const labs = healthData?.labs || [];
   const vitD = labs.find((l) => /vitamin d/i.test(l.name || ""));
@@ -25,16 +28,7 @@ function buildSlots(healthData) {
       tier: "urgent",
       keywords: "vitamin d3 k2 5000 iu",
       fallbackName: "Vitamin D3 + K2",
-      why: `Necessary: your Vitamin D result is low (${vitD.value} ${vitD.unit || "ng/mL"}).`,
-    });
-  } else {
-    // Demo default so the page is populated without a live snapshot.
-    slots.push({
-      id: "vitd3",
-      tier: "urgent",
-      keywords: "vitamin d3 k2 5000 iu",
-      fallbackName: "Vitamin D3 + K2",
-      why: "Necessary: your Vitamin D result is low (28 ng/mL).",
+      why: `Your Vitamin D result is low (${vitD.value} ${vitD.unit || "ng/mL"}).`,
     });
   }
 
@@ -44,21 +38,21 @@ function buildSlots(healthData) {
       tier: "suggested",
       keywords: "daily multivitamin third party tested",
       fallbackName: "Daily Multivitamin",
-      why: "Recommended as a daily foundation for your profile.",
+      why: "A daily foundation many people use to cover common gaps.",
     },
     {
       id: "omega3",
       tier: "suggested",
       keywords: "omega 3 fish oil epa dha",
       fallbackName: "Omega-3 Fish Oil",
-      why: "Recommended to support cardiovascular and joint health given your training volume.",
+      why: "Commonly used to support cardiovascular and joint health.",
     },
     {
       id: "magnesium",
       tier: "suggested",
       keywords: "magnesium glycinate",
       fallbackName: "Magnesium Glycinate",
-      why: "Recommended to support sleep and recovery alongside your training load.",
+      why: "Commonly used to support sleep and muscle recovery.",
     },
   );
 
@@ -99,7 +93,7 @@ function MarketScreen({ highlight, setActive, healthData }) {
     const tier = slot.tier;
     const tierColor = tier === "urgent" ? COLORS.danger : COLORS.tealLight;
     const tierBg = tier === "urgent" ? COLORS.badDim : COLORS.bgCard;
-    const tierLabel = tier === "urgent" ? "NECESSARY · FROM YOUR BLOODWORK" : "SUGGESTED FOR YOU";
+    const tierLabel = tier === "urgent" ? "NECESSARY · FROM YOUR BLOODWORK" : "GENERAL SUGGESTION";
 
     const title = product?.title || slot.fallbackName;
     const buyUrl = product?.url || amazonSearchUrl(slot.keywords);
@@ -173,14 +167,17 @@ function MarketScreen({ highlight, setActive, healthData }) {
     <div style={{ padding: "24px 18px", position: "relative" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Marketplace</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
-        Suggestions based on your current signals. Products and prices are live from
-        Amazon. Local services open as they become available in your area.
+        Bloodwork-based picks appear when your own labs support them. General
+        suggestions are common staples, not personalized advice. Products and prices
+        are live from Amazon. Local services open as they become available in your area.
       </div>
 
-      <SectionLabel>Necessary, based on your bloodwork</SectionLabel>
-      {urgentSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
+      {urgentSlots.length > 0 && (<>
+        <SectionLabel>Necessary, based on your bloodwork</SectionLabel>
+        {urgentSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
+      </>)}
 
-      <SectionLabel>Suggested for your profile</SectionLabel>
+      <SectionLabel>General suggestions</SectionLabel>
       {suggestedSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
 
       <button onClick={() => setActive && setActive("browsesupplements")} style={{
