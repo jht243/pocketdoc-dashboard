@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { TabBar } from "./components/TabBar";
 import { COLORS } from "./theme/tokens";
@@ -21,7 +21,9 @@ import {
   enableTestMode,
   loadTestModeSnapshot,
 } from "./lib/testMode";
+import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
+import { buildBaseItems } from "./lib/scoring";
 import AuthScreen from "./screens/AuthScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import WelcomeScreen from "./screens/WelcomeScreen";
@@ -58,6 +60,33 @@ const Splash = ({ children }) => (
   </div>
 );
 
+/**
+ * Consume the `?oura=…` params exactly once per page load.
+ *
+ * Module scope rather than an effect or a state initializer, because reading them
+ * also strips them from the URL — and React invokes both render bodies and state
+ * initializers twice under StrictMode, which would clear the params on the run whose
+ * result gets discarded.
+ */
+let pendingOuraNotice;
+function takeOuraNotice() {
+  if (pendingOuraNotice === undefined) pendingOuraNotice = readOuraCallbackResult();
+  return pendingOuraNotice;
+}
+
+/**
+ * Assemble the live `healthData.score`.
+ *
+ * Returns undefined when neither half has data — HomeScreen then shows the locked
+ * "unlock your score" panel instead of a ring reading zero, which would look like a
+ * terrible score rather than an absent one.
+ */
+function buildLiveScore(storedProfile, wearable) {
+  const baseItems = buildBaseItems(storedProfile?.schedule, storedProfile?.completedItems);
+  if (!baseItems.length && !wearable?.score) return undefined;
+  return { baseItems, ...(wearable?.score || {}) };
+}
+
 function App() {
   const { user, loading: authLoading, recovering } = useAuth();
   const [active, setActive] = useState("onboarding");
@@ -79,6 +108,31 @@ function App() {
 
   // Health snapshot in play: the seeded test-mode snapshot, or live records.
   const healthData = testModeEnabled ? testSnapshot?.health || null : liveHealthData;
+
+  // Result of returning from Oura's consent screen, read once per page load.
+  // Read during render rather than in an effect: the profile-load effect decides
+  // which screen to land on, and it has to already know a connection just completed
+  // or it would send the user to Home and the notice would never be seen.
+  const [ouraNotice, setOuraNotice] = useState(takeOuraNotice);
+
+  // Re-pull the wearable slice after a connect/sync/disconnect, without refetching
+  // the whole profile. Merges rather than replaces so labs and records survive.
+  const refreshWearable = useCallback(async () => {
+    if (!user) return;
+    const wearable = await loadWearableSnapshot(user.id);
+    setLiveHealthData((prev) => ({
+      ...(prev || {}),
+      today: wearable?.today,
+      vitals: wearable?.vitals || [],
+      score: {
+        ...(prev?.score || {}),
+        ...(wearable?.score || {}),
+        // A disconnect-and-purge leaves no wearable data; drop the daily fields
+        // rather than stranding yesterday's sleep score on the ring forever.
+        ...(wearable ? {} : { sleepScore: undefined, sleepNote: undefined, zone2Minutes: undefined }),
+      },
+    }));
+  }, [user]);
 
   // Regenerate AI insights whenever the snapshot changes. Reset to null first so a
   // stale set never lingers over new data; screens fall back to deterministic
@@ -109,24 +163,38 @@ function App() {
       return;
     }
     setProfileLoading(true);
-    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id)]).then(([stored, testMode, documents, labMarkers]) => {
+    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id)]).then(([stored, testMode, documents, labMarkers, wearable]) => {
       if (cancelled) return;
       setLiveHealthData({
         labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
         records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
+        // Wearable slice. `score` is what switches the health-score ring on —
+        // useScoreModel returns hasData:false without it, which is why live users
+        // have never seen it.
+        today: wearable?.today,
+        vitals: wearable?.vitals || [],
+        // Both halves of the ring: base = preventive-care coverage (from the same
+        // schedule the Preventive Care screen renders), daily = today's wearable.
+        // Stays undefined until at least one half has real data, so the ring is
+        // hidden rather than rendering an honest-looking zero.
+        score: buildLiveScore(stored, wearable),
       });
+      // Coming back from Oura's consent screen lands on Profile, where the device
+      // list and the result notice are — otherwise the user is dropped on Home with
+      // no confirmation that anything happened.
+      const landing = ouraNotice ? "profile" : "home";
       if (testMode.enabled && testMode.snapshot?.profile) {
         setTestModeEnabled(true);
         setTestSnapshot(testMode.snapshot);
         setUserProfile(testMode.snapshot.profile);
         setHealthHistory(testMode.snapshot.healthHistory || null);
-        setActive("home");
+        setActive(landing);
       } else if (stored?.onboardingCompletedAt) {
         setTestModeEnabled(false);
         setTestSnapshot(null);
         setUserProfile(stored);
         setHealthHistory(null);
-        setActive("home");
+        setActive(landing);
       } else {
         // Partially onboarded (or brand new): hand what we have back to the form
         // so they resume where they stopped instead of starting over — including
@@ -240,7 +308,7 @@ function App() {
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
-    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} />,
+    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={setActive} />,
     importlabs: <ImportLabsScreen setActive={setActive} />,
     geneticprofile: <GeneticProfileScreen setActive={setActive} />,

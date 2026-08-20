@@ -64,5 +64,15 @@ This is the V1 frontend, ported from the single-file mockup. Working today:
    no API key, which only works inside a sandboxed preview. Phase D stands up a
    server proxy; point `VITE_AI_ENDPOINT` at it and every screen follows — no
    screen changes needed.
-3. Wearables, email reminders, physician share link, private/demo modes are not
-   built yet.
+3. Email reminders, physician share link, private/demo modes are not built yet.
+
+## Wearables
+
+Oura is integrated end-to-end (OAuth2 → webhooks → normalized `wearable_daily` →
+Home vitals, health score, and AI chat context). It needs credentials and a deploy
+before it does anything — see `OURA-INTEGRATION-SPEC.md` §11–12.
+
+Note for future device work: Apple Health and Health Connect are **not** reachable
+from a web app — both are on-device SDKs requiring a native shell. Google Fit is
+retired (no new developers since May 2024, end-of-service late 2026); its cloud
+successor is the Google Health API, formerly the Fitbit Web API.

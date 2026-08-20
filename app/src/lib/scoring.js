@@ -1,4 +1,38 @@
+import { formatCompletedMonth, isScreeningDone } from "./screeningDates";
 
+/**
+ * The base half of the score: preventive-care coverage.
+ *
+ * Test mode ships these pre-baked in its snapshot; for a live user they're derived
+ * here from the same schedule the Preventive Care screen renders, so the two can
+ * never disagree about what's done.
+ *
+ * Weighting: an overdue item and a never-started one score the same (zero) — the
+ * base ring answers "how much of your recommended screening is current", and a
+ * colonoscopy you're two years late for is not partially current. Higher-stakes
+ * screenings carry more weight than routine ones, matching the snapshot's 10-vs-8.
+ */
+const CATEGORY_WEIGHTS = { cancer: 10, cardiovascular: 9, metabolic: 8 };
+const DEFAULT_WEIGHT = 8;
+
+function buildBaseItems(schedule = [], completedItems = {}) {
+  return schedule.map((item) => {
+    const value = completedItems[item.id];
+    const done = isScreeningDone(value);
+    const max = CATEGORY_WEIGHTS[item.category] || DEFAULT_WEIGHT;
+    const month = done ? formatCompletedMonth(value) : null;
+
+    return {
+      name: item.name,
+      status: done ? "current" : item.urgency === "overdue" ? "overdue" : "due",
+      detail: done
+        ? month ? `Completed ${month}` : "Marked complete"
+        : item.urgency === "overdue" ? "Overdue" : `Due — ${item.frequency || "see schedule"}`,
+      pts: done ? max : 0,
+      max,
+    };
+  });
+}
 
 function useScoreModel(nutritionEnabled, healthData) {
   const source = healthData?.score;
@@ -70,4 +104,4 @@ function useScoreModel(nutritionEnabled, healthData) {
   };
 }
 
-export { useScoreModel };
+export { useScoreModel, buildBaseItems };
