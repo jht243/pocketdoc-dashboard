@@ -1,0 +1,42 @@
+# Render Blueprint for the PocketDoc app (Vite static site).
+#
+# This documents the live service `pocketdoc-dashboard`
+# (srv-d9bf16mrnols73ekbod0 → https://pocketdoc-dashboard.onrender.com), which
+# auto-deploys from the `dashboard` git remote (github.com/jht243/pocketdoc-dashboard).
+#
+# IMPORTANT: pushing only to `origin` (guided-health-ai) does NOT deploy — Render
+# watches the `dashboard` remote. To ship:  git push dashboard main
+#
+# Env vars are marked `sync: false` so their values are set in the Render dashboard
+# (or a synced env group), never committed here.
+services:
+  - type: web
+    name: pocketdoc-dashboard
+    runtime: static
+    rootDir: app
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_AI_ENDPOINT
+        sync: false
+    # SPA fallback: every route serves index.html so client-side navigation works
+    # on refresh / deep links.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    # Hashed assets are immutable and safe to cache forever; index.html must not be
+    # cached, so a new deploy is picked up immediately instead of serving stale JS.
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
