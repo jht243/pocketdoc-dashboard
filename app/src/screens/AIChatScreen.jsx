@@ -4,6 +4,7 @@ import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText, firstCitations } from "../lib/api";
 import { buildHealthContext } from "../lib/healthContext";
 import { useAuth } from "../lib/AuthContext";
+import { rankCitations, sourceCaveat } from "../lib/sourceQuality";
 import {
   appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
 } from "../lib/chatStore";
@@ -31,6 +32,11 @@ How you answer:
 - Be genuinely useful and direct. Give concrete recommendations — specific supplements and typical dosage ranges, lifestyle and nutrition changes, which labs to run next, and how to interpret a result — grounded in current research and the user's own data. Do NOT deflect with a vague "ask your doctor"; give the substance.
 - Do live research. When a question benefits from current evidence, guidelines, recent studies, or specific products, search the web and cite your sources. Prefer recent, reputable sources (peer-reviewed research, major clinical guidelines, .gov/.edu and established medical organizations). Don't rely on stale training knowledge for anything time-sensitive.
 - Name a source in the sentence itself ("the 2024 USPSTF guideline", "a 2023 meta-analysis in JAMA"). Never write bare footnote markers like [1] or [2] — the app shows real sources as links below your reply, so a bracketed number with nothing behind it just looks like an invented citation.
+- Source hierarchy, in order. Work down it and stop at the first level that actually answers the question:
+  1. Peer-reviewed research and clinical guidelines — PubMed, Cochrane, NEJM/JAMA/Lancet/BMJ, USPSTF, and government or university sources (.gov, .edu, WHO, NICE, FDA labelling).
+  2. Established medical organizations and professionally edited references — Mayo Clinic, Cleveland Clinic, the relevant specialty society, Merck Manuals, Drugs.com.
+  3. Anything else, and only if 1 and 2 genuinely have nothing.
+- The fallback rule: if no level-1 or level-2 source exists for the question, say so in the answer itself — "there's no guideline-level evidence on this; what's available is X" — and give your best read of the weaker material. Never dress a blog, a supplement retailer, or an SEO content site up as authority, and never let a thin evidence base go unmentioned.
 - Always ground answers in the user's actual data below (labs and their trends, medications, conditions, genetics, goals). Generic advice that ignores their profile is a failure.
 - Be concise and structured: lead with the answer, then the reasoning, then next steps.
 
@@ -246,7 +252,9 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         webSearch: !hasImage,
       });
       const reply = cleanReply(firstText(data, "I couldn't generate a response."));
-      const citations = firstCitations(data);
+      // Ranked before it is rendered or stored, so the member sees the best source
+      // first and a stored reply keeps the same ordering when the thread reloads.
+      const citations = rankCitations(firstCitations(data));
       setMessages(prev => [...prev, { role: "assistant", text: reply, citations }]);
       if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations });
     } catch (err) {
@@ -329,18 +337,35 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             </div>
             {/* Web-research citations */}
             {m.role === "assistant" && m.citations && m.citations.length > 0 && (
-              <div style={{ maxWidth: "84%", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {m.citations.slice(0, 5).map((c, ci) => (
-                  <a key={ci} href={c.url} target="_blank" rel="noopener noreferrer" style={{
-                    display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none",
-                    background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 999,
-                    padding: "3px 9px", fontSize: 10.5, color: COLORS.tealLight, maxWidth: 220,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+              <div style={{ maxWidth: "84%", marginTop: 6 }}>
+                {/* Said plainly when nothing authoritative backs the answer. A weak
+                    source shown in the same chip as a guideline reads as equally
+                    solid, which is exactly the impression to avoid on health claims. */}
+                {sourceCaveat(m.citations) && (
+                  <div style={{
+                    fontSize: 10.5, lineHeight: 1.45, color: COLORS.textMuted,
+                    marginBottom: 5, fontStyle: "italic",
                   }}>
-                    <ExternalLink size={10} style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</span>
-                  </a>
-                ))}
+                    {sourceCaveat(m.citations)}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {m.citations.slice(0, 5).map((c, ci) => {
+                    const weak = (c.tier ?? 3) === 3;
+                    return (
+                      <a key={ci} href={c.url} target="_blank" rel="noopener noreferrer" style={{
+                        display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none",
+                        background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 999,
+                        padding: "3px 9px", fontSize: 10.5,
+                        color: weak ? COLORS.textMuted : COLORS.tealLight, maxWidth: 220,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                      }}>
+                        <ExternalLink size={10} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</span>
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
