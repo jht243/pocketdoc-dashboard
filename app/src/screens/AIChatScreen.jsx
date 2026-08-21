@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Camera, ExternalLink, Mic, Send, X } from "lucide-react";
+import { Camera, ExternalLink, Mic, Send, Trash2, X } from "lucide-react";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText, firstCitations } from "../lib/api";
 import { buildHealthContext } from "../lib/healthContext";
+import { useAuth } from "../lib/AuthContext";
+import {
+  appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
+} from "../lib/chatStore";
 
 // Live research now comes from the hosted web-search tool in the gateway, not from
 // a special model id: the old `gpt-4o-search-preview` chat models were deprecated by
@@ -10,6 +14,14 @@ import { buildHealthContext } from "../lib/healthContext";
 // The vision model handles image messages (a photo can't be answered by a search).
 const CHAT_MODEL = import.meta.env.VITE_AI_CHAT_MODEL || "gpt-4.1";
 const VISION_MODEL = import.meta.env.VITE_AI_VISION_MODEL || "gpt-4o";
+
+// Replaying the thread on every turn is what gives the conversation its memory,
+// but the thread is now permanent, so an unbounded replay would grow the request
+// forever and eventually push the user's own labs out of the context window.
+// Images are capped harder than text: one costs far more than a message, and an
+// old photo is rarely what the current question is about.
+const MAX_CONTEXT_MESSAGES = 30;
+const MAX_CONTEXT_IMAGES = 2;
 
 // The persona: a functional-medicine expert who does live research and gives
 // specific, useful, data-grounded guidance — not a hedging "ask your doctor" bot.
@@ -47,13 +59,17 @@ function cleanReply(text) {
 // the web-search model does live research (with citations) so answers are current and
 // grounded in the user's actual data — not generic, stale wellness advice.
 function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled }) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [image, setImage] = useState(null);
+  const [image, setImage] = useState(null);        // base64 for this session's send
+  const [imageFile, setImageFile] = useState(null); // the file itself, for storage
   const [imagePreview, setImagePreview] = useState(null);
   const [listening, setListening] = useState(false);
   const [apptPrompt, setApptPrompt] = useState(null); // detected appointment info
+  const [clearing, setClearing] = useState(false);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -89,9 +105,42 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     "What does a preventive-care checklist include?",
   ];
 
+  // The conversation belongs to the member, not the session. Reload the stored
+  // thread on mount so leaving the screen — or the app — never costs them the
+  // context they were working in.
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) { setHistoryLoading(false); return; }
+    (async () => {
+      const stored = await loadMessages(user.id);
+      // Photos sit in a private bucket, so each needs a freshly signed URL to render.
+      const hydrated = await Promise.all(stored.map(async (m) => (
+        m.imagePath ? { ...m, imageUrl: await chatImageUrl(m.imagePath) } : m
+      )));
+      if (!cancelled) {
+        setMessages(hydrated);
+        setHistoryLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  const clearThread = async () => {
+    if (!user || !messages.length || clearing) return;
+    const ok = window.confirm(
+      "Delete this conversation? Your health data stays — only the chat is removed."
+    );
+    if (!ok) return;
+    setClearing(true);
+    await clearConversation(user.id);
+    setMessages([]);
+    setApptPrompt(null);
+    setClearing(false);
+  };
 
   const handleImage = (e) => {
     const file = e.target.files[0];
@@ -100,6 +149,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     reader.onload = (ev) => {
       const base64 = ev.target.result.split(",")[1];
       setImage(base64);
+      setImageFile(file);
       setImagePreview(ev.target.result);
     };
     reader.readAsDataURL(file);
@@ -132,27 +182,54 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     setListening(true);
   };
 
+  // The tail of the thread, in the shape the gateway expects. Photos uploaded in
+  // an earlier session are no longer in memory, so they are pulled back out of
+  // storage — the whole point of storing them rather than holding base64 in state.
+  const buildApiMessages = async (thread) => {
+    const windowed = thread.slice(-MAX_CONTEXT_MESSAGES).filter(m => !m.error);
+    const withImages = windowed.filter(m => m.imageBase64 || m.imagePath).slice(-MAX_CONTEXT_IMAGES);
+    const out = [];
+    for (const m of windowed) {
+      const content = [];
+      if (m.role === "user" && withImages.includes(m)) {
+        const data = m.imageBase64 || await chatImageBase64(m.imagePath);
+        if (data) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
+      }
+      if (m.text) content.push({ type: "text", text: m.text });
+      if (!content.length) continue;
+      out.push({ role: m.role, content: content.length === 1 && content[0].type === "text" ? content[0].text : content });
+    }
+    return out;
+  };
+
   const send = async (text) => {
     const userText = text || input.trim();
     if (!userText && !image) return;
-    const userMsg = { role: "user", text: userText, image: imagePreview };
-    setMessages(prev => [...prev, userMsg]);
+    const pendingFile = imageFile;
+    const userMsg = { role: "user", text: userText, imageUrl: imagePreview, imageBase64: image };
+    const thread = [...messages, userMsg];
+    setMessages(thread);
     setInput("");
     setImagePreview(null);
+    setImageFile(null);
     // Detect appointment mentions and surface Discussion Page prompt
     if (userText && detectAppointment(userText) && !apptPrompt) {
       setApptPrompt(userText);
     }
     setLoading(true);
 
-    const apiMessages = [...messages, userMsg].map(m => {
-      const content = [];
-      if (m.image && m.role === "user") {
-        content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image || m.image.split(",")[1] } });
-      }
-      if (m.text) content.push({ type: "text", text: m.text });
-      return { role: m.role, content: content.length === 1 && content[0].type === "text" ? content[0].text : content };
-    });
+    // Store the photo before the row that points at it, so a message can never
+    // reference an object whose upload failed.
+    let imagePath = null;
+    if (pendingFile && user) {
+      const { path } = await uploadChatImage(user.id, pendingFile);
+      imagePath = path;
+    }
+    // Written now rather than after the reply lands: a member who navigates away
+    // mid-answer should still find their question waiting when they come back.
+    if (user) await appendMessage(user.id, { role: "user", text: userText, imagePath });
+
+    const apiMessages = await buildApiMessages(thread);
 
     // The web-search model can't read images, so route image conversations to the
     // vision model; everything else uses the search model for live research + citations.
@@ -171,15 +248,16 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       const reply = cleanReply(firstText(data, "I couldn't generate a response."));
       const citations = firstCitations(data);
       setMessages(prev => [...prev, { role: "assistant", text: reply, citations }]);
+      if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations });
     } catch (err) {
       // Show what actually failed. A bare "something went wrong" is how a
       // deprecated model id went unnoticed while every message silently 404'd.
       console.error("AI chat request failed", err);
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        text: `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`,
-        error: true,
-      }]);
+      const text = `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`;
+      setMessages(prev => [...prev, { role: "assistant", text, error: true }]);
+      // Stored so the transcript stays honest about what the member saw, and
+      // flagged so it is never replayed to the model as something the AI said.
+      if (user) await appendMessage(user.id, { role: "assistant", text, error: true });
     }
     setImage(null);
     setLoading(false);
@@ -188,16 +266,31 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%", background: COLORS.bgDeep }}>
       {/* Header */}
-      <div style={{ padding: "36px 18px 14px", borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em" }}>Ask your health advocate</div>
-        <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
-          Functional-medicine guidance grounded in your data, with live research.
+      <div style={{
+        padding: "36px 18px 14px", borderBottom: `1px solid ${COLORS.border}`,
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em" }}>Ask your health advocate</div>
+          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
+            Functional-medicine guidance grounded in your data, with live research.
+          </div>
         </div>
+        {/* Permanent by default, deleted only on request — the member owns the thread. */}
+        {messages.length > 0 && (
+          <button onClick={clearThread} disabled={clearing} aria-label="Delete conversation" style={{
+            background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10,
+            width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: clearing ? "default" : "pointer", flexShrink: 0, opacity: clearing ? 0.5 : 1,
+          }}>
+            <Trash2 size={15} color={COLORS.textSecondary} />
+          </button>
+        )}
       </div>
 
       {/* Messages */}
       <div style={{ flex: 1, padding: "16px 14px 8px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {messages.length === 0 && (
+        {!historyLoading && messages.length === 0 && (
           <div>
             <div style={{ fontSize: 12, color: COLORS.textMuted, textAlign: "center", marginBottom: 16 }}>
               Start with a question or try one of these
@@ -217,8 +310,8 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             display: "flex", flexDirection: "column",
             alignItems: m.role === "user" ? "flex-end" : "flex-start"
           }}>
-            {m.image && (
-              <img src={m.image} alt="uploaded" style={{
+            {m.imageUrl && (
+              <img src={m.imageUrl} alt="uploaded" style={{
                 maxWidth: 200, borderRadius: 12, marginBottom: 6, alignSelf: "flex-end"
               }} />
             )}
@@ -297,7 +390,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       {imagePreview && (
         <div style={{ padding: "8px 14px 0", display: "flex", alignItems: "center", gap: 8 }}>
           <img src={imagePreview} alt="preview" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }} />
-          <button onClick={() => { setImagePreview(null); setImage(null); }} style={{
+          <button onClick={() => { setImagePreview(null); setImage(null); setImageFile(null); }} style={{
             background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted
           }}><X size={16} /></button>
           <span style={{ fontSize: 12, color: COLORS.textMuted }}>Photo attached</span>

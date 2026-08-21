@@ -2,7 +2,7 @@ import React from "react";
 import { ChevronRight } from "lucide-react";
 import { COLORS, SERIF } from "../theme/tokens";
 
-export const CONSENT_VERSION = "v1";
+export const CONSENT_VERSION = "v2";
 
 /**
  * Plain-language privacy summary shown before any health data is collected.
@@ -52,9 +52,16 @@ export default function PrivacyScreen({ onBack }) {
       </Section>
 
       <Section title="How the assistant uses it">
-        When you ask a question, the relevant parts of your profile and results are
-        sent to an AI provider to generate an answer. Conversations you mark private
-        are not saved to your health profile.
+        When you ask a question, your profile, results and recent messages in the
+        conversation are sent to an AI provider to generate an answer.
+      </Section>
+
+      <Section title="Your conversations are kept">
+        Your conversation with the assistant is saved to your account and stays there,
+        so you can pick up where you left off instead of starting over each time.
+        Photos you attach are stored the same way. Signing out or closing the app
+        never deletes any of it — only you can, using the delete button on the chat
+        screen, and deleting the conversation removes its photos with it.
       </Section>
 
       <Section title="This is not medical care">
