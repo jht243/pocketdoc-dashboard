@@ -100,6 +100,11 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
     genetics: geneticMarkers,
     today: wearable?.today,
     vitals: wearable?.vitals || [],
+    // Per-metric latest + trailing range, and the raw daily rows behind it. The Body
+    // screen's "All collected metrics" list and the AI chat's wearable context both
+    // read these — omitting them here left both looking at a device that synced nothing.
+    metrics: wearable?.metrics || [],
+    history: wearable?.history || [],
     score: buildLiveScore(stored, wearable),
   };
 }
@@ -141,6 +146,8 @@ function App() {
       ...(prev || {}),
       today: wearable?.today,
       vitals: wearable?.vitals || [],
+      metrics: wearable?.metrics || [],
+      history: wearable?.history || [],
       score: {
         ...(prev?.score || {}),
         ...(wearable?.score || {}),
@@ -327,7 +334,7 @@ function App() {
     ),
     home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
     checkin: <CheckInScreen testModeEnabled={testModeEnabled} />,
-    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} testModeEnabled={testModeEnabled} />,
+    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,

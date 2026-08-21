@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { Camera, ExternalLink, Mic, Send, X } from "lucide-react";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText, firstCitations } from "../lib/api";
+import { buildHealthContext } from "../lib/healthContext";
 
-// Web-search model does live research + citations; vision model handles image messages.
-const CHAT_MODEL = import.meta.env.VITE_AI_CHAT_MODEL || "gpt-4o-search-preview";
+// Live research now comes from the hosted web-search tool in the gateway, not from
+// a special model id: the old `gpt-4o-search-preview` chat models were deprecated by
+// OpenAI and started returning 404, which broke every text message in this screen.
+// The vision model handles image messages (a photo can't be answered by a search).
+const CHAT_MODEL = import.meta.env.VITE_AI_CHAT_MODEL || "gpt-4.1";
 const VISION_MODEL = import.meta.env.VITE_AI_VISION_MODEL || "gpt-4o";
 
 // The persona: a functional-medicine expert who does live research and gives
@@ -14,6 +18,7 @@ const PERSONA = `You are Guided Health AI — a knowledgeable functional-medicin
 How you answer:
 - Be genuinely useful and direct. Give concrete recommendations — specific supplements and typical dosage ranges, lifestyle and nutrition changes, which labs to run next, and how to interpret a result — grounded in current research and the user's own data. Do NOT deflect with a vague "ask your doctor"; give the substance.
 - Do live research. When a question benefits from current evidence, guidelines, recent studies, or specific products, search the web and cite your sources. Prefer recent, reputable sources (peer-reviewed research, major clinical guidelines, .gov/.edu and established medical organizations). Don't rely on stale training knowledge for anything time-sensitive.
+- Name a source in the sentence itself ("the 2024 USPSTF guideline", "a 2023 meta-analysis in JAMA"). Never write bare footnote markers like [1] or [2] — the app shows real sources as links below your reply, so a bracketed number with nothing behind it just looks like an invented citation.
 - Always ground answers in the user's actual data below (labs and their trends, medications, conditions, genetics, goals). Generic advice that ignores their profile is a failure.
 - Be concise and structured: lead with the answer, then the reasoning, then next steps.
 
@@ -22,94 +27,26 @@ Safety — keep it light and never let it stop you from being useful:
 - For anything urgent or severe (chest pain, stroke signs, severe symptoms, suicidal thoughts, etc.), tell them to seek in-person or emergency care.
 - Before starting/stopping a prescription or making a major dose change, tell them to confirm with their prescriber — but still give them the substantive information and the specific questions to bring.`;
 
-// The search model inlines markdown citations like "([domain](url))" and uses **bold**.
-// We show sources as chips below the message, so strip that markup for a clean reply.
+// The web-search model writes markdown — inline citations like "([domain](url))",
+// **bold**, ## headings, --- rules. Bubbles render as plain pre-wrapped text and we
+// show sources as chips below the message, so strip the markup for a clean reply.
 function cleanReply(text) {
   return String(text || "")
     .replace(/\s*\(\[[^\]]+\]\([^)]+\)\)/g, "")   // drop "([label](url))" citation groups
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")        // remaining [label](url) -> label
     .replace(/\*\*([^*]+)\*\*/g, "$1")               // **bold** -> bold
+    .replace(/(^|\n)\s*#{1,6}\s*/g, "$1")            // ## heading -> heading
+    .replace(/(^|\n)\s*(?:---|___|\*\*\*)\s*(?=\n|$)/g, "$1")  // horizontal rules
+    .replace(/\s*\[\d+\](?!\()/g, "")                // orphan [1] footnote markers
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-function line(label, val) {
-  return val && (Array.isArray(val) ? val.length : true) ? `${label}: ${Array.isArray(val) ? val.join(", ") : val}` : null;
-}
-
-function buildHealthContext(userProfile, healthData, testModeEnabled) {
-  const profile = userProfile?.profile;
-  if (!profile) {
-    return `${PERSONA}\n\nThe user hasn't completed a health profile or added data yet. Ask a couple of concise questions to get their goals and current situation, and still answer their questions usefully with current research.`;
-  }
-
-  const age = profile.dob ? new Date().getFullYear() - new Date(profile.dob).getFullYear() : "unknown";
-  const intake = userProfile?.intake || {};
-
-  const labs = healthData?.labs?.length
-    ? healthData.labs.map((l) => `- ${l.name}: ${l.value} ${l.unit || ""} (${l.status || "n/a"}${l.date ? ", " + l.date : ""})`).join("\n")
-    : "No lab results uploaded.";
-  const trends = healthData?.labHistory?.length
-    ? healthData.labHistory.map((s) => `- ${s.name}: ${(s.results || []).map((r) => r.value).join(" → ")} ${s.unit || ""}`).join("\n")
-    : "No multi-panel trends yet.";
-  const vitals = healthData?.today
-    ? `Readiness ${healthData.today.readiness} (typical ${healthData.today.readinessTypical}); HRV ${healthData.today.hrv}ms (baseline ${healthData.today.hrvBaseline}); resting HR ${healthData.today.restingHR} bpm (baseline ${healthData.today.restingHRBaseline})${healthData.today.recentSymptoms?.length ? "; recent symptoms: " + healthData.today.recentSymptoms.join(", ") : ""}.`
-    : "No wearable/daily-vitals connected.";
-  // Genetics arrive in two shapes: test mode puts plain strings here; a real import
-  // puts rich marker objects. Render either into one context line per genome, and
-  // prefer the report's own notes / the AI-context line the extraction produced.
-  const geneticLine = (g) => {
-    if (typeof g === "string") return `- ${g}`;
-    const label = [g.gene, g.variant].filter(Boolean).join(" ");
-    const detail = g.aiContext || g.notes || g.what || "";
-    return `- ${label}${detail ? " — " + detail : ""}`;
-  };
-  const genetics = healthData?.genetics?.length ? healthData.genetics.map(geneticLine).join("\n") : "No genetic data uploaded.";
-
-  // Key labeled fields, then the full intake as JSON so nothing the user entered is lost.
-  const facts = [
-    line("Conditions", intake.conditions),
-    line("Medications & supplements", intake.medications),
-    line("Allergies", intake.hasAllergies === "Yes" ? intake.allergiesList || "yes (unspecified)" : null),
-    line("Primary concern", intake.primaryConcern),
-    line("Goals", intake.goals),
-    line("Family history", intake.familyHistory),
-    line("Exercise", intake.exercise),
-    line("Sleep", intake.sleep),
-    line("Alcohol", intake.alcohol),
-    line("Stress level", intake.stressLevel),
-    line("Testosterone therapy", intake.testosteroneUse && intake.testosteroneUse !== "No" ? `${intake.testosteroneUse}${intake.trtDose ? " (" + intake.trtDose + ")" : ""}` : null),
-    line("Peptides", intake.peptideUse && intake.peptideUse !== "No" ? (intake.peptidesUsed || []).join(", ") || intake.peptideUse : null),
-  ].filter(Boolean).join("\n");
-
-  return `${PERSONA}
-
-DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
-
-USER PROFILE
-Name: ${profile.name || "Unknown"}, ${age} years old, ${profile.sex || "unspecified"}
-${facts || "No intake details recorded yet."}
-
-LABS (most recent)
-${labs}
-
-LAB TRENDS (across panels)
-${trends}
-
-WEARABLE / TODAY
-${vitals}
-
-GENETICS
-${genetics}
-
-FULL INTAKE (JSON, for anything not summarized above)
-${JSON.stringify(intake)}`;
 }
 
 // ---- AI CHAT SCREEN ----
 // Functional-medicine chat. The user's full health profile is injected as context and
 // the web-search model does live research (with citations) so answers are current and
 // grounded in the user's actual data — not generic, stale wellness advice.
-function AIChatScreen({ setActive, userProfile, healthData, testModeEnabled }) {
+function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -128,7 +65,18 @@ function AIChatScreen({ setActive, userProfile, healthData, testModeEnabled }) {
     return apptPattern.test(text) && datePattern.test(text);
   };
 
-  const healthProfile = buildHealthContext(userProfile, healthData, testModeEnabled);
+  // Every input the app holds — intake answers, labs and their trends, all synced
+  // wearable metrics, genetics, preventive-care schedule, records — is assembled in
+  // one place so a newly collected field can never reach a screen but miss the chat.
+  const healthProfile = [
+    PERSONA,
+    // Before onboarding there is nothing to ground an answer in, so say so rather
+    // than handing the model a page of "(none recorded)" and hoping it notices.
+    userProfile?.profile
+      ? null
+      : "The user hasn't completed their health profile yet. Ask a couple of concise questions to get their goals and current situation, and still answer what they ask usefully with current research.",
+    buildHealthContext({ userProfile, healthData, healthHistory, testModeEnabled }),
+  ].filter(Boolean).join("\n\n");
 
   const startingPrompts = healthData ? [
     "My readiness is low today — should I still train?",
@@ -216,12 +164,22 @@ function AIChatScreen({ setActive, userProfile, healthData, testModeEnabled }) {
         messages: apiMessages,
         model: hasImage ? VISION_MODEL : CHAT_MODEL,
         maxTokens: 1200,
+        // Live research + citations on text questions; the vision path answers
+        // from the attached image instead.
+        webSearch: !hasImage,
       });
       const reply = cleanReply(firstText(data, "I couldn't generate a response."));
       const citations = firstCitations(data);
       setMessages(prev => [...prev, { role: "assistant", text: reply, citations }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
+    } catch (err) {
+      // Show what actually failed. A bare "something went wrong" is how a
+      // deprecated model id went unnoticed while every message silently 404'd.
+      console.error("AI chat request failed", err);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        text: `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`,
+        error: true,
+      }]);
     }
     setImage(null);
     setLoading(false);

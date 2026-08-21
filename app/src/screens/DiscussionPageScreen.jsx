@@ -4,60 +4,13 @@ import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
+import { buildHealthContext } from "../lib/healthContext";
 
 // ---- DISCUSSION PAGE (for next doctor appointment) ----
 // The Summary and Suggested questions are generated from the user's real profile,
 // labs, and device data via the OpenAI gateway. Symptom pattern and device signals
 // are read from healthData where present, with a graceful fallback when the app is
 // running without a populated snapshot.
-
-// Build a compact, model-readable description of everything we know about the user.
-function buildContext(userProfile, healthData) {
-  const profile = userProfile?.profile || {};
-  const intake = userProfile?.intake || {};
-  const today = healthData?.today;
-
-  const age = profile.dob
-    ? new Date().getFullYear() - new Date(profile.dob).getFullYear()
-    : "unknown";
-
-  const labs = healthData?.labs?.length
-    ? healthData.labs.map((l) => `- ${l.name}: ${l.value} ${l.unit} (${l.status}, ${l.date})`).join("\n")
-    : "No lab results on file.";
-
-  const labTrends = healthData?.labHistory?.length
-    ? healthData.labHistory
-        .map((s) => {
-          const vals = (s.results || []).map((r) => `${r.value}`).join(" → ");
-          return `- ${s.name}: ${vals} ${s.unit || ""}`.trim();
-        })
-        .join("\n")
-    : "No longitudinal lab trends on file.";
-
-  const vitals = today
-    ? `Readiness ${today.readiness} (typical ${today.readinessTypical}); HRV ${today.hrv}ms (baseline ${today.hrvBaseline}); resting heart rate ${today.restingHR} bpm (baseline ${today.restingHRBaseline}); overnight skin-temp deviation ${today.skinTempDeviation}°F.`
-    : "No wearable/device data connected.";
-
-  const symptoms = today?.recentSymptoms?.length
-    ? today.recentSymptoms.join(", ")
-    : "None recorded.";
-
-  return `PATIENT: ${profile.name || "Unknown"}, ${age} years old, ${profile.sex || "unspecified"}
-CONDITIONS: ${(intake.conditions || []).join(", ") || "None recorded"}
-MEDICATIONS: ${(intake.medications || []).join(", ") || "None recorded"}
-FAMILY HISTORY: ${(intake.familyHistory || []).join(", ") || "None recorded"}
-PRIMARY CONCERN: ${intake.primaryConcern || "None recorded"}
-RECENTLY REPORTED SYMPTOMS: ${symptoms}
-
-CURRENT LABS:
-${labs}
-
-LAB TRENDS (oldest → newest):
-${labTrends}
-
-DEVICE / VITALS:
-${vitals}`;
-}
 
 // Neutral fallback for the AI-generated fields only — used if the model call fails.
 // It invents no specifics (no fake labs, symptoms, or trends) so nothing here can be
@@ -128,7 +81,10 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
     (async () => {
       setLoading(true);
       try {
-        const context = buildContext(userProfile, healthData);
+        // The same full picture the chat gets — intake answers, genetics, every
+        // synced wearable metric and the preventive-care schedule included. Visit
+        // prep built off four fields missed most of what the user had told us.
+        const context = buildHealthContext({ userProfile, healthData });
         const data = await callAI({
           system:
             "You are a health advocate preparing a patient for a doctor's appointment. From the data provided, write a concise visit-prep summary and a short list of specific questions the patient should raise. You are not a clinician: never diagnose or prescribe, and frame everything as a pattern worth discussing. Reference the patient's actual values where relevant. Respond with ONLY a JSON object, no markdown or backticks, of the exact shape: {\"summary\": \"one paragraph, 4-6 sentences\", \"questions\": [\"...\", \"...\", \"...\"]}. Provide 3 to 4 questions.",

@@ -53,10 +53,11 @@ function toOpenAIMessage(message) {
  * @param {string}   opts.system     system prompt
  * @param {Array}    opts.messages   Anthropic-shaped message array
  * @param {number}  [opts.maxTokens]
+ * @param {boolean} [opts.webSearch] run the request with live web research + citations
  * @param {boolean} [opts.pdf]       accepted for call-site compatibility; unused (PDFs are auto-handled)
  * @returns {Promise<object>} raw OpenAI response body
  */
-export async function callAI({ system, messages, maxTokens = 1000, model }) {
+export async function callAI({ system, messages, maxTokens = 1000, model, webSearch = false }) {
   if (!supabase) throw new Error("AI is not configured (Supabase client missing).");
 
   const openAIMessages = [];
@@ -64,10 +65,26 @@ export async function callAI({ system, messages, maxTokens = 1000, model }) {
   for (const m of messages) openAIMessages.push(toOpenAIMessage(m));
 
   const { data, error } = await supabase.functions.invoke("ghai-ai", {
-    body: { model: model || AI_MODEL, messages: openAIMessages, max_tokens: maxTokens },
+    body: {
+      model: model || AI_MODEL,
+      messages: openAIMessages,
+      max_tokens: maxTokens,
+      web_search: webSearch,
+    },
   });
 
-  if (error) throw new Error(`AI request failed: ${error.message}`);
+  // functions.invoke reports any non-2xx as a generic FunctionsHttpError whose
+  // message is just "Edge Function returned a non-2xx status code" — the useful
+  // detail (a deprecated model, a bad key) is in the JSON body. Read it so the
+  // real reason reaches the caller instead of being swallowed.
+  if (error) {
+    let detail = error.message;
+    try {
+      const body = await error.context?.json?.();
+      detail = body?.error?.message || body?.error || detail;
+    } catch { /* non-JSON body; keep the generic message */ }
+    throw new Error(`AI request failed: ${detail}`);
+  }
   if (data?.error) throw new Error(`AI request failed: ${data.error.message || data.error}`);
   return data;
 }
