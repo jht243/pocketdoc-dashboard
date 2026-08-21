@@ -100,10 +100,23 @@ function buildLiveScore(storedProfile, wearable, labs = []) {
 function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = []) {
   // `date` is a display string; `created_at` is preserved on each marker and is what
   // the bloodwork rubric reads for recency.
-  const labs = labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) }));
+  const labs = labMarkers.map((marker) => ({
+    ...marker,
+    // Prefer the date blood was actually drawn; fall back to the import date only
+    // when the user didn't tell us one.
+    date: new Date(marker.drawnOn || marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+  }));
   return {
     labs,
-    records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
+    // `text` is the transcription of the file itself, which is what lets the AI
+    // answer about an uploaded report rather than merely acknowledge its existence.
+    records: documents.map((document) => ({
+      name: document.file_name || "Untitled upload",
+      type: document.kind === "lab" ? "Lab result" : document.kind,
+      uploadedAt: document.created_at,
+      text: document.extracted_text || "",
+      textError: document.extract_error || null,
+    })),
     // Real imported genomes (rich objects), read by the Genetic Profile screen and
     // summarized into the AI chat's health context. Empty until the user imports a source.
     genetics: geneticMarkers,
@@ -148,6 +161,28 @@ function App() {
   // which screen to land on, and it has to already know a connection just completed
   // or it would send the user to Home and the notice would never be seen.
   const [ouraNotice, setOuraNotice] = useState(takeOuraNotice);
+
+  /**
+   * Re-pull the record slice after an import.
+   *
+   * Newly saved labs, genomes and document transcriptions have to reach the chat's
+   * context in the same session they were added — a member who imports bloodwork and
+   * immediately asks about it should not be told there is none on file until they
+   * next reload the app.
+   */
+  const refreshRecords = useCallback(async () => {
+    if (!user) return;
+    const [documents, labMarkers, wearable, geneticMarkers] = await Promise.all([
+      loadDocuments(user.id),
+      loadLabMarkers(user.id),
+      loadWearableSnapshot(user.id),
+      loadGeneticMarkers(user.id),
+    ]);
+    // Rebuilt from the stored profile so the score's preventive-care half is scored
+    // off the same schedule the rest of the app is reading.
+    const stored = await loadFullProfile(user.id);
+    setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
+  }, [user]);
 
   // Re-pull the wearable slice after a connect/sync/disconnect, without refetching
   // the whole profile. Merges rather than replaces so labs and records survive.
@@ -358,7 +393,7 @@ function App() {
     home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
     checkin: <CheckInScreen testModeEnabled={testModeEnabled} />,
     aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} />,
-    records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} />,
+    records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
@@ -366,7 +401,7 @@ function App() {
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
     profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={setActive} healthData={healthData} />,
-    importlabs: <ImportLabsScreen setActive={setActive} />,
+    importlabs: <ImportLabsScreen setActive={setActive} onImported={refreshRecords} />,
     geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} testModeEnabled={testModeEnabled} />,
     medications: <MedicationScreen setActive={setActive} userProfile={userProfile} goToMarket={goToMarket} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,

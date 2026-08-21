@@ -5,7 +5,8 @@ import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
-import { uploadDocument, saveGeneticMarkers } from "../lib/profileStore";
+import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
+import { extractDocumentText } from "../lib/documentText";
 
 /**
  * Turn the model's raw reply into a marker array — tolerantly.
@@ -110,7 +111,18 @@ function normalizeGenome(g) {
 // Full pipeline: upload PDF or capture photo → AI extracts markers → user confirms → catalogued.
 // The review step before saving is intentional: silently storing a misread value into a
 // health record is worse than not storing it at all.
-function ImportLabsScreen({ setActive }) {
+/**
+ * The user types the draw date free-form ("Jun 21, 2026", "6/21/26"). Store it only
+ * when it parses to a real date — a `drawn_on` that's actually a typo is worse than
+ * an absent one, because every trend downstream would believe it.
+ */
+function toIsoDate(text) {
+  if (!text || !String(text).trim()) return null;
+  const parsed = new Date(String(text).trim());
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+function ImportLabsScreen({ setActive, onImported }) {
   const { user } = useAuth();
   // "storing" tracks the file landing in storage, which is independent of the AI
   // extraction below — the document is kept even if extraction fails.
@@ -126,6 +138,7 @@ function ImportLabsScreen({ setActive }) {
   const [extractedGenetics, setExtractedGenetics] = useState([]);
   const [extractionError, setExtractionError] = useState(null);
   const [savingGenetics, setSavingGenetics] = useState(false);
+  const [savingLabs, setSavingLabs] = useState(false);
   const [labDate, setLabDate] = useState("");
   const [labSource, setLabSource] = useState("");
   const fileRef = useRef(null);
@@ -141,6 +154,10 @@ function ImportLabsScreen({ setActive }) {
     // Store the file first and independently of extraction. The document itself is
     // the record the user asked us to keep; whether we can read values out of it is
     // a separate concern that must not be able to lose their file.
+    //
+    // Held in a local as well as in state: the reader callback below closes over the
+    // render that started the upload, where the state value is still null.
+    let uploaded = null;
     if (user) {
       setStoring(true);
       const { document, error } = await uploadDocument(
@@ -150,7 +167,10 @@ function ImportLabsScreen({ setActive }) {
       );
       setStoring(false);
       if (error) setStoreError(error.message || "Upload failed");
-      else setStoredDoc(document);
+      else {
+        uploaded = document;
+        setStoredDoc(document);
+      }
     }
 
     const reader = new FileReader();
@@ -161,10 +181,30 @@ function ImportLabsScreen({ setActive }) {
       setImageData({ base64, mediaType });
       if (file.type?.startsWith("image")) setImagePreview(dataUrl);
       else setImagePreview(null);
+      // Transcribe the document alongside the structured extraction, not instead of
+      // it. Markers give the AI trends and a score; the transcription gives it the
+      // parts no schema captures — the report's own interpretation, the notes, the
+      // context. Deliberately not awaited: the user is waiting on the review screen,
+      // and a slow read of a long report shouldn't hold that up.
+      transcribeInBackground(uploaded, base64, mediaType);
       if (importType === "genetic") await extractGenetics(base64, mediaType);
       else await extractMarkers(base64, mediaType);
     };
     reader.readAsDataURL(file);
+  };
+
+  /**
+   * Read the whole file to text and attach it to its document row.
+   *
+   * Failure here is logged onto the row rather than raised at the user: the file is
+   * safely stored and the markers still extract, so a failed transcription degrades
+   * what the AI knows without costing them anything they entered.
+   */
+  const transcribeInBackground = async (document, base64, mediaType) => {
+    if (!document?.id) return;
+    const { text, error } = await extractDocumentText(base64, mediaType);
+    await saveDocumentText(document.id, text, error);
+    if (text) onImported?.();
   };
 
   const extractMarkers = async (base64, mediaType) => {
@@ -287,6 +327,32 @@ Rules:
       setExtractedGenetics([]);
       setStage("review");
     }
+  };
+
+  /**
+   * Commit the reviewed markers to the health record.
+   *
+   * This button used to do nothing but advance the stage, so the success screen's
+   * promise — "now part of your longitudinal record and will inform your AI
+   * conversations" — was false for every lab import ever made.
+   */
+  const saveLabs = async () => {
+    const kept = extractedMarkers.filter((m) => m.name && m.name.trim());
+    if (user && kept.length) {
+      setSavingLabs(true);
+      const { error } = await saveLabMarkers(user.id, kept, {
+        documentId: storedDoc?.id || null,
+        source: labSource || storedDoc?.file_name || null,
+        drawnOn: toIsoDate(labDate),
+      });
+      setSavingLabs(false);
+      if (error) {
+        setExtractionError(`Couldn't save your results: ${error.message || error}. Your file is still saved to your records.`);
+        return;
+      }
+      onImported?.();
+    }
+    setStage("saved");
   };
 
   const saveGenetics = async () => {
@@ -618,11 +684,12 @@ Rules:
             </button>
           </Card>
 
-          <button onClick={() => setStage("saved")} style={{
+          <button onClick={saveLabs} disabled={savingLabs} style={{
             width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent,
-            fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer", marginTop: 14
+            fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
+            cursor: savingLabs ? "default" : "pointer", opacity: savingLabs ? 0.6 : 1, marginTop: 14
           }}>
-            Save to health record
+            {savingLabs ? "Saving..." : "Save to health record"}
           </button>
           <button onClick={() => { setStage("idle"); setExtractedMarkers([]); setImagePreview(null); }} style={{
             width: "100%", background: "none", border: "none", color: COLORS.textMuted,

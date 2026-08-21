@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { FileText, Camera, Dna, Trash2, ChevronRight } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { FileText, Camera, Dna, Trash2, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
 import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
-import { listDocuments, getDocumentUrl, deleteDocument } from "../lib/profileStore";
+import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText } from "../lib/profileStore";
+import { extractDocumentText, fetchAsBase64 } from "../lib/documentText";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
 
@@ -27,23 +28,72 @@ function formatDate(iso) {
  * Files live in a private bucket, so opening one mints a short-lived signed URL on
  * demand instead of storing a permanent public link.
  */
-export default function DocumentList({ limit, onEmptyAction }) {
+export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }) {
   const { user } = useAuth();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+  const [readingId, setReadingId] = useState(null);
+  // Documents attempted this session, so a file that can't be read isn't retried on
+  // every re-render of the screen.
+  const attempted = useRef(new Set());
 
   const load = async () => {
     if (!user) return setLoading(false);
     setLoading(true);
-    setDocs(await listDocuments(user.id));
+    const rows = await listDocuments(user.id);
+    setDocs(rows);
     setLoading(false);
+    return rows;
   };
 
   useEffect(() => {
-    load();
+    load().then(backfillUnread);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  /**
+   * Read any document the AI can't yet see.
+   *
+   * Files uploaded before transcription existed are stored but unread, which means
+   * the chat knows their names and nothing else. Rather than make the member
+   * re-upload everything, fetch each one back out of the bucket and read it — once,
+   * in the background, oldest concern first.
+   */
+  const backfillUnread = async (rows = []) => {
+    for (const doc of rows) {
+      if (doc.extracted_text || doc.extract_error || attempted.current.has(doc.id)) continue;
+      attempted.current.add(doc.id);
+      await readDocument(doc);
+    }
+  };
+
+  /** Download a stored file, transcribe it, and attach the text to its row. */
+  const readDocument = async (doc) => {
+    if (!doc.storage_path) return;
+    setReadingId(doc.id);
+    try {
+      const url = await getDocumentUrl(doc.storage_path, 300);
+      if (!url) throw new Error("Couldn't open the stored file.");
+      const base64 = await fetchAsBase64(url);
+      const { text, error } = await extractDocumentText(base64, doc.mime_type || "");
+      await saveDocumentText(doc.id, text, error);
+      // Update in place rather than refetching the list: a reload mid-backfill would
+      // restart the loop over a stale snapshot.
+      setDocs((prev) => prev.map((d) => (d.id === doc.id
+        ? { ...d, extracted_text: text || null, extract_error: error || null, status: text ? "extracted" : "failed" }
+        : d)));
+      if (text) onDocumentsChange?.();
+    } catch (err) {
+      console.error("readDocument", err);
+      await saveDocumentText(doc.id, "", err.message);
+      setDocs((prev) => prev.map((d) => (d.id === doc.id
+        ? { ...d, extract_error: err.message, status: "failed" }
+        : d)));
+    } finally {
+      setReadingId(null);
+    }
+  };
 
   const open = async (doc) => {
     setBusyId(doc.id);
@@ -58,6 +108,7 @@ export default function DocumentList({ limit, onEmptyAction }) {
     await deleteDocument(doc);
     setBusyId(null);
     load();
+    onDocumentsChange?.();
   };
 
   if (loading) {
@@ -125,9 +176,35 @@ export default function DocumentList({ limit, onEmptyAction }) {
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 1 }}>
                 {formatDate(doc.created_at)}
                 {doc.kind === "genetic" ? " · Genetic data" : " · Lab report"}
-                {doc.status === "uploaded" ? " · Not yet analyzed" : ""}
+              </div>
+              {/* Whether the AI can actually read this file — the one thing about a
+                  stored document the member can't otherwise tell. */}
+              <div style={{ fontSize: 11, marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                {readingId === doc.id ? (
+                  <span style={{ color: COLORS.textMuted }}>Reading this document…</span>
+                ) : doc.extracted_text ? (
+                  <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>Your AI can read this</span></>
+                ) : (
+                  <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
+                    {doc.extract_error ? "Couldn't be read — tap to retry" : "Not readable by your AI yet"}
+                  </span></>
+                )}
               </div>
             </button>
+
+            {!doc.extracted_text && readingId !== doc.id && (
+              <button
+                onClick={() => readDocument(doc)}
+                title="Let the AI read this document"
+                style={{
+                  background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
+                  borderRadius: 999, padding: "5px 10px", fontSize: 11, fontWeight: 600,
+                  color: COLORS.textSecondary, cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                Read
+              </button>
+            )}
 
             <button
               onClick={() => remove(doc)}

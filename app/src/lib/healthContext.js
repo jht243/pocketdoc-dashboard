@@ -90,8 +90,61 @@ export function intakeLines(intake = {}, profile = {}) {
 
 function labLines(labs = []) {
   return labs
-    .map((l) => `- ${l.name}: ${l.value}${l.unit ? " " + l.unit : ""} (${l.status || "status n/a"}${l.date ? ", " + l.date : ""})`)
+    .map((l) => {
+      const detail = [
+        l.status || "status n/a",
+        // The lab's own reference range travels with the value: "TSH 4.2" is only
+        // interpretable against the range the lab that ran it publishes.
+        l.range ? `ref range ${l.range}` : null,
+        l.date || null,
+        l.source || null,
+      ].filter(Boolean);
+      return `- ${l.name}: ${l.value}${l.unit ? " " + l.unit : ""} (${detail.join(", ")})`;
+    })
     .join("\n");
+}
+
+/* ---------------- uploaded documents ---------------- */
+
+/**
+ * How much document text the chat carries, and per document.
+ *
+ * Documents are the largest thing in this block by far, so they get a hard budget:
+ * without one, a couple of long reports would push the user's labs, wearable trend
+ * and medications out of the model's context window — losing the structured data to
+ * make room for the unstructured.
+ */
+const MAX_DOC_CHARS = 9000;
+const MAX_DOCS_TOTAL_CHARS = 20000;
+
+/**
+ * The uploaded documents themselves, transcribed, newest first.
+ *
+ * Previously this section listed file names only, so the model was told a longevity
+ * report existed and nothing about what it said — and answered as if it had read it.
+ * A document still being read, or one that failed to read, is labelled as such, so
+ * the model can say "I can't see that file yet" instead of inventing its contents.
+ */
+export function documentLines(records = []) {
+  let budget = MAX_DOCS_TOTAL_CHARS;
+  return records
+    .map((r) => {
+      const head = `${r.name}${r.type ? ` (${r.type})` : ""}${r.uploadedAt ? `, uploaded ${String(r.uploadedAt).slice(0, 10)}` : ""}`;
+      if (!r.text) {
+        const why = r.textError
+          ? `could not be read (${r.textError}) — you cannot see this file's contents`
+          : "not yet transcribed — you cannot see this file's contents";
+        return `- ${head}: ${why}`;
+      }
+      if (budget <= 0) {
+        return `- ${head}: stored, but not included here — the older documents are omitted to leave room for the rest of this record`;
+      }
+      const slice = r.text.slice(0, Math.min(MAX_DOC_CHARS, budget));
+      budget -= slice.length;
+      const cut = slice.length < r.text.length ? "\n  [document continues — excerpt ends here]" : "";
+      return `- ${head} — full text follows:\n"""\n${slice}${cut}\n"""`;
+    })
+    .join("\n\n");
 }
 
 /**
@@ -368,9 +421,7 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
     typeof m === "string" ? `- ${m}` : `- ${[m.name, m.dose, m.frequency, m.type].filter(Boolean).join(" — ")}`,
   ).join("\n");
 
-  const records = (healthData?.records || [])
-    .map((r) => `- ${r.name}${r.type ? ` (${r.type})` : ""}`)
-    .join("\n");
+  const records = documentLines(healthData?.records || []);
 
   const body = healthData?.body
     ? Object.entries(healthData.body)
@@ -413,7 +464,7 @@ ${section("WEARABLE — RECENT DAYS", wearableHistoryLines(healthData?.history))
 ${section("GENETICS", (healthData?.genetics || []).map(geneticLine).join("\n"))}
 ${section("PREVENTIVE CARE SCHEDULE", scheduleLines(userProfile?.schedule, userProfile?.completedItems))}
 ${section("BODY COMPOSITION", body)}
-${section("UPLOADED RECORDS & DOCUMENTS", records)}
+${section("UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", records)}
 ${section("DAILY SCORE INPUTS", scoreLines)}
 ${historyExtra ? section("HEALTH HISTORY (standalone questionnaire)", historyExtra) : ""}`;
 }

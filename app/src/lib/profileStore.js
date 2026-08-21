@@ -300,6 +300,29 @@ export async function uploadDocument(userId, file, kind = "lab") {
   return { error: null, document: data };
 }
 
+/**
+ * Store the plain-text reading of an uploaded file (or why it couldn't be read).
+ *
+ * `status` is moved in step with the text so the Records screen can distinguish a
+ * file we've read from one we've only stored — and from one we tried and failed to
+ * read, which the user needs to know about, because it means the AI can't see it.
+ */
+export async function saveDocumentText(documentId, text, error = null) {
+  if (!isConfigured || !documentId) return { error: null };
+  const clean = String(text || "").trim();
+  const { error: dbError } = await supabase
+    .from("documents")
+    .update({
+      extracted_text: clean || null,
+      extracted_at: new Date().toISOString(),
+      extract_error: error ? String(error).slice(0, 500) : null,
+      status: clean ? "extracted" : "failed",
+    })
+    .eq("id", documentId);
+  if (dbError) console.error("saveDocumentText", dbError);
+  return { error: dbError };
+}
+
 /** Every document the user has uploaded, newest first. */
 export async function listDocuments(userId) {
   if (!isConfigured || !userId) return [];
@@ -349,7 +372,7 @@ export async function loadDocuments(userId) {
   if (!isConfigured || !userId) return [];
   const { data, error } = await supabase
     .from("documents")
-    .select("id, kind, file_name, status, created_at")
+    .select("id, kind, file_name, status, created_at, extracted_text, extracted_at, extract_error")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) {
@@ -361,16 +384,97 @@ export async function loadDocuments(userId) {
 
 export async function loadLabMarkers(userId) {
   if (!isConfigured || !userId) return [];
+  // The panel carries when blood was actually drawn and where it came from. Without
+  // it every marker is dated by when the user happened to upload the file, which
+  // turns a three-year lab history into "all imported last Tuesday" and destroys
+  // the trend the AI is supposed to reason about.
   const { data, error } = await supabase
     .from("lab_markers")
-    .select("name, value, unit, status, created_at")
+    .select("name, value, unit, status, ref_range, created_at, lab_panels(drawn_on, source)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) {
     console.error("loadLabMarkers", error);
-    return [];
+    // Losing the panel join must not lose the labs themselves: fall back to the flat
+    // marker list, which costs the draw date and source but keeps every result in
+    // front of the AI and on the Labs screen.
+    const { data: flat, error: flatError } = await supabase
+      .from("lab_markers")
+      .select("name, value, unit, status, ref_range, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (flatError) {
+      console.error("loadLabMarkers/flat", flatError);
+      return [];
+    }
+    return (flat || []).map((marker) => ({ ...marker, range: marker.ref_range || null, drawnOn: null, source: null }));
   }
-  return data || [];
+  return (data || []).map(({ lab_panels: panel, ...marker }) => ({
+    ...marker,
+    range: marker.ref_range || null,
+    drawnOn: panel?.drawn_on || null,
+    source: panel?.source || null,
+  }));
+}
+
+/**
+ * Persist a reviewed lab import: one panel row plus its markers.
+ *
+ * This is what the "Save to health record" button had been missing — the screen
+ * extracted markers, showed them for review, told the user they were now part of
+ * their longitudinal record, and then dropped them on the floor. Every downstream
+ * feature that reads labs (the AI health context, lab trends, the bloodwork score,
+ * the Discussion Page) was consequently looking at an empty list.
+ *
+ * Markers hang off a panel rather than standing alone so a single draw stays one
+ * event: same date, same source, and re-importing the same document later doesn't
+ * blur into the previous one.
+ */
+export async function saveLabMarkers(userId, markers = [], { documentId = null, source = null, drawnOn = null } = {}) {
+  if (!isConfigured || !userId) return { error: null, markers: [] };
+
+  const kept = (markers || []).filter((m) => m && m.name && String(m.name).trim());
+  if (!kept.length) return { error: null, markers: [] };
+
+  const { data: panel, error: panelErr } = await supabase
+    .from("lab_panels")
+    .insert({
+      user_id: userId,
+      document_id: documentId,
+      source: source || null,
+      // A blank date column is honest about "we don't know when this was drawn";
+      // an empty string is a date-parse error waiting to happen.
+      drawn_on: drawnOn || null,
+    })
+    .select()
+    .single();
+  if (panelErr) {
+    console.error("saveLabMarkers/panel", panelErr);
+    return { error: panelErr, markers: [] };
+  }
+
+  const rows = kept.map((m) => ({
+    panel_id: panel.id,
+    user_id: userId,
+    name: String(m.name).trim(),
+    value: m.value != null && m.value !== "" ? String(m.value) : null,
+    unit: m.unit || null,
+    ref_range: m.range || m.ref_range || null,
+    status: ["normal", "low", "high", "unknown"].includes(m.status) ? m.status : "unknown",
+    // The user has just read these on the review screen and pressed save — that
+    // review is exactly what `confirmed` records.
+    confirmed: true,
+  }));
+
+  const { data, error } = await supabase.from("lab_markers").insert(rows).select();
+  if (error) {
+    console.error("saveLabMarkers/markers", error);
+    // A panel with no markers is a phantom lab draw in the user's history. Undo it
+    // rather than leave one behind.
+    await supabase.from("lab_panels").delete().eq("id", panel.id);
+    return { error, markers: [] };
+  }
+  return { error: null, markers: data || [] };
 }
 
 /* ---------------- genetic markers ---------------- */

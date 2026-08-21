@@ -7,7 +7,8 @@ import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
-import { uploadDocument } from "../lib/profileStore";
+import { uploadDocument, saveDocumentText } from "../lib/profileStore";
+import { extractDocumentText } from "../lib/documentText";
 import { IntakeForm } from "../components/IntakeForm";
 import { emptyAnswers } from "../lib/intakeContent";
 
@@ -115,16 +116,33 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
     // Store immediately rather than on completion. Steps 4 and 5 involve a slow AI
     // call the user can abandon; deferring the upload meant their file was silently
     // lost if they left, even though the UI had told them it was ready.
+    let uploaded = null;
     if (user) {
       setStoring(true);
       const { document, error } = await uploadDocument(user.id, file, "lab");
       setStoring(false);
       if (error) setStoreError(error.message || "Upload failed");
-      else setStoredDoc(document);
+      else {
+        uploaded = document;
+        setStoredDoc(document);
+      }
     }
 
     const reader = new FileReader();
-    reader.onload = (ev) => setUploadedFile({ base64: ev.target.result.split(",")[1], mediaType: file.type || "application/pdf" });
+    reader.onload = (ev) => {
+      const base64 = ev.target.result.split(",")[1];
+      const mediaType = file.type || "application/pdf";
+      setUploadedFile({ base64, mediaType });
+      // Read the file into the health record, not just into this one onboarding
+      // insight. Bloodwork uploaded here used to reach the model exactly once — as
+      // the sentence "They have uploaded bloodwork for analysis" — and was invisible
+      // to every later conversation.
+      if (uploaded?.id) {
+        extractDocumentText(base64, mediaType)
+          .then(({ text, error }) => saveDocumentText(uploaded.id, text, error))
+          .catch((err) => console.error("onboarding transcription", err));
+      }
+    };
     reader.readAsDataURL(file);
   };
 
