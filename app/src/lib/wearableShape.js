@@ -42,6 +42,8 @@ export function baselineFor(rows, field) {
 }
 
 const num = (v) => (v == null ? null : Number(v));
+// Null unless the asleep figure is present; awake time alone isn't a time in bed.
+const sumMinutes = (asleep, awake) => (asleep == null ? null : asleep + (awake ?? 0));
 
 /**
  * One vitals chip's comparison line.
@@ -201,6 +203,9 @@ export function toSnapshot(rows) {
     deepSleepMinutes: num(latest.deep_sleep_minutes),
     remSleepMinutes: num(latest.rem_sleep_minutes),
     awakeMinutes: num(latest.awake_minutes),
+    // Time in bed is asleep + awake. Oura reports the two separately and people
+    // read the larger number as sleep, so we show both and label them explicitly.
+    timeInBedMinutes: sumMinutes(num(latest.total_sleep_minutes), num(latest.awake_minutes)),
 
     // Activity detail
     activityScore: num(latest.activity_score),

@@ -142,8 +142,13 @@ function BodyScreen({ setActive, healthData }) {
             </div>
             {today.totalSleepMinutes != null && (
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Time asleep</div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Actual sleep</div>
                 <div style={{ fontSize: 20, fontWeight: 700 }}>{formatHoursMinutes(today.totalSleepMinutes)}</div>
+                {today.timeInBedMinutes != null && today.timeInBedMinutes !== today.totalSleepMinutes && (
+                  <div style={{ fontSize: 10.5, color: COLORS.textMuted, marginTop: 2 }}>
+                    {formatHoursMinutes(today.timeInBedMinutes)} in bed
+                  </div>
+                )}
               </div>
             )}
           </div>

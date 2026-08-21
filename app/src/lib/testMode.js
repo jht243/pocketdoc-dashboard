@@ -74,6 +74,7 @@ export function createTestSnapshot() {
         sleepScore: 82,
         sleepEfficiency: 0.91,
         totalSleepMinutes: 452,
+        timeInBedMinutes: 483,
         deepSleepMinutes: 78,
         remSleepMinutes: 96,
         awakeMinutes: 41,

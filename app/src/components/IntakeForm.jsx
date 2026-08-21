@@ -114,13 +114,31 @@ function Question({ q, answers, isOnboarding, setValue, toggleMulti }) {
   }
 
   const labelSize = isOnboarding ? 12 : 13;
+  // Deferred (remind-me-later) questions collapse to a reminder chip. Nobody should
+  // stall out on the form because their bloodwork isn't in front of them.
+  const deferred = q.remindable && answers[`${q.id}__remind`];
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: labelSize, fontWeight: 600, color: COLORS.textPrimary, marginBottom: q.help ? 4 : 8 }}>{q.label}</div>
       {q.help && (
         <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, marginBottom: 8 }}>{q.help}</div>
       )}
-      <Control q={q} answers={answers} setValue={setValue} toggleMulti={toggleMulti} />
+      {deferred ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.border}`, borderRadius: 8, padding: "9px 12px" }}>
+          <span style={{ fontSize: 12, color: COLORS.textMuted }}>We'll remind you to add this</span>
+          <button onClick={() => setValue(`${q.id}__remind`, "")} style={linkBtn}>Add it now</button>
+        </div>
+      ) : (
+        <>
+          <Control q={q} answers={answers} setValue={setValue} toggleMulti={toggleMulti} />
+          {q.remindable && (
+            <button
+              onClick={() => { setValue(q.id, ""); setValue(`${q.id}__remind`, "yes"); }}
+              style={{ ...linkBtn, marginTop: 6 }}
+            >Don't have it? Remind me later</button>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -181,6 +199,38 @@ function Control({ q, answers, setValue, toggleMulti }) {
             <button onClick={() => setValue(q.id, list.filter((x) => x !== c))} style={iconBtn}><X size={13} /></button>
           </div>
         ))}
+      </>
+    );
+  }
+
+  // Height is two inputs, not one free-text field — "5 ft 10 in" typed a dozen
+  // different ways is unparseable. The unit toggle keeps it usable outside the US.
+  if (q.type === "height") {
+    const h = value && typeof value === "object" ? value : { unit: "imperial", feet: "", inches: "", cm: "" };
+    const patch = (k, v) => setValue(q.id, { ...h, [k]: v });
+    const metric = h.unit === "metric";
+    return (
+      <>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          {["imperial", "metric"].map((u) => (
+            <button key={u} onClick={() => patch("unit", u)} style={{
+              ...unitTabStyle(h.unit === u), flex: "0 0 auto",
+            }}>{u === "imperial" ? "ft / in" : "cm"}</button>
+          ))}
+        </div>
+        {metric ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input value={h.cm || ""} onChange={(e) => patch("cm", e.target.value)} inputMode="numeric" placeholder="178" style={{ ...fieldStyle, flex: "0 0 96px" }} />
+            <span style={{ fontSize: 12, color: COLORS.textMuted }}>cm</span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input value={h.feet || ""} onChange={(e) => patch("feet", e.target.value)} inputMode="numeric" placeholder="5" style={{ ...fieldStyle, flex: "0 0 68px" }} />
+            <span style={{ fontSize: 12, color: COLORS.textMuted }}>ft</span>
+            <input value={h.inches || ""} onChange={(e) => patch("inches", e.target.value)} inputMode="numeric" placeholder="10" style={{ ...fieldStyle, flex: "0 0 68px" }} />
+            <span style={{ fontSize: 12, color: COLORS.textMuted }}>in</span>
+          </div>
+        )}
       </>
     );
   }
@@ -293,6 +343,19 @@ const optionStyle = (selected) => ({
 const fieldStyle = {
   background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8,
   padding: "9px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none", boxSizing: "border-box",
+};
+
+const unitTabStyle = (selected) => ({
+  padding: "5px 12px", borderRadius: 7, fontSize: 11.5, cursor: "pointer",
+  background: selected ? COLORS.teal : COLORS.bgCardAlt,
+  color: selected ? COLORS.onAccent : COLORS.textSecondary,
+  border: `1px solid ${selected ? COLORS.teal : COLORS.border}`,
+  fontWeight: selected ? 600 : 400,
+});
+
+const linkBtn = {
+  background: "none", border: "none", padding: 0, cursor: "pointer",
+  color: COLORS.tealLight, fontSize: 11.5, fontWeight: 600, textAlign: "left",
 };
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted };

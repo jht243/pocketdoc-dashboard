@@ -43,7 +43,7 @@ function HomeScreen({
         today.sleepScore != null && {
           icon: Moon, label: "Sleep",
           value: String(today.sleepScore),
-          sub: today.totalSleepMinutes != null ? formatHoursMinutes(today.totalSleepMinutes) : "score",
+          sub: today.totalSleepMinutes != null ? `${formatHoursMinutes(today.totalSleepMinutes)} asleep` : "score",
         },
         today.steps != null && {
           icon: Activity, label: "Steps",

@@ -21,6 +21,12 @@
  *   text     — one-line input. value: string
  *   textarea — multi-line input. value: string
  *   note     — informational only, no input (`tone`: "info" | "warn")
+ *   dose     — amount + unit + frequency. value: { amount, unit, frequency }
+ *   height   — feet/inches or centimetres, unit-switchable.
+ *              value: { unit: "imperial" | "metric", feet, inches, cm }
+ *
+ * `remindable: true` on a question adds a "Remind me later" action, for values a
+ * user may not have to hand (lab results). Deferral is recorded under `<id>__remind`.
  *
  * `showIf(a)` — question/section is only rendered when it returns true (`a` = answers).
  */
@@ -99,7 +105,8 @@ const PEPTIDES = [
   "Tirzepatide (Mounjaro / Zepbound) — prescribed", "Tirzepatide — compounded / grey market",
   "AOD-9604", "MOTS-c", "Humanin", "PT-141 / Bremelanotide", "Melanotan II", "Dihexa",
   "Semax", "Selank", "Epithalon / Epitalon", "Pinealon", "Thymosin Alpha-1 (Ta1)", "Thymulin",
-  "SS-31 (Elamipretide)", "Hexarelin", "Other — not listed",
+  "SS-31 (Elamipretide)", "Hexarelin", "Retatrutide — prescribed", "Retatrutide — compounded / grey market",
+  "Other — not listed",
 ];
 const PEPTIDE_REASONS = [
   "Recovery / injury healing", "Anti-aging / longevity", "Growth hormone optimization",
@@ -230,7 +237,7 @@ export const INTAKE_SECTIONS = [
       { id: "genderIdentitySelf", type: "text", label: "How would you describe your gender identity?", placeholder: "In your own words", showIf: (a) => a.genderIdentity === "Other" && a.genderIdentityDetail === "Prefer to self-describe" },
       { id: "gaht", type: "single", label: "Are you currently receiving gender-affirming hormone therapy (GAHT)?", options: ["No", "Yes — currently", "Yes — past only"], showIf: asksAboutGAHT },
       { id: "raceEthnicity", type: "multi", label: "Race / ethnicity (select all that apply)", options: RACE_ETHNICITY, exclusive: ["Prefer not to say"] },
-      { id: "height", type: "text", label: "Height", placeholder: "e.g. 5 ft 10 in" },
+      { id: "height", type: "height", label: "Height" },
       { id: "weight", type: "text", label: "Current weight", placeholder: "e.g. 175 lbs" },
       { id: "education", type: "single", label: "Highest level of education completed", options: EDUCATION },
       { id: "employment", type: "single", label: "Current employment status", options: EMPLOYMENT },
@@ -308,15 +315,18 @@ export const INTAKE_SECTIONS = [
       { id: "trtDose", type: "dose", label: "Current dose and frequency", units: TRT_DOSE_UNITS, frequencies: DOSE_FREQUENCIES, amountPlaceholder: "200", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtAncillaries", type: "multi", label: "Ancillary medications used with TRT (select all that apply)", options: TRT_ANCILLARIES, showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtAncillariesOther", type: "text", label: "Other ancillary medications — specify", showIf: (a) => has(a, "trtAncillaries", "Other") },
-      { id: "trtManager", type: "single", label: "Who manages your TRT?", options: ["Urologist", "Endocrinologist", "Men's health / TRT clinic", "Primary care physician", "Telehealth TRT service", "Self-managed"], showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
+      { id: "trtManager", type: "single", label: "Who manages your TRT?", options: ["Urologist", "Endocrinologist", "Men's health / TRT clinic", "Primary care physician", "Telehealth TRT service", "Self-managed", "Other"], showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
+      { id: "trtManagerOther", type: "text", label: "Who manages it?", placeholder: "e.g. Functional medicine clinic", showIf: (a) => a.trtManager === "Other" },
       { id: "trtTelehealth", type: "text", label: "Telehealth service name", showIf: (a) => a.trtManager === "Telehealth TRT service" },
-      { id: "trtMonitorFreq", type: "single", label: "How often is your TRT monitored with bloodwork?", options: ["Every 3 months", "Every 6 months", "Annually", "Rarely / never", "Variable — I manage myself"], showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
+      { id: "trtMonitorFreq", type: "single", label: "How often is your TRT monitored with bloodwork?", options: ["Every 3 months", "Every 6 months", "Annually", "Rarely", "Never", "Variable — I manage myself"], showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtKnowLevels", type: "single", label: "Do you know your most recent testosterone levels?", options: ["No", "Yes"], showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
-      { id: "trtTotalT", type: "text", label: "Total T (ng/dL)", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" && a.trtKnowLevels === "Yes" },
-      { id: "trtFreeT", type: "text", label: "Free T (pg/mL or pmol/L)", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" && a.trtKnowLevels === "Yes" },
-      { id: "trtHct", type: "text", label: "Most recent hematocrit (%) or hemoglobin (g/dL), if known", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
+      // Lab values are the fields people most often don't have in front of them.
+      // `remindable` lets them defer without abandoning the form.
+      { id: "trtTotalT", type: "text", label: "Total T (ng/dL)", remindable: true, showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" && a.trtKnowLevels === "Yes" },
+      { id: "trtFreeT", type: "text", label: "Free T (pg/mL or pmol/L)", remindable: true, showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" && a.trtKnowLevels === "Yes" },
+      { id: "trtHct", type: "text", label: "Most recent hematocrit (%) or hemoglobin (g/dL), if known", remindable: true, showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtHctNote", type: "note", tone: "warn", text: "Elevated hematocrit (>52%) from TRT significantly increases clotting risk (stroke, DVT, PE). Your reported value is above that threshold — please get this reviewed.", showIf: (a) => onTRT(a) && hctAbove52(a) },
-      { id: "trtMonitorNote", type: "note", tone: "warn", text: "Testosterone raises hematocrit over time, which increases clotting risk. Without regular bloodwork that goes unseen — we'd recommend a panel every 3–6 months.", showIf: (a) => onTRT(a) && (a.trtMonitorFreq === "Rarely / never" || a.trtMonitorFreq === "Annually") },
+      { id: "trtMonitorNote", type: "note", tone: "warn", text: "Testosterone raises hematocrit over time, which increases clotting risk. Without regular bloodwork that goes unseen — we'd recommend a panel every 3–6 months.", showIf: (a) => onTRT(a) && ["Rarely", "Never", "Annually"].includes(a.trtMonitorFreq) },
     ],
   },
   {
@@ -479,7 +489,11 @@ export function hiddenAnswerKeys(answers, profile) {
     for (const q of section.questions) {
       if (q.type === "note") continue;
       const visible = sectionVisible && (!q.showIf || q.showIf(answers, profile));
-      if (!visible) hidden.push(q.id);
+      if (!visible) {
+        hidden.push(q.id);
+        // A deferral only makes sense while its question is on the form.
+        if (q.remindable) hidden.push(`${q.id}__remind`);
+      }
     }
   }
   return hidden;
