@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd '/Users/jonathanteplitsky/Desktop/Github Projects/Clients/PocketDoc/app' && exec npm run dev -- --port 5176"
+      ],
+      "port": 5176
+    }
+  ]
+}

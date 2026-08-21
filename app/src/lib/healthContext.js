@@ -204,6 +204,84 @@ function wearableHistoryLines(history = [], days = 14) {
     .join("\n");
 }
 
+/* ---------------- wearable score ---------------- */
+
+/**
+ * The scored wearable picture: the number, how it was built, and how much history
+ * stands behind it.
+ *
+ * The tier and the deviation matter more to the model than the raw value, because
+ * they already carry the comparison the score is built on — "HRV 77ms" is a fact,
+ * "HRV 19% below their own normal, Poor" is the finding. Confidence is included so
+ * the model can hedge honestly when a member has only a few days of data instead of
+ * speaking about a two-day "baseline" as if it were established.
+ */
+export function wearableScoreLines(score) {
+  if (!score) return "";
+
+  const metricLine = (m) => {
+    const parts = [
+      m.recorded ? `${m.value}${m.unit ? (m.unit === "%" ? "%" : ` ${m.unit}`) : ""}` : "not recorded",
+      m.baseline != null ? `their usual ${m.baseline}` : "no baseline yet",
+      m.deviationPct != null ? `${m.deviationPct > 0 ? "+" : ""}${m.deviationPct}% vs usual` : null,
+      `tier ${m.tier}`,
+      `${m.points}/${m.max} pts`,
+      m.floorApplied ? `absolute clinical floor applied (below ${m.floorApplied.below})` : null,
+    ].filter(Boolean);
+    return `- ${m.label}: ${parts.join(", ")}`;
+  };
+
+  const alerts = (score.alerts || []).map((a) => `- ${a.label} (${a.severity}): ${a.message}`).join("\n");
+
+  return [
+    `- Wearable score: ${score.totalScore} of ${score.max} — ${score.label}`,
+    `- Split: ${score.dailyScore}/${score.dailyMax} for today, ${score.trendScore}/${score.trendMax} for the 7-day trend`,
+    `- Confidence: ${score.confidence.percent}% (${score.confidence.historyDays} days of baseline history). ${score.confidence.note}`,
+    "",
+    "Today, each metric against this person's OWN rolling baseline:",
+    score.daily.map(metricLine).join("\n"),
+    "",
+    "Direction of travel — last 7 days vs their 20-day baseline:",
+    score.trend.map(metricLine).join("\n"),
+    alerts ? `\nClinical alerts raised by the scoring rubric:\n${alerts}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+/* ---------------- bloodwork score ---------------- */
+
+/**
+ * The scored bloodwork picture: which band each marker fell in and what the panel
+ * doesn't cover.
+ *
+ * The gaps matter as much as the results here. Without them the model reads a
+ * five-marker panel as a complete picture and reassures the user about
+ * cardiovascular risk that nothing in the panel actually measured.
+ */
+export function bloodworkScoreLines(score) {
+  if (!score) return "";
+  if (!score.available) {
+    return [
+      `- Bloodwork is NOT scored: ${score.unavailableReason}`,
+      score.markers?.length ? `- Markers on file anyway: ${score.markers.map((m) => `${m.label} ${m.value}${m.unit ? " " + m.unit : ""}`).join("; ")}` : null,
+    ].filter(Boolean).join("\n");
+  }
+
+  const markerLine = (m) => m.excluded
+    ? `- ${m.label}: ${m.value}${m.unit ? " " + m.unit : ""} — NOT scored (${m.note})`
+    : `- ${m.label}: ${m.value}${m.unit ? " " + m.unit : ""}, band ${m.tier}, ${m.points}/${m.max} pts${m.measuredAt ? `, measured ${String(m.measuredAt).slice(0, 10)}` : ""}`;
+
+  const alerts = (score.alerts || []).map((a) => `- ${a.label} (${a.severity}): ${a.message}`).join("\n");
+
+  return [
+    `- Bloodwork score: ${score.totalScore} of ${score.max} — ${score.label}`,
+    `- Panel coverage: ${score.coverage.markers} scored markers, ${score.coverage.percent}% of the scoreable panel. ${score.recency.note}`,
+    "",
+    "Each marker against published clinical thresholds (NOT against their own baseline):",
+    score.markers.map(markerLine).join("\n"),
+    alerts ? `\nFlags raised by the bloodwork rubric:\n${alerts}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 /* ---------------- genetics ---------------- */
 
 /**
@@ -303,7 +381,7 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
 
   const scoreLines = healthData?.score
     ? [
-        healthData.score.sleepScore != null ? `- Last night's sleep score: ${healthData.score.sleepScore}${healthData.score.sleepNote ? ` (${healthData.score.sleepNote})` : ""}` : null,
+        healthData.score.sleepScore != null ? `- Last night's sleep score (the device's own composite, not part of our score): ${healthData.score.sleepScore}${healthData.score.sleepNote ? ` (${healthData.score.sleepNote})` : ""}` : null,
         healthData.score.zone2Minutes != null ? `- Active minutes today: ${healthData.score.zone2Minutes}` : null,
         healthData.score.wakeupNote ? `- Morning check-in: ${healthData.score.wakeupNote}` : null,
       ].filter(Boolean).join("\n")
@@ -327,6 +405,8 @@ ${section("INTAKE QUESTIONNAIRE (their own answers)", intakeLines(intake, profil
 ${section("MEDICATIONS & SUPPLEMENTS", meds || snapshotMeds)}
 ${section("LAB RESULTS (most recent)", labLines(healthData?.labs))}
 ${section("LAB TRENDS (repeat measurements over time)", labTrendLines(healthData))}
+${section("WEARABLE SCORE (calculated from raw values vs their own baseline)", wearableScoreLines(healthData?.score?.wearable))}
+${section("BLOODWORK SCORE (calculated from lab markers vs clinical thresholds)", bloodworkScoreLines(healthData?.score?.bloodwork))}
 ${section("WEARABLE — LATEST DAY (all synced metrics)", wearableTodayLines(today))}
 ${section("WEARABLE — EACH METRIC vs THEIR OWN RANGE", metricRangeLines(healthData?.metrics))}
 ${section("WEARABLE — RECENT DAYS", wearableHistoryLines(healthData?.history))}

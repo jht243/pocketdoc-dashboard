@@ -14,8 +14,7 @@ function HomeScreen({
   testModeEnabled, testModeSaving, onTestModeChange,
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const score = useScoreModel(nutritionEnabled, healthData);
-  const { baseDisplay, dailyDisplay } = score;
+  const score = useScoreModel(nutritionEnabled, healthData, userProfile);
   // Once the AI insights have loaded (aiInsights !== null) they govern this card —
   // including deliberately showing nothing. Until then (or if the AI is unavailable)
   // fall back to the deterministic recommendation so the card is never empty.
@@ -64,7 +63,7 @@ function HomeScreen({
 
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
-      {showBreakdown && <ScoreBreakdownModal onClose={() => setShowBreakdown(false)} nutritionEnabled={nutritionEnabled} healthData={healthData} />}
+      {showBreakdown && <ScoreBreakdownModal onClose={() => setShowBreakdown(false)} nutritionEnabled={nutritionEnabled} healthData={healthData} userProfile={userProfile} />}
 
       {/* Brand bar — matches the live dashboard */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -140,7 +139,8 @@ function HomeScreen({
       {score.hasData ? (
         <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
           <Card style={{ marginBottom: 0, textAlign: "center", paddingTop: 20, paddingBottom: 20 }}>
-            <ScoreGauge basePts={baseDisplay} baseMax={50} dailyPts={dailyDisplay} dailyMax={50} onTap={() => setShowBreakdown(true)} />
+            <ScoreGauge components={score.components} totalScore={score.totalScore} totalMax={score.totalMax}
+              bloodwork={score.bloodwork} onTap={() => setShowBreakdown(true)} />
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Tap to see what's driving your score today</div>
           </Card>
         </button>

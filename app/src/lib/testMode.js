@@ -1,5 +1,7 @@
 import { buildPreventiveCareSchedule } from "./preventiveCare";
 import { isConfigured, supabase } from "./supabase";
+import { calculateBloodworkScore } from "./bloodworkScore";
+import { calculateWearableScore } from "./wearableScore";
 
 // Test data intentionally lives in its own table. It must never be mixed with a
 // person's real profile, uploads, or screenings just to make the demo look full.
@@ -25,7 +27,74 @@ const DEMO_INTAKE = {
   medInput: "",
 };
 
-const TEST_SNAPSHOT_VERSION = 3;
+const TEST_SNAPSHOT_VERSION = 5;
+
+// Dated relative to the demo's "today" so the bloodwork score reads as current
+// rather than ageing into its stale state as the snapshot sits in the repo.
+const DEMO_LAB_DATE = "2026-06-14T00:00:00.000Z";
+const demoLab = (name, value, unit, status) => ({
+  name, value, unit, status, date: "Jun 2026", created_at: DEMO_LAB_DATE,
+});
+
+const DEMO_LABS = [
+  demoLab("ApoB", "78", "mg/dL", "normal"),
+  demoLab("Lp(a)", "18", "mg/dL", "normal"),
+  demoLab("Triglycerides", "134", "mg/dL", "normal"),
+  demoLab("HDL Cholesterol", "51", "mg/dL", "normal"),
+  demoLab("LDL Cholesterol", "104", "mg/dL", "high"),
+  demoLab("Hemoglobin A1c", "5.6", "%", "normal"),
+  demoLab("Glucose, Fasting", "97", "mg/dL", "normal"),
+  demoLab("Fasting Insulin", "9.4", "uIU/mL", "high"),
+  demoLab("hs-CRP", "1.8", "mg/L", "high"),
+  demoLab("eGFR", "88", "mL/min/1.73", "normal"),
+  demoLab("ALT (SGPT)", "34", "U/L", "high"),
+  demoLab("Vitamin D", "28", "ng/mL", "low"),
+  demoLab("Ferritin", "62", "ng/mL", "normal"),
+  demoLab("TSH", "2.1", "mIU/L", "normal"),
+  demoLab("TPO antibodies", "118", "IU/mL", "high"),
+];
+
+/**
+ * 21 days of raw daily rows behind the demo's numbers.
+ *
+ * The wearable score is calculated, never hand-written: a snapshot with a typed-in
+ * score would drift from the rubric the moment a weight changed, and the demo would
+ * then be showing a number the live engine could not produce. These rows put the
+ * demo member where the copy already says he is — HRV drifting down and resting
+ * heart rate climbing over the last few days, on top of a steady prior fortnight.
+ */
+function demoWearableRows() {
+  const rows = [];
+  for (let i = 0; i < 21; i += 1) {
+    const date = new Date("2026-08-21T00:00:00Z");
+    date.setUTCDate(date.getUTCDate() - i);
+    // The last four days carry the decline the demo's vitals chips describe.
+    const declining = i < 4;
+    rows.push({
+      day: date.toISOString().slice(0, 10),
+      source: "oura",
+      hrv_ms: declining ? 42 + i * 2 : 50 + ((i % 5) - 2),
+      resting_hr: declining ? 64 - i : 52 + ((i % 3) - 1),
+      average_hr: 58,
+      sleep_efficiency: 0.91,
+      total_sleep_minutes: declining ? 452 : 448 + ((i % 6) * 5),
+      deep_sleep_minutes: 78,
+      rem_sleep_minutes: 96,
+      awake_minutes: 41,
+      spo2_percent: 96,
+      temp_deviation_c: declining ? 0.4 : 0.1,
+      steps: 8420 - ((i % 4) * 300),
+      active_calories: 512,
+      medium_activity_minutes: 44,
+      high_activity_minutes: 12,
+      zone2_minutes: 56,
+      sleep_score: 82,
+      readiness_score: declining ? 68 : 78,
+      activity_score: 88,
+    });
+  }
+  return rows;
+}
 
 function completedSchedule() {
   const schedule = buildPreventiveCareSchedule({
@@ -40,6 +109,10 @@ function completedSchedule() {
 
 export function createTestSnapshot() {
   const { schedule, completedItems } = completedSchedule();
+  const wearableRows = demoWearableRows();
+  const wearableScore = calculateWearableScore(wearableRows[0], wearableRows);
+  // Same rule as the wearable score: calculated by the live engine, never typed in.
+  const bloodworkScore = calculateBloodworkScore(DEMO_LABS, { sex: DEMO_PROFILE.sex });
   return {
     version: TEST_SNAPSHOT_VERSION,
     profile: {
@@ -96,6 +169,10 @@ export function createTestSnapshot() {
         weightTrend: "flat",
         goalAchieved: false,
       },
+      // The raw daily rows the demo score was calculated from. Present so the Body
+      // screen, the AI context and the score all read the same underlying days
+      // rather than the score being the only thing with history behind it.
+      history: wearableRows,
       // Latest reading + trailing 30-day range for every collected metric — powers the
       // "All collected metrics" expander on the Body screen in test mode.
       metrics: [
@@ -127,19 +204,22 @@ export function createTestSnapshot() {
           { name: "PSA screening", status: "current", detail: "Completed Mar 2026", pts: 8, max: 8 },
           { name: "Skin cancer screening", status: "current", detail: "Completed Apr 2026", pts: 8, max: 8 },
         ],
+        // Calculated from `wearableRows` by the same engine the live app runs, so the
+        // demo can never show a score the rubric wouldn't produce.
+        wearable: wearableScore,
+        bloodwork: bloodworkScore,
         sleepScore: 82,
         sleepNote: "Good night last night",
         zone2Minutes: 34,
         wakeupLogged: true,
         wakeupNote: "Felt rested",
       },
-      labs: [
-        { name: "Vitamin D", value: "28", unit: "ng/mL", status: "low", date: "Jan 2026" },
-        { name: "TSH", value: "2.1", unit: "mIU/L", status: "normal", date: "Jan 2026" },
-        { name: "TPO antibodies", value: "118", unit: "IU/mL", status: "high", date: "Jan 2026" },
-        { name: "ApoB", value: "78", unit: "mg/dL", status: "normal", date: "Jan 2026" },
-        { name: "Ferritin", value: "62", unit: "ng/mL", status: "normal", date: "Jan 2026" },
-      ],
+      // A realistic panel rather than a handful of markers: the bloodwork score
+      // withholds itself below a minimum coverage, so a five-marker demo would have
+      // shown the empty state forever and never exercised the thing it demonstrates.
+      // TPO antibodies and the lipid fractions aren't scored — they're here because a
+      // real panel carries plenty the rubric doesn't weight.
+      labs: DEMO_LABS,
       labHistory: [
         {
           name: "TPO antibodies",

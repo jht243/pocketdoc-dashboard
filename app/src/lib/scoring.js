@@ -1,20 +1,41 @@
 import { formatCompletedMonth, isScreeningDone } from "./screeningDates";
+import { BLOODWORK_MAX, calculateBloodworkScore } from "./bloodworkScore";
+import { WEARABLE_MAX } from "./wearableScore";
 
 /**
- * The base half of the score: preventive-care coverage.
+ * The overall Health Score: three components, each worth 50 points.
  *
- * Test mode ships these pre-baked in its snapshot; for a live user they're derived
- * here from the same schedule the Preventive Care screen renders, so the two can
- * never disagree about what's done.
+ *   Preventive care  50   whether the member is current on the screening their age
+ *                         and history call for
+ *   Wearable         50   raw biometrics scored against their own rolling baseline
+ *                         (35 daily + 15 trend) — see lib/wearableScore.js
+ *   Bloodwork        50   imported lab markers against absolute clinical thresholds
+ *                         — see lib/bloodworkScore.js
  *
- * Weighting: an overdue item and a never-started one score the same (zero) — the
- * base ring answers "how much of your recommended screening is current", and a
- * colonoscopy you're two years late for is not partially current. Higher-stakes
- * screenings carry more weight than routine ones, matching the snapshot's 10-vs-8.
+ * A component only enters the total once it has data behind it, and the denominator
+ * moves with it. A member who has connected a ring but never uploaded labs is scored
+ * out of 100, not out of 150 with 50 points they had no way to earn.
+ *
+ * Note what is NOT here any more. The daily ring used to score Oura's own sleep
+ * score, Zone-2 minutes, the wake-up check-in and nutrition. The rubric replaces all
+ * of it: composite vendor scores are sanity checks rather than inputs, and activity
+ * is an input to the trend component only. Check-ins and nutrition are still tracked
+ * and still drive recommendations — they just no longer carry points.
  */
+
 const CATEGORY_WEIGHTS = { cancer: 10, cardiovascular: 9, metabolic: 8 };
 const DEFAULT_WEIGHT = 8;
 
+const COMPONENT_MAX = 50;
+
+/**
+ * The preventive-care half: coverage of the recommended screening schedule.
+ *
+ * Weighting: an overdue item and a never-started one score the same (zero) — this
+ * answers "how much of your recommended screening is current", and a colonoscopy
+ * you're two years late for is not partially current. Higher-stakes screenings carry
+ * more weight than routine ones.
+ */
 function buildBaseItems(schedule = [], completedItems = {}) {
   return schedule.map((item) => {
     const value = completedItems[item.id];
@@ -34,74 +55,93 @@ function buildBaseItems(schedule = [], completedItems = {}) {
   });
 }
 
-function useScoreModel(nutritionEnabled, healthData) {
+const round = (n) => Math.round(n * 10) / 10;
+
+/**
+ * @param {boolean} nutritionEnabled  retained for callers; nutrition is tracked and
+ *                                    drives recommendations, but is not scored.
+ * @param {object}  healthData        the snapshot every screen reads
+ */
+function useScoreModel(nutritionEnabled, healthData, userProfile) {
   const source = healthData?.score;
-  if (!source) return { hasData: false, baseItems: [], dailyItems: [], baseDisplay: 0, dailyDisplay: 0 };
-  const baseItems = source.baseItems || [];
+  const wearable = source?.wearable || null;
+  const baseItems = source?.baseItems || [];
 
-  // Daily training effort, scored from Zone 2+ minutes reported by the wearable.
-  // Tiers: under 20 min = below threshold, 20-29 = partial credit scaling up,
-  // 30-44 = full points (the target), 45+ = capped bonus, no reward past the cap.
-  const zone2Minutes = source.zone2Minutes || 0;
-  const scoreEffort = (min, max) => {
-    if (min < 20) return Math.round((min / 20) * (max * 0.4));
-    if (min < 30) return Math.round((max * 0.4) + ((min - 20) / 10) * (max * 0.6));
-    return max;
-  };
+  // Normally already computed when the snapshot was assembled, so the ring, the
+  // breakdown and the AI context all read one object. Computed here only for callers
+  // that hand over labs without a prepared snapshot.
+  // Sex changes the healthy band for HDL, ALT and ferritin, so it is passed through
+  // rather than assumed; unknown falls back to neutral bands inside the engine.
+  const bloodwork = source?.bloodwork
+    || calculateBloodworkScore(healthData?.labs || [], { sex: userProfile?.profile?.sex });
 
-  // Nutrition is opt-in, set on the Profile page. When off, the daily score is built from
-  // sleep, training effort, and the wake-up check-in at their full weights, out of 50. When
-  // on, nutrition becomes a real fourth component and the other three shrink proportionally
-  // to make room, so the daily ring always reads as "100% of what you've chosen to track,"
-  // rather than nutrition being extra credit stacked on top of an already-full scale.
-  const baseWeights = { sleep: 15, effort: 15, wakeup: 20 };
-  const nutritionWeight = 10;
-  let weights;
-  if (nutritionEnabled) {
-    const remaining = 50 - nutritionWeight;
-    const sumBase = baseWeights.sleep + baseWeights.effort + baseWeights.wakeup;
-    weights = {
-      sleep: Math.round((baseWeights.sleep / sumBase) * remaining),
-      effort: Math.round((baseWeights.effort / sumBase) * remaining),
-      wakeup: Math.round((baseWeights.wakeup / sumBase) * remaining),
-      nutrition: nutritionWeight,
+  const hasPreventive = baseItems.length > 0;
+  const hasWearable = Boolean(wearable);
+  const hasBloodwork = bloodwork.available;
+
+  if (!source || (!hasPreventive && !hasWearable && !hasBloodwork)) {
+    return {
+      hasData: false, baseItems: [], wearable: null, bloodwork,
+      components: [], totalScore: 0, totalMax: 0,
     };
-  } else {
-    weights = { ...baseWeights, nutrition: 0 };
   }
 
-  const effortPts = scoreEffort(zone2Minutes, weights.effort);
-  const nutritionLogged = Boolean(source.nutritionLogged); // today's logging state; toggled per day, separate from the opt-in setting
-  const nutritionPts = nutritionEnabled && nutritionLogged ? Math.round(weights.nutrition * 0.8) : 0;
+  // Raw preventive points don't land on a round number (the schedule is weighted per
+  // screening), so the component is expressed as its share of 50 — the same scale
+  // every other component reports on.
+  const preventiveTotal = baseItems.reduce((sum, item) => sum + item.pts, 0);
+  const preventiveMax = baseItems.reduce((sum, item) => sum + item.max, 0);
+  const preventiveDisplay = preventiveMax ? round((preventiveTotal / preventiveMax) * COMPONENT_MAX) : 0;
 
-  const dailyItems = [
-    { name: "Sleep score (Oura)", value: String(source.sleepScore || "—"), note: source.sleepNote || "No sleep data yet", pts: source.sleepScore ? weights.sleep : 0, max: weights.sleep },
-    { name: "Training effort (Zone 2+)", value: `${zone2Minutes} min`, note: "Target: 30 min Zone 2 or higher", pts: effortPts, max: weights.effort },
-    { name: "Wake-up check-in", value: source.wakeupLogged ? "Logged" : "Not logged", note: source.wakeupNote || "No check-in yet", pts: source.wakeupLogged ? weights.wakeup : 0, max: weights.wakeup },
-  ];
-  if (nutritionEnabled) {
-    dailyItems.push({
-      name: "Nutrition", value: nutritionLogged ? "Logged" : "Not logged today",
-      note: "Opted in on your profile", pts: nutritionPts, max: weights.nutrition,
-      action: nutritionLogged ? undefined : "Log today's meals",
-    });
-  }
+  const wearableDisplay = hasWearable ? wearable.totalScore : 0;
 
-  const baseTotal = baseItems.reduce((s, i) => s + i.pts, 0);
-  const baseMax = baseItems.reduce((s, i) => s + i.max, 0);
-  const dailyTotal = dailyItems.reduce((s, i) => s + i.pts, 0);
-  const dailyMax = dailyItems.reduce((s, i) => s + i.max, 0);
+  const components = [
+    hasPreventive && {
+      key: "preventive",
+      label: "Preventive care",
+      sub: "Screening coverage for your age and history",
+      points: preventiveDisplay,
+      max: COMPONENT_MAX,
+    },
+    hasWearable && {
+      key: "wearable",
+      label: "Wearable",
+      sub: `${wearable.label} — scored against your own baseline`,
+      points: wearableDisplay,
+      max: WEARABLE_MAX,
+      confidence: wearable.confidence,
+    },
+    hasBloodwork && {
+      key: "bloodwork",
+      label: "Bloodwork",
+      sub: `${bloodwork.label} — ${bloodwork.coverage.markers} markers, ${bloodwork.coverage.percent}% of the panel`,
+      points: bloodwork.totalScore,
+      max: BLOODWORK_MAX,
+      confidence: bloodwork.confidence,
+    },
+  ].filter(Boolean);
 
-  // The gauge displays everything on a consistent 0-50 scale per ring regardless of how
-  // many raw points the underlying item list sums to, since baseMax in particular isn't
-  // a round number.
-  const baseDisplay = baseMax ? Math.round((baseTotal / baseMax) * 50) : 0;
-  const dailyDisplay = dailyMax ? Math.round((dailyTotal / dailyMax) * 50) : 0;
+  const totalScore = round(components.reduce((sum, c) => sum + c.points, 0));
+  const totalMax = components.reduce((sum, c) => sum + c.max, 0);
 
   return {
-    hasData: true, baseItems, dailyItems, nutritionEnabled, nutritionLogged,
-    baseTotal, baseMax, dailyTotal, dailyMax, baseDisplay, dailyDisplay,
+    hasData: true,
+    nutritionEnabled,
+    baseItems,
+    preventiveTotal,
+    preventiveMax,
+    preventiveDisplay,
+    wearable,
+    wearableDisplay,
+    bloodwork,
+    bloodworkDisplay: hasBloodwork ? bloodwork.totalScore : 0,
+    components,
+    totalScore,
+    totalMax,
+    // Kept so callers that still speak in rings don't have to know the component list.
+    baseDisplay: preventiveDisplay,
+    wearableRing: wearableDisplay,
   };
 }
 
-export { useScoreModel, buildBaseItems };
+export { useScoreModel, buildBaseItems, COMPONENT_MAX };

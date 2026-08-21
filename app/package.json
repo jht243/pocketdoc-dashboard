@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "score:check": "node scripts/check-wearable-score.mjs && node scripts/check-bloodwork-score.mjs",
+    "bloodwork:check": "node scripts/check-bloodwork-score.mjs",
     "emails:build": "node scripts/apply-auth-email-templates.mjs",
     "emails:apply": "node scripts/apply-auth-email-templates.mjs --apply",
     "emails:configure-resend": "node scripts/configure-resend-auth-email.mjs",

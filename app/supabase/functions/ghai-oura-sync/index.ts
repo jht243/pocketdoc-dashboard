@@ -18,12 +18,89 @@
 
 import { CORS, adminClient, ghai, json, userFromRequest } from "../_shared/admin.ts";
 import { assertConfigured, buildRowsForRange, getAccessToken, isoDay } from "../_shared/oura.ts";
+import { BASELINE_DAYS, calculateWearableScore } from "../_shared/wearableScore.js";
 
 const CRON_SECRET = Deno.env.get("OURA_CRON_SECRET") ?? "";
 
 // Oura keeps revising a night for roughly a day after it lands, so three days of
 // overlap costs almost nothing and covers a missed delivery plus late edits.
 const DEFAULT_TRAILING_DAYS = 3;
+
+/** `startDate` minus enough days to give the earliest scored day a full baseline. */
+function baselineStart(startDate: string): string {
+  const d = new Date(`${startDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - (BASELINE_DAYS + 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Score every day we just wrote, and persist the result on the day's own row.
+ *
+ * Scoring happens here rather than in the browser for three reasons: the score is a
+ * clinical record and belongs in the database, a member's phone shouldn't be the only
+ * place a safety-floor alert ever existed, and a score computed at sync time is
+ * anchored to the baseline as it stood — recomputing months later against a baseline
+ * that has since drifted would quietly rewrite history.
+ *
+ * The read window reaches BASELINE_DAYS behind the synced range so the earliest day
+ * in the range is scored against a full baseline rather than a truncated one.
+ */
+async function scoreDays(
+  admin: ReturnType<typeof adminClient>,
+  userId: string,
+  startDate: string,
+  endDate: string,
+) {
+  const { data: rows, error } = await ghai(admin)
+    .from("wearable_daily")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("day", baselineStart(startDate))
+    .lte("day", endDate)
+    .order("day", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  if (!rows?.length) return 0;
+
+  const updates = rows
+    .filter((row: any) => row.day >= startDate)
+    .map((row: any) => {
+      const result = calculateWearableScore(row, rows);
+      if (result.sanityCheck.flagged) {
+        // Developer flag only, exactly as the rubric specifies — a wide gap between
+        // our score and Oura's readiness points at a calculation bug, not at
+        // something the member needs to be told.
+        console.warn(
+          "wearable score sanity check",
+          JSON.stringify({ userId, day: row.day, ours: result.totalScore, oura: result.sanityCheck }),
+        );
+      }
+      return {
+        user_id: userId,
+        day: row.day,
+        source: row.source,
+        wearable_score: result.totalScore,
+        wearable_daily_score: result.dailyScore,
+        wearable_trend_score: result.trendScore,
+        score_label: result.label,
+        score_confidence: result.confidence.percent,
+        score_version: result.version,
+        score_detail: result,
+        score_computed_at: new Date().toISOString(),
+      };
+    });
+
+  if (!updates.length) return 0;
+
+  // Upsert rather than update: these rows were written moments ago in the same call,
+  // and the primary key is the same one the biometric upsert used.
+  const { error: writeError } = await ghai(admin)
+    .from("wearable_daily")
+    .upsert(updates, { onConflict: "user_id,day,source" });
+  if (writeError) throw new Error(writeError.message);
+
+  return updates.length;
+}
 
 async function syncUser(
   admin: ReturnType<typeof adminClient>,
@@ -39,6 +116,11 @@ async function syncUser(
       .from("wearable_daily")
       .upsert(rows, { onConflict: "user_id,day,source" });
     if (error) throw new Error(error.message);
+
+    // Re-score every day just written. A late Oura revision to Tuesday night changes
+    // Tuesday's score AND every trend that looks back through it, which is why the
+    // trailing overlap window is re-scored wholesale rather than only the newest day.
+    await scoreDays(admin, connection.user_id, startDate, endDate);
   }
 
   await ghai(admin)

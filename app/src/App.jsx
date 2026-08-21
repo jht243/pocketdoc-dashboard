@@ -24,7 +24,9 @@ import {
 } from "./lib/testMode";
 import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
-import { buildBaseItems } from "./lib/scoring";
+import { buildBaseItems, useScoreModel } from "./lib/scoring";
+import { calculateBloodworkScore } from "./lib/bloodworkScore";
+import { recordHealthScore } from "./lib/healthScoreStore";
 import AuthScreen from "./screens/AuthScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import WelcomeScreen from "./screens/WelcomeScreen";
@@ -82,18 +84,25 @@ function takeOuraNotice() {
  * "unlock your score" panel instead of a ring reading zero, which would look like a
  * terrible score rather than an absent one.
  */
-function buildLiveScore(storedProfile, wearable) {
+function buildLiveScore(storedProfile, wearable, labs = []) {
   const baseItems = buildBaseItems(storedProfile?.schedule, storedProfile?.completedItems);
-  if (!baseItems.length && !wearable?.score) return undefined;
-  return { baseItems, ...(wearable?.score || {}) };
+  // Scored here rather than inside the score model so the AI context reads the same
+  // object the ring does — the chat was previously the one surface that could
+  // disagree with the score on screen.
+  const bloodwork = calculateBloodworkScore(labs, { sex: storedProfile?.profile?.sex });
+  if (!baseItems.length && !wearable?.score && !bloodwork.available) return undefined;
+  return { baseItems, bloodwork, ...(wearable?.score || {}) };
 }
 
 // Shape the DB rows (labs, uploaded documents, wearable) plus the derived score into
 // the single `liveHealthData` object every screen reads. Kept here so the mount load,
 // the onboarding hand-off, and the test-mode-off path can never drift apart.
 function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = []) {
+  // `date` is a display string; `created_at` is preserved on each marker and is what
+  // the bloodwork rubric reads for recency.
+  const labs = labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) }));
   return {
-    labs: labMarkers.map((marker) => ({ ...marker, date: new Date(marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) })),
+    labs,
     records: documents.map((document) => ({ name: document.file_name || "Untitled upload", type: document.kind === "lab" ? "Lab result" : document.kind })),
     // Real imported genomes (rich objects), read by the Genetic Profile screen and
     // summarized into the AI chat's health context. Empty until the user imports a source.
@@ -105,7 +114,7 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
     // read these — omitting them here left both looking at a device that synced nothing.
     metrics: wearable?.metrics || [],
     history: wearable?.history || [],
-    score: buildLiveScore(stored, wearable),
+    score: buildLiveScore(stored, wearable, labs),
   };
 }
 
@@ -130,6 +139,9 @@ function App() {
 
   // Health snapshot in play: the seeded test-mode snapshot, or live records.
   const healthData = testModeEnabled ? testSnapshot?.health || null : liveHealthData;
+  // The assembled Health Score. Computed here rather than only inside Home so it can
+  // be persisted regardless of which screen the member happens to be looking at.
+  const scoreModel = useScoreModel(nutritionEnabled, healthData, userProfile);
 
   // Result of returning from Oura's consent screen, read once per page load.
   // Read during render rather than in an effect: the profile-load effect decides
@@ -151,12 +163,22 @@ function App() {
       score: {
         ...(prev?.score || {}),
         ...(wearable?.score || {}),
-        // A disconnect-and-purge leaves no wearable data; drop the daily fields
-        // rather than stranding yesterday's sleep score on the ring forever.
-        ...(wearable ? {} : { sleepScore: undefined, sleepNote: undefined, zone2Minutes: undefined }),
+        // A disconnect-and-purge leaves no wearable data; drop the wearable fields
+        // rather than stranding yesterday's score on the ring forever.
+        ...(wearable ? {} : { wearable: undefined, sleepScore: undefined, sleepNote: undefined, zone2Minutes: undefined }),
       },
     }));
   }, [user]);
+
+  // Write today's combined score to its own history table whenever the snapshot
+  // changes. Test mode never writes: a demo score in a member's real score history
+  // would be indistinguishable from a real one a week later.
+  useEffect(() => {
+    if (!user || testModeEnabled || !scoreModel.hasData) return;
+    recordHealthScore(user.id, scoreModel);
+    // Keyed on the score itself rather than on healthData, so a re-render that
+    // doesn't move the number doesn't write a row.
+  }, [user, testModeEnabled, scoreModel.hasData, scoreModel.totalScore, scoreModel.totalMax]);
 
   // Regenerate AI insights whenever the snapshot changes. Reset to null first so a
   // stale set never lingers over new data; screens fall back to deterministic
@@ -189,11 +211,12 @@ function App() {
     setProfileLoading(true);
     Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id)]).then(([stored, testMode, documents, labMarkers, wearable, geneticMarkers]) => {
       if (cancelled) return;
-      // Both halves of the ring come from `buildLiveHealthData`: base = preventive-care
-      // coverage (the same schedule the Preventive Care screen renders), daily = today's
-      // wearable. `score` is what switches the health-score ring on — useScoreModel
-      // returns hasData:false without it — and stays undefined until at least one half
-      // has real data, so the ring is hidden rather than rendering an honest-looking zero.
+      // Both components of the score come from `buildLiveHealthData`: preventive-care
+      // coverage (the same schedule the Preventive Care screen renders), and the
+      // wearable sub-score. `score` is what switches the health-score dial on —
+      // useScoreModel returns hasData:false without it — and stays undefined until at
+      // least one component has real data, so the dial is hidden rather than rendering
+      // an honest-looking zero.
       setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
       // Coming back from Oura's consent screen lands on Profile, where the device
       // list and the result notice are — otherwise the user is dropped on Home with

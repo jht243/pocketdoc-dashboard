@@ -7,12 +7,14 @@
  * Deliberately vendor-neutral — no field name here says "Oura".
  */
 
-// Days of history used for baselines. Long enough to survive a bad week, short
-// enough to track a real change in fitness.
-export const BASELINE_DAYS = 14;
-// Below this many prior days, a "baseline" is noise wearing a confident label — the
-// UI shows the raw value with no comparison until there is enough history.
-export const MIN_BASELINE_SAMPLES = 7;
+import { BASELINE_DAYS as SCORE_BASELINE_DAYS, MIN_BASELINE_DAYS, calculateWearableScore, computeBaselines } from "./wearableScore";
+
+// Days of history used for baselines, and the floor below which a "baseline" is
+// noise wearing a confident label. Both take their value from the scoring rubric:
+// the number the score judges a member against and the number the UI shows them
+// under it have to be the same number, or the two contradict each other on screen.
+export const BASELINE_DAYS = SCORE_BASELINE_DAYS;
+export const MIN_BASELINE_SAMPLES = MIN_BASELINE_DAYS;
 
 export function median(values) {
   const sorted = values
@@ -26,9 +28,11 @@ export function median(values) {
 /**
  * Trailing median for one field, EXCLUDING the current day.
  *
- * Oura reports no baselines of its own — every "vs baseline" string in the UI is
- * computed here. Median rather than mean because one travel night or one fever
- * shouldn't drag the reference point the user is then judged against.
+ * Used for the metrics the SCORE does not cover — readiness in particular, which is
+ * one of Oura's own composite scores and is deliberately kept out of the scoring
+ * inputs. Scored metrics take their baseline from the engine instead, so the chip
+ * under a number and the tier behind it never disagree.
+ *
  * `rows` must be newest-first. Returns null when history is too thin to be honest.
  */
 export function baselineFor(rows, field) {
@@ -180,6 +184,22 @@ export function buildMetricRanges(rows) {
 }
 
 /**
+ * The day's wearable score.
+ *
+ * Prefers what the sync worker persisted: that score was computed against the
+ * baseline as it stood at sync time, and re-deriving it now against a baseline that
+ * has since moved would quietly change a number the member has already read. Falls
+ * back to computing it here for days that predate the rubric or were never re-synced,
+ * and for the test-mode snapshot, which has no server behind it.
+ */
+export function scoreFor(rows) {
+  if (!rows?.length) return null;
+  const [latest] = rows;
+  if (latest.score_detail) return latest.score_detail;
+  return calculateWearableScore(latest, rows);
+}
+
+/**
  * Rows (newest first) → `{ today, vitals, score, history }`, or null when empty.
  */
 export function toSnapshot(rows) {
@@ -219,9 +239,14 @@ export function toSnapshot(rows) {
     zone2MinutesPlanned: 30,
   };
 
+  const wearableScore = scoreFor(rows);
+
+  // Scored metrics take their baseline from the engine; readiness keeps its own,
+  // because readiness is an Oura composite and is not a scoring input.
+  const engineBaselines = wearableScore?.baselines || computeBaselines(latest, rows).baselines;
   const baselines = {
-    hrv: baselineFor(rows, "hrv_ms"),
-    restingHR: baselineFor(rows, "resting_hr"),
+    hrv: engineBaselines.hrv ?? null,
+    restingHR: engineBaselines.restingHR ?? null,
     readiness: baselineFor(rows, "readiness_score"),
   };
 
@@ -235,10 +260,15 @@ export function toSnapshot(rows) {
     today,
     vitals: buildVitals(today, baselines),
     score: {
+      // The wearable half of the Health Score: 0-50, daily + trend, scored from raw
+      // biometrics against this member's own baseline. `scoring.js` reads it whole.
+      wearable: wearableScore,
+      // Oura's own composite scores. Displayed, never scored — they are population
+      // black boxes, and the rubric is explicit that they stay out of the calculation.
       sleepScore: num(latest.sleep_score),
       sleepNote: sleepNoteFor(latest),
       // Derived from activity bands, not a measured heart-rate zone — see
-      // functions/_shared/oura.ts. Named for what scoring.js already consumes.
+      // functions/_shared/oura.ts.
       zone2Minutes: num(latest.zone2_minutes) ?? 0,
     },
     // Latest reading + trailing range for every collected metric — the Body screen's

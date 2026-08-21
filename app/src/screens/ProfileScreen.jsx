@@ -213,9 +213,9 @@ function ProfileScreen({
           <div style={{ flex: 1, paddingRight: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Track nutrition</div>
             <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
-              When on, nutrition becomes part of your daily score and the other categories
-              adjust their weight to make room for it. When off, your daily score is built
-              from sleep, training effort, and your wake-up check-in only.
+              When on, your advocate factors what you eat into its daily suggestions.
+              Nutrition isn't part of your Health Score — that's built from your screening
+              coverage and your wearable readings measured against your own baseline.
             </div>
           </div>
           <button onClick={() => setNutritionEnabled(!nutritionEnabled)} style={{
