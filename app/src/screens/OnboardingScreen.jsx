@@ -308,7 +308,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             The more you share now, the more specific your advocate can be. Every field is optional — but each one changes the quality of what you get back.
           </div>
 
-          <IntakeForm answers={intake} onChange={onIntakeChange} variant="onboarding" />
+          <IntakeForm answers={intake} onChange={onIntakeChange} variant="onboarding" profile={profile} />
 
           <button onClick={() => goToStep(4)} style={{ width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer" }}>
             Upload bloodwork →

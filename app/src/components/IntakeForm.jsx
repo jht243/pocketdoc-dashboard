@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Card } from "./Card";
 import { SectionLabel } from "./SectionLabel";
 import { COLORS } from "../theme/tokens";
-import { INTAKE_SECTIONS } from "../lib/intakeContent";
+import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer } from "../lib/intakeContent";
 
 // ---- INTAKE FORM ----
 // Data-driven renderer for the health intake questionnaire (content lives in
@@ -11,30 +11,45 @@ import { INTAKE_SECTIONS } from "../lib/intakeContent";
 // never drift apart; the `variant` prop selects the surrounding look:
 //   "history"    — Card + serif SectionLabel (Health History screen)
 //   "onboarding" — inline sections, no cards (onboarding step 3)
-// Only sections/questions whose showIf(answers) passes are rendered.
-function IntakeForm({ answers, onChange, variant = "history", sectionIds }) {
+// Only sections/questions whose showIf(answers, profile) passes are rendered.
+// `profile` carries the step-1 basics (biological sex, dob) so anatomy-specific
+// sections can gate on them — a male user is never shown female reproductive
+// questions, and vice versa.
+function IntakeForm({ answers, onChange, variant = "history", sectionIds, profile }) {
   const isOnboarding = variant === "onboarding";
 
   const setValue = (key, value) => onChange(key, value);
 
-  const toggleMulti = (key, val, max) => {
+  const toggleMulti = (key, val, max, exclusive) => {
     const list = answers[key] || [];
     if (list.includes(val)) {
       setValue(key, list.filter((x) => x !== val));
-    } else {
-      if (max && list.length >= max) return; // respect "choose up to N"
-      setValue(key, [...list, val]);
+      return;
     }
+    // "None of the above"-style options can't coexist with real selections.
+    if (exclusive?.includes(val)) { setValue(key, [val]); return; }
+    const kept = list.filter((x) => !exclusive?.includes(x));
+    if (max && kept.length >= max) return; // respect "choose up to N"
+    setValue(key, [...kept, val]);
   };
 
+  // When a branch closes, its answers are stale and contradict what the user now
+  // says (e.g. "not on testosterone" alongside a 200mg/week dose). Clear them so
+  // they never reach the DB or the AI prompt.
+  useEffect(() => {
+    for (const key of hiddenAnswerKeys(answers, profile)) {
+      if (!isBlankAnswer(answers[key])) onChange(key, Array.isArray(answers[key]) ? [] : "");
+    }
+  }, [answers, profile]);
+
   const visibleSections = INTAKE_SECTIONS.filter(
-    (s) => (!sectionIds || sectionIds.includes(s.id)) && (!s.showIf || s.showIf(answers))
+    (s) => (!sectionIds || sectionIds.includes(s.id)) && (!s.showIf || s.showIf(answers, profile))
   );
 
   return (
     <div>
       {visibleSections.map((section) => {
-        const questions = section.questions.filter((q) => !q.showIf || q.showIf(answers));
+        const questions = section.questions.filter((q) => !q.showIf || q.showIf(answers, profile));
         if (!questions.length) return null;
         const body = questions.map((q) => (
           <Question
@@ -132,16 +147,25 @@ function Control({ q, answers, setValue, toggleMulti }) {
             return (
               <button
                 key={opt}
-                onClick={() => !disabled && toggleMulti(q.id, opt, q.max)}
+                onClick={() => !disabled && toggleMulti(q.id, opt, q.max, q.exclusive)}
                 style={chipStyle(selected, disabled)}
               >{opt}</button>
             );
           })}
         </div>
+        {q.max && list.length >= q.max && (
+          <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 6 }}>
+            You've picked {q.max}. Deselect one to choose a different option.
+          </div>
+        )}
         {q.type === "chips" && (
           <AddInput
             placeholder={q.addLabel || "Add another..."}
-            onAdd={(val) => { if (!list.includes(val)) setValue(q.id, [...list, val]); }}
+            onAdd={(val) => {
+              if (list.includes(val)) return;
+              if (q.max && list.length >= q.max) return;
+              setValue(q.id, [...list.filter((x) => !q.exclusive?.includes(x)), val]);
+            }}
           />
         )}
         {/* Show free-typed values (chips) that aren't in the preset options. */}
@@ -152,6 +176,32 @@ function Control({ q, answers, setValue, toggleMulti }) {
           </div>
         ))}
       </>
+    );
+  }
+
+  // Dose = three inputs (amount / unit / frequency) rather than one free-text
+  // field, so the value is structured. `units` is per-question — TRT offers no
+  // "g" option because a gram of testosterone is never a therapeutic dose.
+  if (q.type === "dose") {
+    const dose = value && typeof value === "object" ? value : { amount: "", unit: q.units?.[0] || "", frequency: "" };
+    const patch = (k, v) => setValue(q.id, { ...dose, [k]: v });
+    return (
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          value={dose.amount || ""}
+          onChange={(e) => patch("amount", e.target.value)}
+          inputMode="decimal"
+          placeholder={q.amountPlaceholder || "200"}
+          style={{ ...fieldStyle, flex: "0 0 84px" }}
+        />
+        <select value={dose.unit || ""} onChange={(e) => patch("unit", e.target.value)} style={{ ...fieldStyle, flex: "0 0 90px" }}>
+          {(q.units || []).map((u) => <option key={u} value={u}>{u}</option>)}
+        </select>
+        <select value={dose.frequency || ""} onChange={(e) => patch("frequency", e.target.value)} style={{ ...fieldStyle, flex: 1 }}>
+          <option value="">Frequency...</option>
+          {(q.frequencies || []).map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </div>
     );
   }
 
@@ -233,6 +283,11 @@ const optionStyle = (selected) => ({
   border: `1px solid ${selected ? COLORS.tealLight : COLORS.border}`,
   fontWeight: selected ? 600 : 400,
 });
+
+const fieldStyle = {
+  background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8,
+  padding: "9px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none", boxSizing: "border-box",
+};
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted };
 

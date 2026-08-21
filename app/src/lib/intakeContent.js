@@ -26,10 +26,21 @@
  */
 
 // ---- Section 1 — demographics & basic profile (beyond name/DOB/sex) ----
-const GENDER_IDENTITY = [
-  "Man", "Woman", "Non-binary", "Transgender man", "Transgender woman",
-  "Genderqueer / gender fluid", "Prefer not to say",
+// Top level is deliberately Man / Woman / Other / Prefer not to say. Listing every
+// identity up front reads as taking a stance and is presumptive for the majority of
+// users; picking "Other" opens the specific choices, and only those specific choices
+// open the gender-affirming hormone therapy question.
+const GENDER_IDENTITY = ["Man", "Woman", "Other", "Prefer not to say"];
+const GENDER_IDENTITY_OTHER = [
+  "Non-binary", "Transgender man", "Transgender woman",
+  "Genderqueer / gender fluid", "Agender", "Prefer to self-describe",
 ];
+// Identities for whom the GAHT questions are relevant.
+const GAHT_RELEVANT = [
+  "Non-binary", "Transgender man", "Transgender woman",
+  "Genderqueer / gender fluid", "Agender", "Prefer to self-describe",
+];
+const asksAboutGAHT = (a) => a.genderIdentity === "Other" && GAHT_RELEVANT.includes(a.genderIdentityDetail);
 const RACE_ETHNICITY = [
   "White / Caucasian", "Black / African American", "Hispanic / Latino",
   "Asian / Pacific Islander", "Native American / Alaska Native",
@@ -166,6 +177,37 @@ const BARRIERS = [
 // Helper: is a multi-answer including a given value?
 const has = (a, key, val) => Array.isArray(a[key]) && a[key].includes(val);
 
+// ---- anatomy gates ----
+// Which reproductive questions apply is a question of anatomy, not identity. Start
+// from biological sex (collected at onboarding step 1) and adjust for any reported
+// gender-affirming surgery, so nobody is asked about anatomy they don't have.
+// Dose units. Testosterone is dosed in milligrams — a gram would be ~5x a month's
+// supply in one shot — so "g" is deliberately absent from the TRT unit list.
+const TRT_DOSE_UNITS = ["mg", "mL", "IU", "pellets", "clicks", "pumps"];
+const DOSE_FREQUENCIES = [
+  "Daily", "Twice daily", "Every other day", "Every 3.5 days (twice weekly)",
+  "Weekly", "Every 2 weeks", "Every 3 weeks", "Monthly", "Every 3 months", "As needed",
+];
+
+const familyCancerReported = (a) =>
+  Array.isArray(a.familyHistory) && a.familyHistory.some((c) => /cancer|melanoma/i.test(c));
+
+const onTRT = (a) => Boolean(a.testosteroneUse) && a.testosteroneUse !== "No";
+const onPeptides = (a) => Boolean(a.peptideUse) && a.peptideUse !== "No";
+// Accepts "54", "54%", "54.2" — anything that parses above the 52% risk threshold.
+const hctAbove52 = (a) => {
+  const n = parseFloat(String(a.trtHct || "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) && n > 52;
+};
+
+const sexIs = (p, s) => String(p?.sex || "").toLowerCase() === s;
+const hasFemaleRepro = (a, p) =>
+  (sexIs(p, "female") && !has(a, "gahtSurgeries", "Hysterectomy / oophorectomy")) ||
+  has(a, "gahtSurgeries", "Vaginoplasty");
+const hasMaleRepro = (a, p) =>
+  (sexIs(p, "male") && !has(a, "gahtSurgeries", "Orchiectomy (removal of testes)")) ||
+  has(a, "gahtSurgeries", "Phalloplasty / metoidioplasty");
+
 export const INTAKE_SECTIONS = [
   {
     id: "focus",
@@ -184,8 +226,10 @@ export const INTAKE_SECTIONS = [
     intro: "A few basics that shape which screenings and risk calculations apply to you. Everything is optional.",
     questions: [
       { id: "genderIdentity", type: "single", label: "Current gender identity (optional)", options: GENDER_IDENTITY },
-      { id: "gaht", type: "single", label: "Are you currently receiving gender-affirming hormone therapy (GAHT)?", options: ["No", "Yes — currently", "Yes — past only"] },
-      { id: "raceEthnicity", type: "multi", label: "Race / ethnicity (select all that apply)", options: RACE_ETHNICITY },
+      { id: "genderIdentityDetail", type: "single", label: "Which best describes you?", options: GENDER_IDENTITY_OTHER, showIf: (a) => a.genderIdentity === "Other" },
+      { id: "genderIdentitySelf", type: "text", label: "How would you describe your gender identity?", placeholder: "In your own words", showIf: (a) => a.genderIdentity === "Other" && a.genderIdentityDetail === "Prefer to self-describe" },
+      { id: "gaht", type: "single", label: "Are you currently receiving gender-affirming hormone therapy (GAHT)?", options: ["No", "Yes — currently", "Yes — past only"], showIf: asksAboutGAHT },
+      { id: "raceEthnicity", type: "multi", label: "Race / ethnicity (select all that apply)", options: RACE_ETHNICITY, exclusive: ["Prefer not to say"] },
       { id: "height", type: "text", label: "Height", placeholder: "e.g. 5 ft 10 in" },
       { id: "weight", type: "text", label: "Current weight", placeholder: "e.g. 175 lbs" },
       { id: "education", type: "single", label: "Highest level of education completed", options: EDUCATION },
@@ -197,7 +241,7 @@ export const INTAKE_SECTIONS = [
     title: "Current conditions",
     intro: "Have you ever been diagnosed with any of the following? Select all that apply.",
     questions: [
-      { id: "conditions", type: "chips", label: "Diagnosed conditions", options: DIAGNOSED_CONDITIONS, addLabel: "Add another condition..." },
+      { id: "conditions", type: "chips", label: "Diagnosed conditions", options: DIAGNOSED_CONDITIONS, addLabel: "Add another condition...", exclusive: ["None of the above"] },
       { id: "autoimmuneDetail", type: "text", label: "Specify autoimmune condition", placeholder: "e.g. Hashimoto's, lupus, RA...", showIf: (a) => has(a, "conditions", "Autoimmune condition (lupus, MS, RA, IBD, celiac, psoriasis)") },
       { id: "cancerDetail", type: "text", label: "Cancer — type and year diagnosed", placeholder: "e.g. Melanoma, 2019", showIf: (a) => has(a, "conditions", "Cancer") },
     ],
@@ -227,13 +271,14 @@ export const INTAKE_SECTIONS = [
   {
     id: "reproductive",
     title: "Reproductive & hormonal health",
-    intro: "Answer what applies to you — an N/A option is available on each question.",
+    intro: "Based on the anatomy you told us about — we only ask what applies to you.",
+    showIf: (a, p) => hasFemaleRepro(a, p) || hasMaleRepro(a, p),
     questions: [
-      { id: "menopauseStatus", type: "single", label: "For females / female reproductive anatomy — current status", options: ["Pre-menopausal", "Peri-menopausal", "Post-menopausal", "Surgical menopause", "N/A"] },
-      { id: "pregnancy", type: "single", label: "Are you currently pregnant or breastfeeding?", options: ["No", "Pregnant", "Breastfeeding", "N/A"] },
-      { id: "hormonalContraception", type: "single", label: "Have you ever used hormonal birth control or menopausal HRT?", options: ["No", "Yes — currently", "Yes — past only", "N/A"] },
-      { id: "lowTEval", type: "single", label: "For males / male reproductive anatomy — evaluated for low testosterone or hormonal imbalance?", options: ["No", "Yes — treated", "Yes — not treated", "N/A"] },
-      { id: "urinarySymptoms", type: "single", label: "Any urinary symptoms (frequency, urgency, weak stream, incomplete emptying)?", options: ["No", "Mild", "Moderate", "Severe", "N/A"] },
+      { id: "menopauseStatus", type: "single", label: "Current menstrual / menopausal status", options: ["Pre-menopausal", "Peri-menopausal", "Post-menopausal", "Surgical menopause"], showIf: (a, p) => hasFemaleRepro(a, p) },
+      { id: "pregnancy", type: "single", label: "Are you currently pregnant or breastfeeding?", options: ["No", "Pregnant", "Breastfeeding"], showIf: (a, p) => hasFemaleRepro(a, p) && a.menopauseStatus !== "Post-menopausal" && a.menopauseStatus !== "Surgical menopause" },
+      { id: "hormonalContraception", type: "single", label: "Have you ever used hormonal birth control or menopausal HRT?", options: ["No", "Yes — currently", "Yes — past only"], showIf: (a, p) => hasFemaleRepro(a, p) },
+      { id: "lowTEval", type: "single", label: "Have you been evaluated for low testosterone or hormonal imbalance?", options: ["No", "Yes — treated", "Yes — not treated"], showIf: (a, p) => hasMaleRepro(a, p) },
+      { id: "urinarySymptoms", type: "single", label: "Any urinary symptoms (frequency, urgency, weak stream, incomplete emptying)?", options: ["No", "Mild", "Moderate", "Severe"] },
     ],
   },
   {
@@ -248,8 +293,8 @@ export const INTAKE_SECTIONS = [
       { id: "gahtTelehealth", type: "text", label: "Telehealth service name", showIf: (a) => a.gahtPrescriber === "Telehealth service" },
       { id: "gahtSelfManagedNote", type: "note", tone: "warn", text: "Self-managed GAHT without medical oversight carries significant cardiovascular, hematologic, and bone-health risks. We strongly recommend working with a qualified, affirming prescriber.", showIf: (a) => a.gahtPrescriber === "Self-managed / no current prescriber" },
       { id: "gahtDuration", type: "single", label: "How long have you been on GAHT?", options: ["< 6 months", "6-12 months", "1-3 years", "3-5 years", "5+ years", "N/A"] },
-      { id: "gahtSurgeries", type: "multi", label: "Any gender-affirming surgeries? (select all that apply)", options: GAHT_SURGERIES },
-      { id: "gahtOrganNote", type: "note", tone: "info", text: "Retained organs need anatomy-appropriate cancer screening regardless of gender identity — a cervix needs Pap smears, breast tissue needs mammography, a prostate needs PSA discussion, per age guidelines." },
+      { id: "gahtSurgeries", type: "multi", label: "Any gender-affirming surgeries? (select all that apply)", options: GAHT_SURGERIES, exclusive: ["None", "Prefer not to disclose"] },
+      { id: "gahtOrganNote", type: "note", tone: "info", text: "Retained organs need anatomy-appropriate cancer screening regardless of gender identity — a cervix needs Pap smears, breast tissue needs mammography, a prostate needs PSA discussion, per age guidelines. We'll only schedule screenings for the anatomy you have.", showIf: (a) => Array.isArray(a.gahtSurgeries) && a.gahtSurgeries.length > 0 && !has(a, "gahtSurgeries", "Prefer not to disclose") },
     ],
   },
   {
@@ -260,7 +305,7 @@ export const INTAKE_SECTIONS = [
       { id: "testosteroneUse", type: "single", label: "Are you currently using testosterone in any form?", options: ["No", "Yes — prescribed TRT", "Yes — self-administered (not prescribed)"] },
       { id: "trtForm", type: "multi", label: "What form of testosterone are you using? (select all that apply)", options: TRT_FORMS, showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtFormOther", type: "text", label: "Other testosterone form — specify", showIf: (a) => has(a, "trtForm", "Other") },
-      { id: "trtDose", type: "text", label: "Current dose and frequency", placeholder: "e.g. 200mg/week, 100mg E3.5D", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
+      { id: "trtDose", type: "dose", label: "Current dose and frequency", units: TRT_DOSE_UNITS, frequencies: DOSE_FREQUENCIES, amountPlaceholder: "200", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtAncillaries", type: "multi", label: "Ancillary medications used with TRT (select all that apply)", options: TRT_ANCILLARIES, showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
       { id: "trtAncillariesOther", type: "text", label: "Other ancillary medications — specify", showIf: (a) => has(a, "trtAncillaries", "Other") },
       { id: "trtManager", type: "single", label: "Who manages your TRT?", options: ["Urologist", "Endocrinologist", "Men's health / TRT clinic", "Primary care physician", "Telehealth TRT service", "Self-managed"], showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
@@ -270,7 +315,8 @@ export const INTAKE_SECTIONS = [
       { id: "trtTotalT", type: "text", label: "Total T (ng/dL)", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" && a.trtKnowLevels === "Yes" },
       { id: "trtFreeT", type: "text", label: "Free T (pg/mL or pmol/L)", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" && a.trtKnowLevels === "Yes" },
       { id: "trtHct", type: "text", label: "Most recent hematocrit (%) or hemoglobin (g/dL), if known", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
-      { id: "trtHctNote", type: "note", tone: "warn", text: "Elevated hematocrit (>52%) from TRT significantly increases clotting risk (stroke, DVT, PE). If you haven't had bloodwork in over 6 months, this is flagged for urgent monitoring.", showIf: (a) => a.testosteroneUse && a.testosteroneUse !== "No" },
+      { id: "trtHctNote", type: "note", tone: "warn", text: "Elevated hematocrit (>52%) from TRT significantly increases clotting risk (stroke, DVT, PE). Your reported value is above that threshold — please get this reviewed.", showIf: (a) => onTRT(a) && hctAbove52(a) },
+      { id: "trtMonitorNote", type: "note", tone: "warn", text: "Testosterone raises hematocrit over time, which increases clotting risk. Without regular bloodwork that goes unseen — we'd recommend a panel every 3–6 months.", showIf: (a) => onTRT(a) && (a.trtMonitorFreq === "Rarely / never" || a.trtMonitorFreq === "Annually") },
     ],
   },
   {
@@ -295,8 +341,8 @@ export const INTAKE_SECTIONS = [
     intro: "First-degree relatives (parents, siblings, children) and grandparents where known. Family history is one of the strongest predictors of personal risk.",
     questions: [
       { id: "familyEarlyCVD", type: "single", label: "Has any first-degree relative had a heart attack or stroke?", options: ["No", "Yes — before age 55 (male relative)", "Yes — before age 65 (female relative)", "Yes — after those ages", "Unknown"] },
-      { id: "familyHistory", type: "multi", label: "Has any family member been diagnosed with the following? (select all that apply)", options: FAMILY_CONDITIONS },
-      { id: "familyCancerGenetics", type: "single", label: "For any cancer above — was genetic testing (BRCA, Lynch, etc.) done?", options: ["No testing done", "Yes — positive result", "Yes — negative result", "Unknown"] },
+      { id: "familyHistory", type: "multi", label: "Has any family member been diagnosed with the following? (select all that apply)", options: FAMILY_CONDITIONS, exclusive: ["None of the above known", "Unknown family history"] },
+      { id: "familyCancerGenetics", type: "single", label: "For the cancer(s) above — was genetic testing (BRCA, Lynch, etc.) done?", options: ["No testing done", "Yes — positive result", "Yes — negative result", "Unknown"], showIf: (a) => familyCancerReported(a) },
       { id: "familySuddenCardiac", type: "single", label: "Has any family member had sudden cardiac death before age 50?", options: ["No", "Yes", "Unknown"] },
       { id: "familySuddenCardiacRel", type: "text", label: "Relationship", placeholder: "e.g. Father, maternal uncle", showIf: (a) => a.familySuddenCardiac === "Yes" },
       { id: "parentsDementia", type: "single", label: "Did either parent have Alzheimer's or dementia?", options: ["No", "One parent", "Both parents", "Unknown"] },
@@ -404,4 +450,33 @@ export function emptyAnswers() {
     }
   }
   return a;
+}
+
+/** True when an answer holds nothing the user actually entered. */
+export function isBlankAnswer(v) {
+  if (v == null || v === "") return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === "object") return Object.values(v).every((x) => x == null || x === "");
+  return false;
+}
+
+/**
+ * Answer keys whose question is currently hidden by a showIf branch.
+ *
+ * A hidden branch's answers are stale — the user has since said something that
+ * contradicts them (e.g. switching testosterone use back to "No" while a dose is
+ * still recorded). Callers clear these so contradictory data never reaches the
+ * database or the AI prompt.
+ */
+export function hiddenAnswerKeys(answers, profile) {
+  const hidden = [];
+  for (const section of INTAKE_SECTIONS) {
+    const sectionVisible = !section.showIf || section.showIf(answers, profile);
+    for (const q of section.questions) {
+      if (q.type === "note") continue;
+      const visible = sectionVisible && (!q.showIf || q.showIf(answers, profile));
+      if (!visible) hidden.push(q.id);
+    }
+  }
+  return hidden;
 }

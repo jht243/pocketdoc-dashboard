@@ -8,8 +8,17 @@ import { emptyAnswers } from "../lib/intakeContent";
 // Post-onboarding questionnaire. Collected after the user has seen value, not before.
 // Feeds the AI chat, the Discussion Page, and the preventive care schedule.
 // Content is data-driven (lib/intakeContent.js) and rendered via <IntakeForm>.
-function HealthHistoryScreen({ setActive, onSave }) {
-  const [answers, setAnswers] = useState(emptyAnswers);
+function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) {
+  // Hydrate from what was already answered (onboarding or a previous visit) the same
+  // way onboarding does. Starting blank collapsed every conditional branch, so the two
+  // surfaces rendered different forms from identical rules — and saving from that blank
+  // state overwrote the stored answers with an un-branched set.
+  const profile = userProfile?.profile;
+  const [answers, setAnswers] = useState(() => ({
+    ...emptyAnswers(),
+    ...(userProfile?.intake || {}),
+    ...(healthHistory || {}),
+  }));
   const [saved, setSaved] = useState(false);
 
   const setValue = (key, value) => setAnswers((a) => ({ ...a, [key]: value }));
@@ -57,7 +66,7 @@ function HealthHistoryScreen({ setActive, onSave }) {
         This stays private and makes every recommendation more specific to you. Nothing here is required — share what you can.
       </div>
 
-      <IntakeForm answers={answers} onChange={setValue} variant="history" />
+      <IntakeForm answers={answers} onChange={setValue} variant="history" profile={profile} />
 
       <button onClick={handleSave} style={{
         width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent,
