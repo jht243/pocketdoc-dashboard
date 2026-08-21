@@ -69,7 +69,10 @@ function IntakeForm({ answers, onChange, variant = "history", sectionIds, profil
                 {section.title}
               </div>
               {section.intro && (
-                <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.5, marginBottom: 14 }}>{section.intro}</div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.5, marginBottom: section.introStrong ? 6 : 14 }}>{section.intro}</div>
+              )}
+              {section.introStrong && (
+                <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.textPrimary, lineHeight: 1.5, marginBottom: 14 }}>{section.introStrong}</div>
               )}
               {body}
             </div>
@@ -80,7 +83,10 @@ function IntakeForm({ answers, onChange, variant = "history", sectionIds, profil
           <div key={section.id}>
             <SectionLabel>{section.title}</SectionLabel>
             {section.intro && (
-              <div style={{ fontSize: 11.5, color: COLORS.textMuted, lineHeight: 1.55, marginTop: -6, marginBottom: 12 }}>{section.intro}</div>
+              <div style={{ fontSize: 11.5, color: COLORS.textMuted, lineHeight: 1.55, marginTop: -6, marginBottom: section.introStrong ? 5 : 12 }}>{section.intro}</div>
+            )}
+            {section.introStrong && (
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.textPrimary, lineHeight: 1.55, marginBottom: 12 }}>{section.introStrong}</div>
             )}
             <Card>{body}</Card>
           </div>

@@ -322,7 +322,11 @@ export const INTAKE_SECTIONS = [
   {
     id: "peptides",
     title: "Peptide therapy",
-    intro: "Most peptides are not FDA-approved and are sourced from research-chemical or compounding pharmacies. Reporting here is for monitoring and safety only — it is confidential and never shared with law enforcement or third parties. This platform does not prescribe peptides.",
+    // Deliberately non-judgmental: "some" rather than "most", and the confidentiality
+    // promise is pulled out in bold so it reads as reassurance, not fine print. We want
+    // people to actually report what they're taking.
+    intro: "Some peptides are not FDA-approved and are sourced from research-chemical or compounding pharmacies. Reporting here is for monitoring and safety only. This platform does not prescribe peptides.",
+    introStrong: "This is confidential and never shared with law enforcement or third parties.",
     questions: [
       { id: "peptideUse", type: "single", label: "Are you currently using, or have you recently used, any peptide therapies?", options: ["No", "Yes — prescribed", "Yes — self-administered (research / grey market)"] },
       { id: "peptidesUsed", type: "multi", label: "Which peptides are you using? (select all that apply)", options: PEPTIDES, showIf: (a) => a.peptideUse && a.peptideUse !== "No" },
