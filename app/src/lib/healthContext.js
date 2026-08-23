@@ -451,8 +451,14 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
   return `DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
 
 Everything the app has collected about this person follows. Treat "(none recorded)" as genuinely missing data worth asking about — never as a normal result.
+
+SOURCE PRECEDENCE — for any marker that appears in more than one place, quote the MEASURED result, not the remembered one:
+1. LAB RESULTS / LAB TRENDS / BLOODWORK SCORE below (values a lab actually ran).
+2. UPLOADED RECORDS & DOCUMENTS (values you read out of the member's own report).
+3. INTAKE QUESTIONNAIRE (what the member typed from memory at signup, often months old).
+Numbers the member self-reported at intake are only worth citing when no lab result covers that marker — and when you do cite one, say it is self-reported. If a lab result and an intake answer disagree, the lab result is the fact and the difference is itself worth raising.
 ${section("USER PROFILE", identity)}
-${section("INTAKE QUESTIONNAIRE (their own answers)", intakeLines(intake, profile))}
+${section("INTAKE QUESTIONNAIRE (their own answers — SELF-REPORTED, may be out of date)", intakeLines(intake, profile))}
 ${section("MEDICATIONS & SUPPLEMENTS", meds || snapshotMeds)}
 ${section("LAB RESULTS (most recent)", labLines(healthData?.labs))}
 ${section("LAB TRENDS (repeat measurements over time)", labTrendLines(healthData))}

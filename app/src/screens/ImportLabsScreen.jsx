@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { Camera, CheckCircle2, ChevronRight, Dna, Plus, Upload, X } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
@@ -6,42 +6,14 @@ import { COLORS, SERIF } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
+import { fileBlock, ingestLabResults, toIsoDate } from "../lib/labIngest";
 import { extractDocumentText } from "../lib/documentText";
-
-/**
- * Turn the model's raw reply into a marker array — tolerantly.
- *
- * The happy path is a clean JSON array, but the response can arrive fenced in
- * ```json, wrapped in a sentence of prose, or truncated by a max_tokens cutoff
- * mid-object. A single JSON.parse over the whole string throws on any of those and
- * loses every marker. Instead: try the whole thing first, then fall back to
- * recovering each complete flat {…} object individually. Marker objects have no
- * nested braces, so the non-nested match is safe and simply drops the one incomplete
- * trailing object a cutoff leaves behind.
- */
-function parseMarkerArray(raw) {
-  const clean = (raw || "").replace(/```json|```/g, "").trim();
-  try {
-    const parsed = JSON.parse(clean);
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && Array.isArray(parsed.markers)) return parsed.markers;
-  } catch { /* fall through to per-object salvage */ }
-
-  const out = [];
-  for (const chunk of clean.match(/\{[^{}]*\}/g) || []) {
-    try {
-      const obj = JSON.parse(chunk);
-      if (obj && typeof obj === "object" && !Array.isArray(obj)) out.push(obj);
-    } catch { /* skip the truncated trailing object */ }
-  }
-  return out;
-}
 
 /**
  * Turn the model's raw reply into a genome array — tolerantly.
  *
  * Genetic objects are NOT flat: each carries nested `recommendations` / `medications`
- * arrays, so the non-nested `{…}` salvage that parseMarkerArray uses would shatter
+ * arrays, so the non-nested `{…}` salvage in labIngest.parseMarkerArray would shatter
  * them. Here the fallback walks the string tracking brace depth (outside of strings)
  * and slices each complete top-level object, so a max_tokens cutoff only loses the
  * single unfinished trailing genome instead of every one.
@@ -116,27 +88,7 @@ function normalizeGenome(g) {
  * when it parses to a real date — a `drawn_on` that's actually a typo is worse than
  * an absent one, because every trend downstream would believe it.
  */
-/**
- * Wrap a raw file as the content block the AI gateway expects.
- *
- * `file.type` is empty or wrong often enough on mobile that trusting it loses whole
- * documents, so anything not clearly an image is treated as a PDF.
- */
-function fileBlock(base64, mediaType) {
-  const cleanType = (mediaType || "").toLowerCase();
-  const isImage = cleanType.startsWith("image/") && !cleanType.includes("pdf");
-  return isImage
-    ? { type: "image", source: { type: "base64", media_type: cleanType, data: base64 } }
-    : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
-}
-
-function toIsoDate(text) {
-  if (!text || !String(text).trim()) return null;
-  const parsed = new Date(String(text).trim());
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
-}
-
-function ImportLabsScreen({ setActive, onImported, pendingDocument, onPendingHandled }) {
+function ImportLabsScreen({ setActive, onImported }) {
   const { user } = useAuth();
   // "storing" tracks the file landing in storage, which is independent of the AI
   // extraction below — the document is kept even if extraction fails.
@@ -156,46 +108,31 @@ function ImportLabsScreen({ setActive, onImported, pendingDocument, onPendingHan
   // Which half of the two-step read is running, so the waiting screen says something
   // true rather than one generic spinner for both.
   const [readingDoc, setReadingDoc] = useState(false);
+  // How many markers are actually in the health record right now, so the screen can
+  // say what happened instead of asking the member to make it happen.
+  const [savedMarkerCount, setSavedMarkerCount] = useState(0);
+  const [savedGenomeCount, setSavedGenomeCount] = useState(0);
   const [labDate, setLabDate] = useState("");
   const [labSource, setLabSource] = useState("");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
+  // The stored document row, mirrored in a ref: the extraction runs inside a
+  // FileReader callback that closed over the render before the upload finished, where
+  // the state value is still null.
+  const storedDocRef = useRef(null);
 
-  /**
-   * Entered from Records with an already-stored document whose results never made it
-   * into the health record.
-   *
-   * Its transcription is on the row, so this costs one cheap text call instead of
-   * re-uploading and re-reading the file — and it drops the member straight onto the
-   * same review screen a fresh import produces, so results still get confirmed by a
-   * human before they become part of a longitudinal record.
-   */
-  useEffect(() => {
-    if (!pendingDocument?.id) return;
-    onPendingHandled?.();
-    setStoredDoc(pendingDocument);
-    setFileName(pendingDocument.file_name || "Stored document");
-    setImagePreview(null);
-    const isGenetic = pendingDocument.kind === "genetic";
-    setImportType(isGenetic ? "genetic" : "labs");
-    setLabSource(pendingDocument.file_name || "");
-    const text = pendingDocument.extracted_text || "";
-    if (!text) {
-      setExtractionError("This document hasn't been read yet. Open your records and tap Read on it first.");
-      setStage("review");
-      return;
-    }
-    if (isGenetic) extractGenetics("", "", text);
-    else extractMarkers("", "", text);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingDocument?.id]);
+  const rememberDoc = (document) => {
+    storedDocRef.current = document;
+    setStoredDoc(document);
+  };
+
 
   const handleFile = async (e, isCamera) => {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name || "Photo capture");
     setStoreError(null);
-    setStoredDoc(null);
+    rememberDoc(null);
 
     // Store the file first and independently of extraction. The document itself is
     // the record the user asked us to keep; whether we can read values out of it is
@@ -215,7 +152,7 @@ function ImportLabsScreen({ setActive, onImported, pendingDocument, onPendingHan
       if (error) setStoreError(error.message || "Upload failed");
       else {
         uploaded = document;
-        setStoredDoc(document);
+        rememberDoc(document);
       }
     }
 
@@ -271,56 +208,49 @@ function ImportLabsScreen({ setActive, onImported, pendingDocument, onPendingHan
     return text;
   };
 
+  /**
+   * Read the panel out of the document and FILE IT — no confirmation step.
+   *
+   * The member uploaded bloodwork; putting its numbers in their record is the thing
+   * they asked for, not a follow-up decision. What they see afterwards is what was
+   * stored, editable, so a misread value gets corrected rather than authorized.
+   */
   const extractMarkers = async (base64, mediaType, documentText = "") => {
     setStage("extracting");
     setExtractionError(null);
+    setSavingLabs(true);
     try {
-      // Prefer the transcription we just made: it holds every number, unit and range
-      // the document does, at a fraction of the tokens, and it can't be defeated by a
-      // scan the vision path renders poorly. Re-sending the file is the fallback for
-      // when transcription itself failed.
-      const contentBlock = documentText
-        ? { type: "text", text: `Lab document transcription:\n\n${documentText}` }
-        : fileBlock(base64, mediaType);
-
-      // PDF processing requires the pdfs-2024-09-25 beta. Without it the document block
-      // is silently ignored and the model receives no content, which is why PDFs failed.
-      const data = await callAI({
-        system: `You are extracting structured lab data from a medical document or image.
-Extract every lab marker you can find and return ONLY a JSON array with no other text, no markdown, no backticks.
-Each item must have exactly these fields:
-{ "name": "marker name", "value": "numeric value", "unit": "unit of measurement", "range": "reference range or null", "status": "normal|low|high|unknown" }
-Determine status by comparing value to range: below range = "low", above range = "high", within range = "normal", no range = "unknown".
-If you cannot find lab data in the document, return an empty array [].`,
-        messages: [
-          {
-            role: "user",
-            content: [
-              contentBlock,
-              { type: "text", text: "Extract all lab markers from this document as a JSON array." }
-            ]
-          }
-        ],
-        // A full panel is dozens of markers; the 1000-token default truncated the JSON
-        // mid-object, so JSON.parse threw and every marker was lost. Give the array room.
-        maxTokens: 4096,
-        pdf: true,
+      const result = await ingestLabResults({
+        userId: user?.id,
+        document: storedDocRef.current,
+        text: documentText,
+        base64,
+        mediaType,
       });
-      const raw = firstText(data, "[]");
-      const parsed = parseMarkerArray(raw);
-      // parseMarkerArray never throws — it salvages complete markers even from a
-      // truncated or prose-wrapped response. An empty result is only an error if the
-      // model returned something other than a clean empty array.
-      if (!parsed.length && !/^\s*\[\s*\]\s*$/.test(raw.replace(/```json|```/g, ""))) {
+
+      setExtractedMarkers(result.markers);
+      // Show back what the document said the draw was, so an edit starts from the
+      // real date rather than from a blank field the member has to retype.
+      if (result.drawnOn) setLabDate(result.drawnOn);
+      if (result.source) setLabSource(result.source);
+      setSavedMarkerCount(result.saved ? result.markers.length : 0);
+
+      if (result.error) {
+        setExtractionError(`Couldn't save your results: ${result.error.message || result.error}. Your file is still saved to your records.`);
+      } else if (!result.markers.length && !result.empty) {
         setExtractionError("Couldn't read any markers from this file. You can add them manually below, or try a clearer scan.");
+      } else if (!result.markers.length) {
+        setExtractionError("No lab markers were found in this file. If it has results on it, you can add them manually below.");
       }
-      setExtractedMarkers(parsed);
+      if (result.saved) onImported?.();
       setStage("review");
     } catch (err) {
       console.error("Extraction error:", err);
-      setExtractionError(`Extraction failed: ${err.message}. You can add markers manually below, or try a clearer scan.`);
+      setExtractionError(`${err.message} You can add markers manually below, or try reading it again.`);
       setExtractedMarkers([]);
       setStage("review");
+    } finally {
+      setSavingLabs(false);
     }
   };
 
@@ -376,26 +306,41 @@ Rules:
         pdf: true,
       });
       const raw = firstText(data, "[]");
-      const parsed = parseGeneticArray(raw).filter((g) => g && g.gene);
+      const parsed = parseGeneticArray(raw).filter((g) => g && g.gene).map(normalizeGenome);
       if (!parsed.length && !/^\s*\[\s*\]\s*$/.test(raw.replace(/```json|```/g, ""))) {
         setExtractionError("Couldn't read any genomes from this file. You can add them manually below, or try a clearer scan.");
       }
-      setExtractedGenetics(parsed.map(normalizeGenome));
+      setExtractedGenetics(parsed);
+
+      // Filed on read, like labs — the member uploaded a genetic report to have it in
+      // their profile, not to be asked a second time whether they meant it.
+      if (user && parsed.length) {
+        const document = storedDocRef.current;
+        const withSource = parsed.map((g) => ({ ...g, source: g.source || labSource || document?.file_name || null }));
+        const { error } = await saveGeneticMarkers(user.id, withSource, document?.id || null);
+        if (error) {
+          setExtractionError(`Couldn't save your genomes: ${error.message || error}. Your file is still saved to your records.`);
+        } else {
+          setSavedGenomeCount(parsed.length);
+          onImported?.();
+        }
+      }
       setStage("review");
     } catch (err) {
       console.error("Genetic extraction error:", err);
-      setExtractionError(`Extraction failed: ${err.message}. You can add genomes manually below, or try a clearer scan.`);
+      setExtractionError(`${err.message} You can add genomes manually below, or try reading it again.`);
       setExtractedGenetics([]);
       setStage("review");
     }
   };
 
   /**
-   * Commit the reviewed markers to the health record.
+   * Save the member's corrections over what was filed automatically.
    *
-   * This button used to do nothing but advance the stage, so the success screen's
-   * promise — "now part of your longitudinal record and will inform your AI
-   * conversations" — was false for every lab import ever made.
+   * Results land in the record when the document is read; this is the edit path, so
+   * it replaces that document's panel rather than adding a second one — a corrected
+   * value must not read as a second blood draw on the same day. It's also the only
+   * save path for markers typed by hand, when a file couldn't be read at all.
    */
   const saveLabs = async () => {
     const kept = extractedMarkers.filter((m) => m.name && m.name.trim());
@@ -411,6 +356,7 @@ Rules:
         setExtractionError(`Couldn't save your results: ${error.message || error}. Your file is still saved to your records.`);
         return;
       }
+      setSavedMarkerCount(kept.length);
       onImported?.();
     }
     setStage("saved");
@@ -427,6 +373,8 @@ Rules:
         setExtractionError(`Couldn't save your genomes: ${error.message || error}. Your file is still saved to your records.`);
         return;
       }
+      setSavedGenomeCount(kept.length);
+      onImported?.();
     }
     setStage("saved");
   };
@@ -652,8 +600,9 @@ Rules:
             fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, marginBottom: 14,
             padding: "10px 12px", background: COLORS.bgCardAlt, borderRadius: 10
           }}>
-            Review the genomes we read from your report before saving. The report's own notes
-            are shown under each gene — check they read correctly, then save to your profile.
+            {savedGenomeCount > 0
+              ? `${savedGenomeCount} genomes were added to your profile. The report's own notes are shown under each gene — correct anything that read wrong.`
+              : "The genomes we read from your report are below, with the report's own notes under each gene."}
           </div>
 
           <div style={{ marginBottom: 14 }}>
@@ -713,7 +662,7 @@ Rules:
             fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
             cursor: savingGenetics ? "default" : "pointer", opacity: savingGenetics ? 0.7 : 1, marginTop: 14
           }}>
-            {savingGenetics ? "Saving to your profile…" : "Save to genetic profile"}
+            {savingGenetics ? "Saving to your profile…" : savedGenomeCount > 0 ? "Save corrections" : "Save to genetic profile"}
           </button>
           <button onClick={() => { setStage("idle"); setExtractedGenetics([]); setImagePreview(null); }} style={{
             width: "100%", background: "none", border: "none", color: COLORS.textMuted,
@@ -750,6 +699,25 @@ Rules:
             </div>
           )}
 
+          {/* Results are already in the record by the time this screen renders. Say
+              so plainly — an "are you sure?" step here is a step the member never
+              asked for, and every one of them that goes unanswered is a panel that
+              silently never counted. */}
+          {savedMarkerCount > 0 && (
+            <div style={{
+              display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 14,
+              padding: "11px 12px", borderRadius: 10, fontSize: 12.5, lineHeight: 1.45,
+              background: COLORS.goodDim, border: `1px solid ${COLORS.good}33`, color: COLORS.good,
+            }}>
+              <CheckCircle2 size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <strong>{savedMarkerCount} result{savedMarkerCount === 1 ? "" : "s"} added to your health record.</strong>
+                {" "}They're now in your labs, your trends and your AI conversations. Anything below
+                that was read wrong can be corrected here.
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>Lab date</div>
@@ -769,7 +737,7 @@ Rules:
 
           <SectionLabel>
             {extractedMarkers.length > 0 && !extractionError
-              ? `${extractedMarkers.length} markers extracted — review before saving`
+              ? `${extractedMarkers.length} markers — edit anything that was read wrong`
               : "Add markers manually"}
           </SectionLabel>
 
@@ -808,13 +776,13 @@ Rules:
             fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
             cursor: savingLabs ? "default" : "pointer", opacity: savingLabs ? 0.6 : 1, marginTop: 14
           }}>
-            {savingLabs ? "Saving..." : "Save to health record"}
+            {savingLabs ? "Saving..." : savedMarkerCount > 0 ? "Save corrections" : "Save to health record"}
           </button>
-          <button onClick={() => { setStage("idle"); setExtractedMarkers([]); setImagePreview(null); }} style={{
+          <button onClick={() => setActive(savedMarkerCount > 0 ? "labs" : "records")} style={{
             width: "100%", background: "none", border: "none", color: COLORS.textMuted,
             fontSize: 12, padding: "10px", cursor: "pointer"
           }}>
-            Start over
+            {savedMarkerCount > 0 ? "Done — see my labs" : "Back to records"}
           </button>
         </>
       )}

@@ -462,6 +462,29 @@ export async function saveLabMarkers(userId, markers = [], { documentId = null, 
   const kept = (markers || []).filter((m) => m && m.name && String(m.name).trim());
   if (!kept.length) return { error: null, markers: [] };
 
+  // One document is one draw. Results are now filed automatically the moment a file
+  // is read, and the member can correct a misread value afterwards — so re-saving
+  // the same document has to REPLACE its panel, or a single correction would show up
+  // on the Labs screen as a second blood draw on the same day and put a phantom step
+  // in every trend. Markers cascade with the panel.
+  if (documentId) {
+    const { data: stale } = await supabase
+      .from("lab_panels")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("document_id", documentId);
+    const staleIds = (stale || []).map((row) => row.id);
+    if (staleIds.length) {
+      // Markers first and explicitly, rather than trusting the FK to cascade —
+      // orphaned marker rows would keep showing on the Labs screen with no panel to
+      // date them, which is exactly the "all imported last Tuesday" failure the
+      // panel exists to prevent.
+      await supabase.from("lab_markers").delete().in("panel_id", staleIds);
+      const { error: clearErr } = await supabase.from("lab_panels").delete().in("id", staleIds);
+      if (clearErr) console.error("saveLabMarkers/replace", clearErr);
+    }
+  }
+
   const { data: panel, error: panelErr } = await supabase
     .from("lab_panels")
     .insert({

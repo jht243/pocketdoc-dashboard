@@ -4,6 +4,7 @@ import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds } from "../lib/profileStore";
 import { extractDocumentText, fetchAsBase64 } from "../lib/documentText";
+import { ingestLabResults } from "../lib/labIngest";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
 
@@ -28,7 +29,7 @@ function formatDate(iso) {
  * Files live in a private bucket, so opening one mints a short-lived signed URL on
  * demand instead of storing a permanent public link.
  */
-export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, onImportResults }) {
+export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }) {
   const { user } = useAuth();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, 
   // Documents whose results are already in the health record, so the list can tell
   // "stored and read" apart from "actually counted in your labs and trends".
   const [panelDocIds, setPanelDocIds] = useState(new Set());
+  const [filingId, setFilingId] = useState(null);
   // Documents attempted this session, so a file that can't be read isn't retried on
   // every re-render of the screen.
   const attempted = useRef(new Set());
@@ -51,11 +53,11 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, 
     setDocs(rows);
     setPanelDocIds(panelIds);
     setLoading(false);
-    return rows;
+    return { rows, panelIds };
   };
 
   useEffect(() => {
-    load().then(backfillUnread);
+    load().then(({ rows, panelIds } = {}) => backfillUnread(rows, panelIds));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -67,11 +69,46 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, 
    * re-upload everything, fetch each one back out of the bucket and read it — once,
    * in the background, oldest concern first.
    */
-  const backfillUnread = async (rows = []) => {
+  const backfillUnread = async (rows = [], panelIds = new Set()) => {
     for (const doc of rows) {
-      if (doc.extracted_text || doc.extract_error || attempted.current.has(doc.id)) continue;
+      if (attempted.current.has(doc.id)) continue;
       attempted.current.add(doc.id);
-      await readDocument(doc);
+      if (!doc.extracted_text && !doc.extract_error) {
+        // Never read at all — read it, which files its results as part of the same pass.
+        await readDocument(doc);
+        continue;
+      }
+      // Read, but its numbers never reached the record: an import whose extraction hit
+      // a rate limit, or a file stored before results were filed automatically. The
+      // transcription is already on the row, so this is one cheap text call and the
+      // member never has to know it happened.
+      if (doc.extracted_text && doc.kind !== "genetic" && !panelIds.has(doc.id)) {
+        await fileResults(doc, doc.extracted_text);
+      }
+    }
+  };
+
+  /**
+   * Put a document's results in the health record.
+   *
+   * Automatic, unprompted, and quiet about it: a member who uploaded bloodwork has
+   * already said what they want done with it. A failure here is left silent too —
+   * the file and its transcription are safe, and the next visit to this screen tries
+   * again.
+   */
+  const fileResults = async (doc, text) => {
+    if (!user || !text || doc.kind === "genetic") return;
+    setFilingId(doc.id);
+    try {
+      const { saved } = await ingestLabResults({ userId: user.id, document: doc, text });
+      if (saved) {
+        setPanelDocIds((prev) => new Set(prev).add(doc.id));
+        onDocumentsChange?.();
+      }
+    } catch (err) {
+      console.error("fileResults", err);
+    } finally {
+      setFilingId(null);
     }
   };
 
@@ -91,6 +128,9 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, 
         ? { ...d, extracted_text: text || null, extract_error: error || null, status: text ? "extracted" : "failed" }
         : d)));
       if (text) onDocumentsChange?.();
+      // Reading a lab report and filing its results are one action from the member's
+      // side, so they happen together rather than leaving results behind a second tap.
+      if (text) await fileResults(doc, text);
     } catch (err) {
       console.error("readDocument", err);
       await saveDocumentText(doc.id, "", err.message);
@@ -202,9 +242,11 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, 
                   // Being readable and being counted are different things — a member
                   // whose extraction failed had a document the AI could read while their
                   // Labs screen still showed nothing. Say which one this is.
-                  resultsMissing(doc) ? (
+                  filingId === doc.id ? (
+                    <span style={{ color: COLORS.textMuted }}>Adding its results to your labs…</span>
+                  ) : resultsMissing(doc) ? (
                     <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
-                      Read, but results aren't in your labs yet
+                      Results couldn't be added yet — we'll try again
                     </span></>
                   ) : (
                     <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>Your AI can read this</span></>
@@ -216,24 +258,6 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, 
                 )}
               </div>
             </button>
-
-            {/* The document is readable but its numbers never reached the record —
-                usually because extraction hit a rate limit at import time. One tap
-                takes them to the review screen with the markers already pulled from
-                the stored transcription, so nothing has to be re-uploaded. */}
-            {onImportResults && resultsMissing(doc) && readingId !== doc.id && (
-              <button
-                onClick={() => onImportResults(doc)}
-                title="Pull the results out of this document"
-                style={{
-                  background: COLORS.accent, border: "none",
-                  borderRadius: 999, padding: "5px 10px", fontSize: 11, fontWeight: 700,
-                  color: COLORS.onAccent, cursor: "pointer", flexShrink: 0,
-                }}
-              >
-                Add results
-              </button>
-            )}
 
             {!doc.extracted_text && readingId !== doc.id && (
               <button

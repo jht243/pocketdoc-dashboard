@@ -7,7 +7,7 @@ import { COLORS, SERIF } from "../theme/tokens";
 import { getRecordInsight } from "../lib/deterministicInsights";
 import DocumentList from "../components/DocumentList";
 
-function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange, onImportResults }) {
+function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
   const records = healthData?.records || [];
   // AI insight once loaded (may be null = nothing stands out); deterministic fallback
   // until it resolves or if the AI is unavailable.
@@ -91,7 +91,7 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange, onI
           hardcoded placeholder list. */}
       <SectionLabel>Uploaded documents</SectionLabel>
       <Card>
-        <DocumentList onEmptyAction={() => setActive("importlabs")} onDocumentsChange={onRecordsChange} onImportResults={onImportResults} />
+        <DocumentList onEmptyAction={() => setActive("importlabs")} onDocumentsChange={onRecordsChange} />
       </Card>
     </div>
   );
