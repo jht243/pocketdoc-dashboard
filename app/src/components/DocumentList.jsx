@@ -8,6 +8,20 @@ import { ingestLabResults } from "../lib/labIngest";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
 
+/**
+ * Is a stored read failure worth trying again on its own?
+ *
+ * A rate limit, a network blip or a transient model error will succeed next time and
+ * should never need the member's attention. "There is nothing health-related in this
+ * file" is a verdict about the file itself — retrying it just burns tokens on every
+ * visit to this screen, forever.
+ */
+const PERMANENT_READ_ERRORS = /no readable health content|no file content|couldn't read this text file/i;
+
+function isRetryableReadError(error) {
+  return !!error && !PERMANENT_READ_ERRORS.test(String(error));
+}
+
 function iconFor(doc) {
   if (doc.mime_type?.startsWith("image/")) return Camera;
   return KIND_ICON[doc.kind] || FileText;
@@ -73,8 +87,11 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
     for (const doc of rows) {
       if (attempted.current.has(doc.id)) continue;
       attempted.current.add(doc.id);
-      if (!doc.extracted_text && !doc.extract_error) {
-        // Never read at all — read it, which files its results as part of the same pass.
+      if (!doc.extracted_text && (!doc.extract_error || isRetryableReadError(doc.extract_error))) {
+        // Never read, or last read failed for a reason that isn't about this file —
+        // read it, which files its results as part of the same pass. A failed read is
+        // usually a busy minute on the AI service, and leaving it parked behind a
+        // "tap to retry" is the same dead end as leaving results behind a button.
         await readDocument(doc);
         continue;
       }
