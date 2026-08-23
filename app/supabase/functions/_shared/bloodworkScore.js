@@ -467,9 +467,19 @@ function nameMatches(normalized, aliases) {
   });
 }
 
+/**
+ * When a lab row was drawn, as something sortable.
+ *
+ * `date` is a DISPLAY string ("Jun 2026") and must never be the sort key: compared
+ * as text, "Mar 2025" beats "Jun 2026" and the rubric scores a year-old panel as the
+ * member's current one. Prefer the real dates and fall back to `date` only for the
+ * test-mode snapshot, which carries nothing else.
+ */
+const measuredOn = (lab) => String(lab.drawnOn || lab.created_at || lab.date || "");
+
 /** Most recent lab row matching a marker, with its value converted to our unit. */
 function findMarkerRow(labs, marker) {
-  const sorted = [...labs].sort((a, b) => String(b.date || b.created_at || "").localeCompare(String(a.date || a.created_at || "")));
+  const sorted = [...labs].sort((a, b) => measuredOn(b).localeCompare(measuredOn(a)));
   for (const lab of sorted) {
     const normalized = normalizeName(lab.name);
     if (!nameMatches(normalized, marker.aliases)) continue;
@@ -560,7 +570,9 @@ export function calculateBloodworkScore(labs = [], opts = {}) {
     if (!found) continue;
 
     const { lab, value, converted } = found;
-    const measuredAt = lab.created_at || lab.date || null;
+    // Same precedence as the sort above — recency is measured from when blood was
+    // drawn, not from the display string or the day the file was imported.
+    const measuredAt = measuredOn(lab) || null;
 
     // A result that isn't measuring what the marker is for — hs-CRP during an
     // infection — is excluded from scoring rather than counted as a bad result.
