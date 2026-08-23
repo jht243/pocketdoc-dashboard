@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FileText, Camera, Dna, Trash2, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
 import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
-import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText } from "../lib/profileStore";
+import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds } from "../lib/profileStore";
 import { extractDocumentText, fetchAsBase64 } from "../lib/documentText";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
@@ -28,12 +28,15 @@ function formatDate(iso) {
  * Files live in a private bucket, so opening one mints a short-lived signed URL on
  * demand instead of storing a permanent public link.
  */
-export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }) {
+export default function DocumentList({ limit, onEmptyAction, onDocumentsChange, onImportResults }) {
   const { user } = useAuth();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [readingId, setReadingId] = useState(null);
+  // Documents whose results are already in the health record, so the list can tell
+  // "stored and read" apart from "actually counted in your labs and trends".
+  const [panelDocIds, setPanelDocIds] = useState(new Set());
   // Documents attempted this session, so a file that can't be read isn't retried on
   // every re-render of the screen.
   const attempted = useRef(new Set());
@@ -41,8 +44,12 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
   const load = async () => {
     if (!user) return setLoading(false);
     setLoading(true);
-    const rows = await listDocuments(user.id);
+    const [rows, panelIds] = await Promise.all([
+      listDocuments(user.id),
+      loadPanelDocumentIds(user.id),
+    ]);
     setDocs(rows);
+    setPanelDocIds(panelIds);
     setLoading(false);
     return rows;
   };
@@ -110,6 +117,15 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
     load();
     onDocumentsChange?.();
   };
+
+  /**
+   * A lab document that has been read but whose markers were never saved.
+   *
+   * Genetic reports are excluded — they land in the genetic profile, not in a lab
+   * panel, so they would otherwise be flagged forever.
+   */
+  const resultsMissing = (doc) =>
+    doc.kind !== "genetic" && !!doc.extracted_text && !panelDocIds.has(doc.id);
 
   if (loading) {
     return (
@@ -183,7 +199,16 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
                 {readingId === doc.id ? (
                   <span style={{ color: COLORS.textMuted }}>Reading this document…</span>
                 ) : doc.extracted_text ? (
-                  <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>Your AI can read this</span></>
+                  // Being readable and being counted are different things — a member
+                  // whose extraction failed had a document the AI could read while their
+                  // Labs screen still showed nothing. Say which one this is.
+                  resultsMissing(doc) ? (
+                    <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
+                      Read, but results aren't in your labs yet
+                    </span></>
+                  ) : (
+                    <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>Your AI can read this</span></>
+                  )
                 ) : (
                   <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
                     {doc.extract_error ? "Couldn't be read — tap to retry" : "Not readable by your AI yet"}
@@ -191,6 +216,24 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
                 )}
               </div>
             </button>
+
+            {/* The document is readable but its numbers never reached the record —
+                usually because extraction hit a rate limit at import time. One tap
+                takes them to the review screen with the markers already pulled from
+                the stored transcription, so nothing has to be re-uploaded. */}
+            {onImportResults && resultsMissing(doc) && readingId !== doc.id && (
+              <button
+                onClick={() => onImportResults(doc)}
+                title="Pull the results out of this document"
+                style={{
+                  background: COLORS.accent, border: "none",
+                  borderRadius: 999, padding: "5px 10px", fontSize: 11, fontWeight: 700,
+                  color: COLORS.onAccent, cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                Add results
+              </button>
+            )}
 
             {!doc.extracted_text && readingId !== doc.id && (
               <button

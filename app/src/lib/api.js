@@ -18,6 +18,58 @@ import { supabase } from "./supabase";
 const AI_MODEL = import.meta.env.VITE_AI_MODEL || "gpt-4o";
 
 /**
+ * One AI request at a time, app-wide.
+ *
+ * An import used to fire the transcription and the marker extraction concurrently —
+ * each carrying the same multi-megabyte PDF — while the Records screen backfilled
+ * every previously-unread document in the background. Three or four whole documents
+ * in flight at once blows straight through the account's tokens-per-minute ceiling,
+ * and OpenAI answers 429 for all of them. The user sees "Extraction failed" on a
+ * file that is perfectly readable.
+ *
+ * Serializing costs a little wall-clock on the rare parallel case and buys back the
+ * entire class of self-inflicted rate limits: the per-minute budget is now spent one
+ * document at a time instead of all at once.
+ */
+let queueTail = Promise.resolve();
+function enqueue(task) {
+  const run = queueTail.then(task, task);
+  // Keep the chain alive after a rejection, or one failed call would poison every
+  // request that follows it.
+  queueTail = run.catch(() => {});
+  return run;
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * How long to wait before retrying a rate-limited request.
+ *
+ * OpenAI states the exact wait in the error message ("Please try again in 1.862s"),
+ * which is far better than guessing; the exponential backoff is the fallback when it
+ * doesn't. The small padding matters — retrying at the very instant the window
+ * reopens tends to land just before it.
+ */
+function retryDelay(message, attempt) {
+  const match = /try again in ([\d.]+)(ms|s)\b/i.exec(String(message || ""));
+  if (match) {
+    const value = parseFloat(match[1]);
+    const ms = match[2].toLowerCase() === "ms" ? value : value * 1000;
+    if (Number.isFinite(ms)) return Math.min(ms + 400, 20000);
+  }
+  return Math.min(1500 * 2 ** attempt, 20000);
+}
+
+function isRateLimit(message) {
+  return /rate limit|429|tokens per min|requests per min|TPM|RPM/i.test(String(message || ""));
+}
+
+const RATE_LIMIT_MESSAGE =
+  "The AI service is busy right now (too many requests in a short window). Wait about a minute and try again — your file is already saved.";
+
+const MAX_RETRIES = 4;
+
+/**
  * Translate one Anthropic-style message into an OpenAI chat message.
  * Content may be a plain string, or an array of typed blocks
  * (text / image / document) that we map to OpenAI content parts.
@@ -64,29 +116,51 @@ export async function callAI({ system, messages, maxTokens = 1000, model, webSea
   if (system) openAIMessages.push({ role: "system", content: system });
   for (const m of messages) openAIMessages.push(toOpenAIMessage(m));
 
-  const { data, error } = await supabase.functions.invoke("ghai-ai", {
-    body: {
-      model: model || AI_MODEL,
-      messages: openAIMessages,
-      max_tokens: maxTokens,
-      web_search: webSearch,
-    },
-  });
+  const body = {
+    model: model || AI_MODEL,
+    messages: openAIMessages,
+    max_tokens: maxTokens,
+    web_search: webSearch,
+  };
 
-  // functions.invoke reports any non-2xx as a generic FunctionsHttpError whose
-  // message is just "Edge Function returned a non-2xx status code" — the useful
-  // detail (a deprecated model, a bad key) is in the JSON body. Read it so the
-  // real reason reaches the caller instead of being swallowed.
-  if (error) {
-    let detail = error.message;
-    try {
-      const body = await error.context?.json?.();
-      detail = body?.error?.message || body?.error || detail;
-    } catch { /* non-JSON body; keep the generic message */ }
-    throw new Error(`AI request failed: ${detail}`);
-  }
-  if (data?.error) throw new Error(`AI request failed: ${data.error.message || data.error}`);
-  return data;
+  // Queued rather than fired immediately — see `enqueue` above. The retry lives
+  // inside the queued task so a request that is waiting out a rate limit holds the
+  // lane, instead of letting the next document pile straight into the same ceiling.
+  return enqueue(async () => {
+    let lastMessage = "";
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const { data, error } = await supabase.functions.invoke("ghai-ai", { body });
+
+      // functions.invoke reports any non-2xx as a generic FunctionsHttpError whose
+      // message is just "Edge Function returned a non-2xx status code" — the useful
+      // detail (a deprecated model, a bad key, a rate limit) is in the JSON body.
+      // Read it so the real reason reaches the caller instead of being swallowed.
+      let detail = null;
+      if (error) {
+        detail = error.message;
+        try {
+          const parsed = await error.context?.json?.();
+          detail = parsed?.error?.message || parsed?.error || detail;
+        } catch { /* non-JSON body; keep the generic message */ }
+      } else if (data?.error) {
+        detail = data.error.message || data.error;
+      }
+
+      if (!detail) return data;
+
+      lastMessage = String(detail);
+      // Anything that isn't a rate limit won't fix itself by waiting.
+      if (!isRateLimit(lastMessage) || attempt === MAX_RETRIES) break;
+      await sleep(retryDelay(lastMessage, attempt));
+    }
+
+    // Rate limits get a plain-language message. The raw OpenAI text names the org id
+    // and the TPM ceiling, which tells a member nothing they can act on and reads
+    // like the app is broken.
+    throw new Error(
+      isRateLimit(lastMessage) ? RATE_LIMIT_MESSAGE : `AI request failed: ${lastMessage}`
+    );
+  });
 }
 
 /** Pull the assistant text out of an OpenAI response, with a fallback. */

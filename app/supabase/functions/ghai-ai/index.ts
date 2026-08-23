@@ -51,16 +51,57 @@ type Msg = { role: string; content: unknown };
 
 /* ---------------- chat completions ---------------- */
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * How long to wait out a 429.
+ *
+ * OpenAI states the exact wait both in the `retry-after` header and in the error
+ * text ("Please try again in 1.862s"). Honour that rather than guessing; the
+ * exponential fallback only applies when neither is present.
+ */
+function retryAfterMs(res: Response, message: string, attempt: number) {
+  const header = res.headers.get("retry-after-ms") ?? res.headers.get("retry-after");
+  if (header) {
+    const value = parseFloat(header);
+    if (Number.isFinite(value)) {
+      const ms = res.headers.get("retry-after-ms") ? value : value * 1000;
+      return Math.min(ms + 300, 15000);
+    }
+  }
+  const match = /try again in ([\d.]+)(ms|s)\b/i.exec(message);
+  if (match) {
+    const value = parseFloat(match[1]);
+    const ms = match[2].toLowerCase() === "ms" ? value : value * 1000;
+    if (Number.isFinite(ms)) return Math.min(ms + 300, 15000);
+  }
+  return Math.min(1000 * 2 ** attempt, 15000);
+}
+
+/**
+ * A 429 is a "come back in a moment", not a failure — a per-minute token ceiling
+ * refills on its own. Retrying here, close to OpenAI, clears the short bursts a
+ * document upload produces before the browser ever sees an error. The client keeps
+ * its own, longer retry for the case where the whole minute is genuinely spent.
+ */
+const MAX_RATE_LIMIT_RETRIES = 3;
+
 async function postOpenAI(url: string, body: unknown) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  return { status: res.status, data: await res.json() };
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (res.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) {
+      return { status: res.status, data };
+    }
+    await sleep(retryAfterMs(res, String(data?.error?.message ?? ""), attempt));
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, ChevronRight, Dna, Plus, Upload, X } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
@@ -116,13 +116,27 @@ function normalizeGenome(g) {
  * when it parses to a real date — a `drawn_on` that's actually a typo is worse than
  * an absent one, because every trend downstream would believe it.
  */
+/**
+ * Wrap a raw file as the content block the AI gateway expects.
+ *
+ * `file.type` is empty or wrong often enough on mobile that trusting it loses whole
+ * documents, so anything not clearly an image is treated as a PDF.
+ */
+function fileBlock(base64, mediaType) {
+  const cleanType = (mediaType || "").toLowerCase();
+  const isImage = cleanType.startsWith("image/") && !cleanType.includes("pdf");
+  return isImage
+    ? { type: "image", source: { type: "base64", media_type: cleanType, data: base64 } }
+    : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
+}
+
 function toIsoDate(text) {
   if (!text || !String(text).trim()) return null;
   const parsed = new Date(String(text).trim());
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
 }
 
-function ImportLabsScreen({ setActive, onImported }) {
+function ImportLabsScreen({ setActive, onImported, pendingDocument, onPendingHandled }) {
   const { user } = useAuth();
   // "storing" tracks the file landing in storage, which is independent of the AI
   // extraction below — the document is kept even if extraction fails.
@@ -139,10 +153,42 @@ function ImportLabsScreen({ setActive, onImported }) {
   const [extractionError, setExtractionError] = useState(null);
   const [savingGenetics, setSavingGenetics] = useState(false);
   const [savingLabs, setSavingLabs] = useState(false);
+  // Which half of the two-step read is running, so the waiting screen says something
+  // true rather than one generic spinner for both.
+  const [readingDoc, setReadingDoc] = useState(false);
   const [labDate, setLabDate] = useState("");
   const [labSource, setLabSource] = useState("");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
+
+  /**
+   * Entered from Records with an already-stored document whose results never made it
+   * into the health record.
+   *
+   * Its transcription is on the row, so this costs one cheap text call instead of
+   * re-uploading and re-reading the file — and it drops the member straight onto the
+   * same review screen a fresh import produces, so results still get confirmed by a
+   * human before they become part of a longitudinal record.
+   */
+  useEffect(() => {
+    if (!pendingDocument?.id) return;
+    onPendingHandled?.();
+    setStoredDoc(pendingDocument);
+    setFileName(pendingDocument.file_name || "Stored document");
+    setImagePreview(null);
+    const isGenetic = pendingDocument.kind === "genetic";
+    setImportType(isGenetic ? "genetic" : "labs");
+    setLabSource(pendingDocument.file_name || "");
+    const text = pendingDocument.extracted_text || "";
+    if (!text) {
+      setExtractionError("This document hasn't been read yet. Open your records and tap Read on it first.");
+      setStage("review");
+      return;
+    }
+    if (isGenetic) extractGenetics("", "", text);
+    else extractMarkers("", "", text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDocument?.id]);
 
   const handleFile = async (e, isCamera) => {
     const file = e.target.files[0];
@@ -181,14 +227,23 @@ function ImportLabsScreen({ setActive, onImported }) {
       setImageData({ base64, mediaType });
       if (file.type?.startsWith("image")) setImagePreview(dataUrl);
       else setImagePreview(null);
-      // Transcribe the document alongside the structured extraction, not instead of
-      // it. Markers give the AI trends and a score; the transcription gives it the
-      // parts no schema captures — the report's own interpretation, the notes, the
-      // context. Deliberately not awaited: the user is waiting on the review screen,
-      // and a slow read of a long report shouldn't hold that up.
-      transcribeInBackground(uploaded, base64, mediaType);
-      if (importType === "genetic") await extractGenetics(base64, mediaType);
-      else await extractMarkers(base64, mediaType);
+
+      // Read the document to text FIRST, then extract structure out of that text.
+      //
+      // Both steps used to send the whole file: the transcription and the marker
+      // extraction each carried the same multi-megabyte PDF, and they ran at the same
+      // time. That doubled the tokens one import costs and spent them in a single
+      // burst, which is what tripped the per-minute ceiling and produced "Extraction
+      // failed" on files that read perfectly well. A transcription is a few thousand
+      // characters, so extracting from it instead is both far cheaper and sequential.
+      //
+      // The transcription is worth having in its own right — it's what lets the chat
+      // discuss the report's narrative, which no marker schema captures.
+      setStage("extracting");
+      setExtractionError(null);
+      const text = await transcribeDocument(uploaded, base64, mediaType);
+      if (importType === "genetic") await extractGenetics(base64, mediaType, text);
+      else await extractMarkers(base64, mediaType, text);
     };
     reader.readAsDataURL(file);
   };
@@ -200,25 +255,33 @@ function ImportLabsScreen({ setActive, onImported }) {
    * safely stored and the markers still extract, so a failed transcription degrades
    * what the AI knows without costing them anything they entered.
    */
-  const transcribeInBackground = async (document, base64, mediaType) => {
-    if (!document?.id) return;
-    const { text, error } = await extractDocumentText(base64, mediaType);
-    await saveDocumentText(document.id, text, error);
-    if (text) onImported?.();
+  const transcribeDocument = async (document, base64, mediaType) => {
+    setReadingDoc(true);
+    let text = "";
+    try {
+      const result = await extractDocumentText(base64, mediaType);
+      text = result.text || "";
+      if (document?.id) await saveDocumentText(document.id, text, result.error);
+      if (text) onImported?.();
+    } catch (err) {
+      console.error("transcribeDocument", err);
+    } finally {
+      setReadingDoc(false);
+    }
+    return text;
   };
 
-  const extractMarkers = async (base64, mediaType) => {
+  const extractMarkers = async (base64, mediaType, documentText = "") => {
     setStage("extracting");
     setExtractionError(null);
     try {
-      // Harden mediaType detection: file.type can be empty or wrong depending on browser/OS.
-      // Treat anything that isn't clearly an image as a PDF document.
-      const cleanType = (mediaType || "").toLowerCase();
-      const isImage = cleanType.startsWith("image/") && !cleanType.includes("pdf");
-
-      const contentBlock = isImage
-        ? { type: "image", source: { type: "base64", media_type: cleanType, data: base64 } }
-        : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
+      // Prefer the transcription we just made: it holds every number, unit and range
+      // the document does, at a fraction of the tokens, and it can't be defeated by a
+      // scan the vision path renders poorly. Re-sending the file is the fallback for
+      // when transcription itself failed.
+      const contentBlock = documentText
+        ? { type: "text", text: `Lab document transcription:\n\n${documentText}` }
+        : fileBlock(base64, mediaType);
 
       // PDF processing requires the pdfs-2024-09-25 beta. Without it the document block
       // is silently ignored and the model receives no content, which is why PDFs failed.
@@ -266,15 +329,13 @@ If you cannot find lab data in the document, return an empty array [].`,
   // for it. We extract those verbatim rather than paraphrasing, and classify each
   // genome as lifestyle-actionable or pharmacogenomic so the profile can file it
   // under the right tab.
-  const extractGenetics = async (base64, mediaType) => {
+  const extractGenetics = async (base64, mediaType, documentText = "") => {
     setStage("extracting");
     setExtractionError(null);
     try {
-      const cleanType = (mediaType || "").toLowerCase();
-      const isImage = cleanType.startsWith("image/") && !cleanType.includes("pdf");
-      const contentBlock = isImage
-        ? { type: "image", source: { type: "base64", media_type: cleanType, data: base64 } }
-        : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
+      const contentBlock = documentText
+        ? { type: "text", text: `Genetic report transcription:\n\n${documentText}` }
+        : fileBlock(base64, mediaType);
 
       const data = await callAI({
         system: `You are extracting structured genetic data from a consumer genetic report (e.g. AncestryDNA, 23andMe, a longevity or pharmacogenomic report).
@@ -368,6 +429,32 @@ Rules:
       }
     }
     setStage("saved");
+  };
+
+  /**
+   * Re-run the whole read for the file already in hand.
+   *
+   * Retries the transcription too, not just the structured pass: when the first
+   * attempt lost the transcription (which is the common case — both halves fail
+   * together when the service is busy), extracting again from an empty text would
+   * fall back to sending the raw file and cost the same tokens that just failed.
+   */
+  const retryExtraction = async () => {
+    // Entered from a stored document: the transcription is already on the row, so
+    // retry the structured pass alone rather than re-reading a file we never held.
+    if (!imageData) {
+      const text = storedDoc?.extracted_text;
+      if (!text) return;
+      if (importType === "genetic") await extractGenetics("", "", text);
+      else await extractMarkers("", "", text);
+      return;
+    }
+    const { base64, mediaType } = imageData;
+    setStage("extracting");
+    setExtractionError(null);
+    const text = await transcribeDocument(storedDoc, base64, mediaType);
+    if (importType === "genetic") await extractGenetics(base64, mediaType, text);
+    else await extractMarkers(base64, mediaType, text);
   };
 
   const statusColor = { normal: COLORS.tealLight, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
@@ -524,12 +611,16 @@ Rules:
             <img src={imagePreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 16, maxHeight: 180, objectFit: "cover" }} />
           )}
           <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 10 }}>
-            {importType === "genetic" ? "Reading your genetic report..." : "Reading your lab report..."}
+            {readingDoc
+              ? "Reading your document..."
+              : importType === "genetic" ? "Pulling out your genes..." : "Pulling out your results..."}
           </div>
           <div style={{ fontSize: 11, color: COLORS.textMuted }}>
-            {importType === "genetic"
-              ? "The AI is extracting genes, variants, and the report's own notes"
-              : "The AI is extracting marker names, values, and reference ranges"}
+            {readingDoc
+              ? "Transcribing every result, range and note in the file"
+              : importType === "genetic"
+                ? "The AI is extracting genes, variants, and the report's own notes"
+                : "The AI is extracting marker names, values, and reference ranges"}
           </div>
         </Card>
       )}
@@ -540,7 +631,21 @@ Rules:
             <div style={{
               padding: 12, background: COLORS.badDim, border: `1px solid ${COLORS.danger}40`,
               borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14
-            }}>{extractionError}</div>
+            }}>
+              <div>{extractionError}</div>
+              {/* A failed read is usually transient — a busy minute on the AI service,
+                  not an unreadable file. Offer the retry here rather than making the
+                  member re-upload a document that is already safely stored. */}
+              {(imageData || storedDoc?.extracted_text) && (
+                <button onClick={retryExtraction} style={{
+                  marginTop: 10, background: "none", border: `1px solid ${COLORS.accent}`,
+                  color: COLORS.accent, fontSize: 12, fontWeight: 700, padding: "7px 13px",
+                  borderRadius: 8, cursor: "pointer",
+                }}>
+                  Try reading it again
+                </button>
+              )}
+            </div>
           )}
 
           <div style={{
@@ -628,7 +733,21 @@ Rules:
             <div style={{
               padding: 12, background: COLORS.badDim, border: `1px solid ${COLORS.danger}40`,
               borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14
-            }}>{extractionError}</div>
+            }}>
+              <div>{extractionError}</div>
+              {/* A failed read is usually transient — a busy minute on the AI service,
+                  not an unreadable file. Offer the retry here rather than making the
+                  member re-upload a document that is already safely stored. */}
+              {(imageData || storedDoc?.extracted_text) && (
+                <button onClick={retryExtraction} style={{
+                  marginTop: 10, background: "none", border: `1px solid ${COLORS.accent}`,
+                  color: COLORS.accent, fontSize: 12, fontWeight: 700, padding: "7px 13px",
+                  borderRadius: 8, cursor: "pointer",
+                }}>
+                  Try reading it again
+                </button>
+              )}
+            </div>
           )}
 
           <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>

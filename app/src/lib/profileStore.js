@@ -339,6 +339,32 @@ export async function listDocuments(userId) {
 }
 
 /**
+ * Which uploaded documents have already produced a lab panel.
+ *
+ * A file being stored and read is not the same as its results being IN the health
+ * record: the markers only land when the member reviews and saves them, and any
+ * import whose extraction failed leaves a document with a transcription and no
+ * results at all. The Records list uses this to offer those documents a way in,
+ * instead of a member seeing "Your AI can read this" while the Labs screen still
+ * says they have never imported a panel.
+ */
+export async function loadPanelDocumentIds(userId) {
+  if (!isConfigured || !userId) return new Set();
+  const { data, error } = await supabase
+    .from("lab_panels")
+    .select("document_id")
+    .eq("user_id", userId)
+    .not("document_id", "is", null);
+  if (error) {
+    console.error("loadPanelDocumentIds", error);
+    // An empty set only costs an extra offer to import results the member can
+    // decline; failing closed would hide the path entirely.
+    return new Set();
+  }
+  return new Set((data || []).map((row) => row.document_id));
+}
+
+/**
  * Short-lived signed URL for viewing a stored file. The bucket is private, so
  * there is no permanent public link — the URL is minted on demand and expires.
  */
