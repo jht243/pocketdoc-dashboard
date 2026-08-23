@@ -215,6 +215,14 @@ export async function acceptConsent(userId, version = "v1") {
 export async function saveMedications(userId, meds = []) {
   if (!isConfigured || !userId) return { error: null };
 
+  // Held so a failed insert can put them back. Removing one medication rewrites the
+  // whole list, so an insert that fails half-way would otherwise delete every
+  // medication the member has — a far larger loss than the one they asked for.
+  const { data: previous } = await supabase
+    .from("medications")
+    .select("name, dose, frequency, prescriber, type, active")
+    .eq("user_id", userId);
+
   const { error: delErr } = await supabase
     .from("medications")
     .delete()
@@ -240,7 +248,15 @@ export async function saveMedications(userId, meds = []) {
   if (!rows.length) return { error: null };
 
   const { error } = await supabase.from("medications").insert(rows);
-  if (error) console.error("saveMedications", error);
+  if (error) {
+    console.error("saveMedications", error);
+    if (previous?.length) {
+      const { error: restoreErr } = await supabase
+        .from("medications")
+        .insert(previous.map((m) => ({ ...m, user_id: userId })));
+      if (restoreErr) console.error("saveMedications/restore", restoreErr);
+    }
+  }
   return { error };
 }
 
@@ -380,15 +396,96 @@ export async function getDocumentUrl(storagePath, expiresInSeconds = 120) {
   return data?.signedUrl || null;
 }
 
-/** Remove a document: the stored object first, then its row. */
+/**
+ * What a document put into the health record, so a delete can say what it will take
+ * with it — and so the member can see the size of the thing they're undoing.
+ */
+export async function countDocumentData(documentId) {
+  const empty = { markers: 0, genomes: 0 };
+  if (!isConfigured || !documentId) return empty;
+
+  const { data: panels } = await supabase
+    .from("lab_panels")
+    .select("id")
+    .eq("document_id", documentId);
+  const panelIds = (panels || []).map((row) => row.id);
+
+  let markers = 0;
+  if (panelIds.length) {
+    const { count } = await supabase
+      .from("lab_markers")
+      .select("id", { count: "exact", head: true })
+      .in("panel_id", panelIds);
+    markers = count || 0;
+  }
+
+  const { count: genomes } = await supabase
+    .from("genetic_markers")
+    .select("id", { count: "exact", head: true })
+    .eq("document_id", documentId);
+
+  return { markers, genomes: genomes || 0 };
+}
+
+/**
+ * Remove a document AND everything it put in the health record.
+ *
+ * The foreign keys are `on delete set null`, which was written for a world where a
+ * document was merely the provenance of results a member had typed in themselves.
+ * Results are now filed automatically from the file, so that default means deleting
+ * a PDF silently keeps every marker it produced — orphaned, unreachable through any
+ * screen, and still feeding the Labs list, the trends, the bloodwork score and the
+ * AI's context. A member who deletes a health document means the health data, not
+ * just the file; and undoing a bad upload has to actually undo it.
+ *
+ * Derived rows go first, so a failure part-way leaves the document in place to try
+ * again rather than leaving results with no file to trace them to.
+ */
 export async function deleteDocument(document) {
   if (!isConfigured || !document?.id) return { error: null };
+
+  const { data: panels, error: panelReadErr } = await supabase
+    .from("lab_panels")
+    .select("id")
+    .eq("document_id", document.id);
+  if (panelReadErr) console.error("deleteDocument/panels", panelReadErr);
+
+  const panelIds = (panels || []).map((row) => row.id);
+  if (panelIds.length) {
+    // Markers explicitly rather than relying on the panel cascade: an orphaned
+    // marker keeps showing on the Labs screen with nothing to date it.
+    const { error: markerErr } = await supabase.from("lab_markers").delete().in("panel_id", panelIds);
+    if (markerErr) {
+      console.error("deleteDocument/markers", markerErr);
+      return { error: markerErr };
+    }
+    const { error: panelErr } = await supabase.from("lab_panels").delete().in("id", panelIds);
+    if (panelErr) {
+      console.error("deleteDocument/panelRows", panelErr);
+      return { error: panelErr };
+    }
+  }
+
+  const { error: geneErr } = await supabase
+    .from("genetic_markers")
+    .delete()
+    .eq("document_id", document.id);
+  if (geneErr) {
+    console.error("deleteDocument/genomes", geneErr);
+    return { error: geneErr };
+  }
+
   if (document.storage_path) {
     const { error: rmErr } = await supabase.storage
       .from("health-docs")
       .remove([document.storage_path]);
+    // An object left in the bucket is litter, not a reason to keep the record rows
+    // the member asked to delete.
     if (rmErr) console.error("deleteDocument/storage", rmErr);
   }
+
+  // The row carries the transcription, so this is what removes the document's text
+  // from the AI's context.
   const { error } = await supabase.from("documents").delete().eq("id", document.id);
   if (error) console.error("deleteDocument/row", error);
   return { error };

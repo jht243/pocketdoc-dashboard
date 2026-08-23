@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FileText, Camera, Dna, Trash2, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
 import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
-import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds } from "../lib/profileStore";
+import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds, countDocumentData } from "../lib/profileStore";
 import { extractDocumentText, fetchAsBase64 } from "../lib/documentText";
 import { ingestLabResults } from "../lib/labIngest";
 
@@ -167,10 +167,39 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
   };
 
   const remove = async (doc) => {
-    if (!window.confirm(`Remove "${doc.file_name}" from your records?`)) return;
+    // Name what actually goes. Results are filed automatically now, so "remove this
+    // file" quietly means "remove the 62 results it added to your labs and trends"
+    // — a member deleting a bad upload deserves to know that's what they're getting,
+    // and a member deleting a file they still have results for deserves the warning.
     setBusyId(doc.id);
-    await deleteDocument(doc);
+    const { markers, genomes } = await countDocumentData(doc.id);
     setBusyId(null);
+
+    const derived = [
+      markers ? `${markers} lab result${markers === 1 ? "" : "s"}` : null,
+      genomes ? `${genomes} genome${genomes === 1 ? "" : "s"}` : null,
+    ].filter(Boolean).join(" and ");
+
+    const message = derived
+      ? `Remove "${doc.file_name}" from your records?\n\nThis also deletes the ${derived} it added to your health record. Your labs, trends and AI conversations will no longer include them.`
+      : `Remove "${doc.file_name}" from your records?`;
+    if (!window.confirm(message)) return;
+
+    setBusyId(doc.id);
+    // Nothing about this document is filed any more, so let a re-upload of the same
+    // file be read and filed afresh instead of being skipped as already-attempted.
+    attempted.current.delete(doc.id);
+    const { error } = await deleteDocument(doc);
+    setBusyId(null);
+    if (error) {
+      window.alert("Couldn't remove that document. Nothing was deleted — try again in a moment.");
+      return;
+    }
+    setPanelDocIds((prev) => {
+      const next = new Set(prev);
+      next.delete(doc.id);
+      return next;
+    });
     load();
     onDocumentsChange?.();
   };
