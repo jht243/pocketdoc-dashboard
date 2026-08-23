@@ -118,6 +118,7 @@ export async function loadFullProfile(userId) {
     loadScreenings(userId),
   ]);
 
+  // Names only here — the tokens widget and onboarding text join these as strings.
   const medications = (meds || []).map((m) => m.name).filter(Boolean);
   const age = ageFromDob(stored.profile.dob);
   const schedule =
@@ -134,6 +135,10 @@ export async function loadFullProfile(userId) {
   return {
     ...stored,
     intake: { ...stored.intake, medications },
+    // The full rows — dose, frequency, prescriber, type — for the AI context.
+    // Flattening to names alone told the model someone takes "Metformin" while
+    // hiding the dose they typed in, which is half of what makes it usable.
+    medicationsDetail: meds || [],
     schedule,
     completedItems,
   };

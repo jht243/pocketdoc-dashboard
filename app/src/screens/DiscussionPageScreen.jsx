@@ -25,7 +25,7 @@ const FALLBACK = {
   ],
 };
 
-function DiscussionPageScreen({ setActive, userProfile, healthData }) {
+function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistory }) {
   const [shared, setShared] = useState(false);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(FALLBACK.summary);
@@ -84,7 +84,7 @@ function DiscussionPageScreen({ setActive, userProfile, healthData }) {
         // The same full picture the chat gets — intake answers, genetics, every
         // synced wearable metric and the preventive-care schedule included. Visit
         // prep built off four fields missed most of what the user had told us.
-        const context = buildHealthContext({ userProfile, healthData });
+        const context = buildHealthContext({ userProfile, healthData, healthHistory });
         const data = await callAI({
           system:
             "You are a health advocate preparing a patient for a doctor's appointment. From the data provided, write a concise visit-prep summary and a short list of specific questions the patient should raise. You are not a clinician: never diagnose or prescribe, and frame everything as a pattern worth discussing. Reference the patient's actual values where relevant, and take them from their most recent LAB RESULTS — a number the patient typed at intake from memory is not a substitute for a marker their labs actually measured, and if you cite a self-reported figure you must label it as self-reported. Respond with ONLY a JSON object, no markdown or backticks, of the exact shape: {\"summary\": \"one paragraph, 4-6 sentences\", \"questions\": [\"...\", \"...\", \"...\"]}. Provide 3 to 4 questions.",

@@ -12,6 +12,7 @@
  * shows an empty or broken insight.
  */
 import { callAI, firstText } from "./api";
+import { buildHealthContext, geneticLine } from "./healthContext";
 
 // Only these navigation targets exist, so the model can't invent a dead link.
 const ALLOWED_TARGETS = new Set(["iv", "vitd3", "discussion", "bodyfat_history"]);
@@ -104,19 +105,19 @@ function sanitizeLabs(list) {
  * Generate AI insight cards from the user's snapshot.
  * @returns {Promise<{daily, record, labs}|null>} null on any failure (→ deterministic fallback).
  */
-export async function generateAIInsights(healthData, profile) {
+export async function generateAIInsights(healthData, profile, healthHistory = null) {
   if (!healthData) return null;
 
-  const snapshot = {
-    today: healthData.today || null,
-    labs: healthData.labs || [],
-    labHistory: healthData.labHistory || [],
-    profile: buildProfileSummary(profile),
-  };
+  // The SAME full context the chat and the Discussion Page get — intake answers,
+  // labs with ranges and trends, both scores, every wearable metric, genetics,
+  // screenings, and the member's own uploaded documents transcribed. The previous
+  // hand-built snapshot carried four fields, so the cards were "personalized"
+  // insights generated while blind to nearly everything the member had provided.
+  const context = buildHealthContext({ userProfile: profile, healthData, healthHistory });
 
-  const user = `Here is the user's current health snapshot as JSON:
+  const user = `Here is everything the app knows about this member:
 
-${JSON.stringify(snapshot)}
+${context}
 
 Produce insight cards as a JSON object with EXACTLY this shape:
 {
@@ -129,7 +130,7 @@ Guidance:
 - "daily": the single most important thing about TODAY from device vitals + reported symptoms (e.g. possible illness onset, low recovery/sleep debt, a lab+symptom pattern). Use priority 90-100 only for a same-day health signal like possible illness onset. null if nothing stands out today.
 - "record": a cross-panel pattern worth raising with a clinician (e.g. a lab value trending across multiple panels alongside matching symptoms). Include a "Bring to your doctor" path and a self-pay path. null if nothing stands out.
 - "labs": 0-3 notable individual lab findings (out-of-range or trending), most important first.
-- Only include a card the data actually supports. Every number must come from the snapshot. Return JSON only.`;
+- Only include a card the data actually supports. Every number must come from the data above — labs, wearable readings, uploaded documents, genetics, or screenings. A finding that crosses sources (a lab trend matching a symptom, a genetic variant relevant to a medication, an uploaded report's note echoed by the wearable data) is exactly what these cards are for. Return JSON only.`;
 
   try {
     const data = await callAI({
@@ -156,16 +157,35 @@ Guidance:
  * Amazon search string the caller uses to pull real product cards. OTC supplements
  * only, never prescription drugs. [] on any failure.
  */
-export async function suggestSupplements(profile) {
+export async function suggestSupplements(profile, healthData = null) {
   const p = buildProfileSummary(profile);
-  const meds = profile?.intake?.medications || [];
-  const system = `You are a health advocate AI. Suggest a short list of OVER-THE-COUNTER supplements (vitamins, minerals, common OTC supplements) that fit the user's stated goals and profile. Rules:
+  const meds = profile?.medicationsDetail?.length
+    ? profile.medicationsDetail.map((m) => [m.name, m.dose, m.frequency, m.type].filter(Boolean).join(" "))
+    : profile?.intake?.medications || [];
+
+  // The member's measured data, compacted: suggesting supplements while blind to
+  // their labs recommends nothing for a measured deficiency — the one case where a
+  // supplement suggestion is actually grounded. Out-of-range markers and genetics
+  // (e.g. MTHFR → methylated folate) carry the signal; a full in-range panel is
+  // summarized as such so the model doesn't treat "no data" and "all normal" alike.
+  const flagged = (healthData?.labs || []).filter((l) => l.status && l.status !== "normal" && l.status !== "unknown");
+  const labSummary = flagged.length
+    ? flagged.map((l) => `${l.name} ${l.value}${l.unit ? " " + l.unit : ""} (${l.status}${l.range ? ", ref " + l.range : ""}${l.date ? ", " + l.date : ""})`).join("; ")
+    : healthData?.labs?.length
+      ? "all markers on file within range"
+      : "no lab results on file";
+  const genetics = (healthData?.genetics || []).map(geneticLine).join("\n");
+
+  const system = `You are a health advocate AI. Suggest a short list of OVER-THE-COUNTER supplements (vitamins, minerals, common OTC supplements) that fit the user's stated goals, profile, and their OWN lab results and genetics below. Rules:
 - OTC supplements only. NEVER suggest prescription medications, hormones, peptides, or controlled substances.
-- Base suggestions on the user's goals/conditions; keep them mainstream and evidence-informed.
+- Prefer suggestions grounded in a measured result (an out-of-range lab, a genetic variant) over generic goal-based ones, and say which result in the reason.
+- Never suggest something that duplicates a supplement or medication they already take.
 - Do not give doses. Do not diagnose. This is not medical advice.
 - Output STRICT JSON only.`;
   const user = `User profile: ${JSON.stringify({ ...p, currentMeds: meds })}
 
+Out-of-range / notable lab results: ${labSummary}
+${genetics ? `\nGenetics on file:\n${genetics}\n` : ""}
 Return JSON: { "suggestions": [ { "name": string, "keywords": string, "reason": string } ] }
 - 2 to 4 suggestions, most relevant first.
 - "keywords": a concise Amazon search query (e.g. "vitamin d3 k2 supplement").

@@ -12,7 +12,7 @@ import { searchProducts } from "../lib/amazon";
 // The user's real medication + supplement list (entered by them, persisted to
 // ghai.medications). Nothing here is pre-filled or invented. Plus an AI "Suggested
 // for you" section that pulls live Amazon supplement cards from their profile.
-function MedicationScreen({ setActive, userProfile, goToMarket }) {
+function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMedsChange }) {
   const { user } = useAuth();
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
     let cancelled = false;
     (async () => {
       if (!userProfile) { setSuggestions([]); return; }
-      const ideas = await suggestSupplements(userProfile);
+      const ideas = await suggestSupplements(userProfile, healthData);
       if (cancelled) return;
       if (!ideas.length) { setSuggestions([]); return; }
       const withProducts = await Promise.all(ideas.map(async (idea) => {
@@ -56,12 +56,17 @@ function MedicationScreen({ setActive, userProfile, goToMarket }) {
   }, [userProfile]);
 
   // Persist the full list (delete + re-insert keeps meds table in sync with the UI).
-  const persist = (list) => {
+  const persist = async (list) => {
     setMedications(list);
-    if (user) saveMedications(user.id, list.map((m) => ({
-      name: m.name, dose: m.dose, frequency: m.frequency, prescriber: m.prescriber,
-      type: m.type === "supplement" ? "supplement" : "prescription",
-    })));
+    if (user) {
+      await saveMedications(user.id, list.map((m) => ({
+        name: m.name, dose: m.dose, frequency: m.frequency, prescriber: m.prescriber,
+        type: m.type === "supplement" ? "supplement" : "prescription",
+      })));
+      // The AI reads meds out of the profile — refresh it so an edit here reaches
+      // the chat and the insight cards in the same session, not on the next reload.
+      onMedsChange?.();
+    }
   };
 
   const resetForm = () => {

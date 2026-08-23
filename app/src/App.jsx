@@ -184,6 +184,19 @@ function App() {
     setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
   }, [user]);
 
+  /**
+   * Re-pull the profile after a medication edit.
+   *
+   * The chat, the insight cards and the Discussion Page all read medications out of
+   * `userProfile`; without this, a med added on the Medication screen doesn't reach
+   * any AI surface until the next full reload.
+   */
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    const stored = await loadFullProfile(user.id);
+    if (stored) setUserProfile((prev) => ({ ...(prev || {}), ...stored }));
+  }, [user]);
+
   // Re-pull the wearable slice after a connect/sync/disconnect, without refetching
   // the whole profile. Merges rather than replaces so labs and records survive.
   const refreshWearable = useCallback(async () => {
@@ -222,12 +235,14 @@ function App() {
     if (!user || !healthData) { setAiInsights(null); return; }
     let cancelled = false;
     setAiInsights(null);
-    generateAIInsights(healthData, userProfile).then((res) => {
+    generateAIInsights(healthData, userProfile, healthHistory).then((res) => {
       if (!cancelled) setAiInsights(res);
     });
     return () => { cancelled = true; };
+    // userProfile included: a medication or screening change alters what the cards
+    // should say, not just new device/lab data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, healthData]);
+  }, [user, healthData, userProfile]);
 
   // On sign-in, pull the stored profile. Completion — not merely having a dob — is
   // what decides home-vs-onboarding, now that we save partway through.
@@ -396,14 +411,14 @@ function App() {
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
-    discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
+    discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
     profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={setActive} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={setActive} onImported={refreshRecords} />,
     geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} testModeEnabled={testModeEnabled} />,
-    medications: <MedicationScreen setActive={setActive} userProfile={userProfile} goToMarket={goToMarket} />,
+    medications: <MedicationScreen setActive={setActive} userProfile={userProfile} healthData={healthData} goToMarket={goToMarket} onMedsChange={refreshProfile} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={setActive} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
   };

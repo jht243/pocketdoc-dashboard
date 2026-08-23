@@ -414,12 +414,18 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
     bullet("Onboarding completed", userProfile?.onboardingCompletedAt),
   ].filter(Boolean).join("\n");
 
-  const meds = (intake.medications || []).map((m) =>
-    typeof m === "string" ? `- ${m}` : `- ${[m.name, m.dose, m.frequency, m.type].filter(Boolean).join(" — ")}`,
-  ).join("\n");
-  const snapshotMeds = (healthData?.medications || []).map((m) =>
-    typeof m === "string" ? `- ${m}` : `- ${[m.name, m.dose, m.frequency, m.type].filter(Boolean).join(" — ")}`,
-  ).join("\n");
+  const medLine = (m) =>
+    typeof m === "string"
+      ? `- ${m}`
+      : `- ${[m.name, m.dose, m.frequency, m.prescriber ? `prescribed by ${m.prescriber}` : null, m.type].filter(Boolean).join(" — ")}`;
+  // Fullest source first: the medications table rows (dose, frequency, prescriber,
+  // type), then the test-mode snapshot, then the intake's name-only strings.
+  const medSource = userProfile?.medicationsDetail?.length
+    ? userProfile.medicationsDetail
+    : healthData?.medications?.length
+      ? healthData.medications
+      : intake.medications || [];
+  const meds = medSource.map(medLine).join("\n");
 
   const records = documentLines(healthData?.records || []);
 
@@ -459,7 +465,7 @@ SOURCE PRECEDENCE — for any marker that appears in more than one place, quote 
 Numbers the member self-reported at intake are only worth citing when no lab result covers that marker — and when you do cite one, say it is self-reported. If a lab result and an intake answer disagree, the lab result is the fact and the difference is itself worth raising.
 ${section("USER PROFILE", identity)}
 ${section("INTAKE QUESTIONNAIRE (their own answers — SELF-REPORTED, may be out of date)", intakeLines(intake, profile))}
-${section("MEDICATIONS & SUPPLEMENTS", meds || snapshotMeds)}
+${section("MEDICATIONS & SUPPLEMENTS", meds)}
 ${section("LAB RESULTS (most recent)", labLines(healthData?.labs))}
 ${section("LAB TRENDS (repeat measurements over time)", labTrendLines(healthData))}
 ${section("WEARABLE SCORE (calculated from raw values vs their own baseline)", wearableScoreLines(healthData?.score?.wearable))}
