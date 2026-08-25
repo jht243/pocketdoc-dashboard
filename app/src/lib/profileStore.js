@@ -344,6 +344,26 @@ export async function saveDocumentText(documentId, text, error = null) {
   return { error: dbError };
 }
 
+/**
+ * Sentinel recorded on a document whose transcription contains no lab markers.
+ *
+ * A genetic report or an appointment note reads fine but has nothing to file into
+ * a lab panel. Without a stored verdict, the Records list flagged such documents
+ * "Results couldn't be added yet — we'll try again" forever and re-ran the
+ * extraction on every visit. This is a verdict about the file, not an error.
+ */
+export const NO_LAB_DATA_VERDICT = "No lab results in this document";
+
+export async function markDocumentNoLabData(documentId) {
+  if (!isConfigured || !documentId) return { error: null };
+  const { error } = await supabase
+    .from("documents")
+    .update({ extract_error: NO_LAB_DATA_VERDICT })
+    .eq("id", documentId);
+  if (error) console.error("markDocumentNoLabData", error);
+  return { error };
+}
+
 /** Every document the user has uploaded, newest first. */
 export async function listDocuments(userId) {
   if (!isConfigured || !userId) return [];

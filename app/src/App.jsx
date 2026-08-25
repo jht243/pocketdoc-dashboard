@@ -228,13 +228,13 @@ function App() {
     // doesn't move the number doesn't write a row.
   }, [user, testModeEnabled, scoreModel.hasData, scoreModel.totalScore, scoreModel.totalMax]);
 
-  // Regenerate AI insights whenever the snapshot changes. Reset to null first so a
-  // stale set never lingers over new data; screens fall back to deterministic
-  // templates until this resolves (and if it fails).
+  // Regenerate AI insights whenever the snapshot changes. The previous set stays
+  // on screen while the new one is computed — clearing first made every insight
+  // card blink out (or collapse to its locked/empty state) on each data refresh.
+  // Only a sign-out / data wipe clears them.
   useEffect(() => {
     if (!user || !healthData) { setAiInsights(null); return; }
     let cancelled = false;
-    setAiInsights(null);
     generateAIInsights(healthData, userProfile, healthHistory).then((res) => {
       if (!cancelled) setAiInsights(res);
     });

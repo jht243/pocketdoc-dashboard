@@ -9,9 +9,10 @@ import DocumentList from "../components/DocumentList";
 
 function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
   const records = healthData?.records || [];
-  // AI insight once loaded (may be null = nothing stands out); deterministic fallback
-  // until it resolves or if the AI is unavailable.
-  const insight = aiInsights ? aiInsights.record : getRecordInsight(healthData);
+  // AI insight once loaded; deterministic fallback until it resolves, if the AI is
+  // unavailable, or if the AI found nothing — an insight that was already on screen
+  // must never collapse into the locked "import more" card.
+  const insight = aiInsights?.record || getRecordInsight(healthData);
   return (
     <div style={{ padding: "24px 18px" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your records</div>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FileText, Camera, Dna, Trash2, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
 import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
-import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds, countDocumentData } from "../lib/profileStore";
+import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds, countDocumentData, markDocumentNoLabData, NO_LAB_DATA_VERDICT } from "../lib/profileStore";
 import { extractDocumentText, fetchAsBase64 } from "../lib/documentText";
 import { ingestLabResults } from "../lib/labIngest";
 
@@ -99,7 +99,8 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
       // a rate limit, or a file stored before results were filed automatically. The
       // transcription is already on the row, so this is one cheap text call and the
       // member never has to know it happened.
-      if (doc.extracted_text && doc.kind !== "genetic" && !panelIds.has(doc.id)) {
+      if (doc.extracted_text && doc.kind !== "genetic" && !panelIds.has(doc.id)
+        && doc.extract_error !== NO_LAB_DATA_VERDICT) {
         await fileResults(doc, doc.extracted_text);
       }
     }
@@ -117,10 +118,18 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
     if (!user || !text || doc.kind === "genetic") return;
     setFilingId(doc.id);
     try {
-      const { saved } = await ingestLabResults({ userId: user.id, document: doc, text });
+      const { saved, markers, error } = await ingestLabResults({ userId: user.id, document: doc, text });
       if (saved) {
         setPanelDocIds((prev) => new Set(prev).add(doc.id));
         onDocumentsChange?.();
+      } else if (!error && !markers.length) {
+        // The model read the whole document and found nothing lab-shaped — a
+        // genetic report, an appointment note. Record that verdict, or this file
+        // is flagged "we'll try again" and re-extracted on every visit, forever.
+        await markDocumentNoLabData(doc.id);
+        setDocs((prev) => prev.map((d) => (d.id === doc.id
+          ? { ...d, extract_error: NO_LAB_DATA_VERDICT }
+          : d)));
       }
     } catch (err) {
       console.error("fileResults", err);
@@ -211,7 +220,9 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
    * panel, so they would otherwise be flagged forever.
    */
   const resultsMissing = (doc) =>
-    doc.kind !== "genetic" && !!doc.extracted_text && !panelDocIds.has(doc.id);
+    doc.kind !== "genetic" && !!doc.extracted_text && !panelDocIds.has(doc.id)
+    // "There are no lab results in this file" is an answer, not a pending retry.
+    && doc.extract_error !== NO_LAB_DATA_VERDICT;
 
   if (loading) {
     return (
