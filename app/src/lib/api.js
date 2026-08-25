@@ -43,6 +43,24 @@ function enqueue(task) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Hard ceiling on a single edge-function round trip. `functions.invoke` has no
+ * timeout of its own, and a request that never settles doesn't just strand its
+ * caller — it wedges the serial queue above, which then blocks every AI feature
+ * in the app (the discussion summary sat on "Preparing…" forever because of an
+ * earlier hung document read). Two minutes comfortably covers the slowest real
+ * response (a large PDF extraction); anything longer is a dead connection.
+ */
+const INVOKE_TIMEOUT_MS = 120000;
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("AI request timed out. Please try again.")), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
  * How long to wait before retrying a rate-limited request.
  *
  * OpenAI states the exact wait in the error message ("Please try again in 1.862s"),
@@ -129,7 +147,10 @@ export async function callAI({ system, messages, maxTokens = 1000, model, webSea
   return enqueue(async () => {
     let lastMessage = "";
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const { data, error } = await supabase.functions.invoke("ghai-ai", { body });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke("ghai-ai", { body }),
+        INVOKE_TIMEOUT_MS
+      );
 
       // functions.invoke reports any non-2xx as a generic FunctionsHttpError whose
       // message is just "Edge Function returned a non-2xx status code" — the useful

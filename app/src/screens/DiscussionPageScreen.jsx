@@ -99,12 +99,17 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
         }
       } catch {
         // Keep the fallback content on any failure — the page still renders.
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      if (!cancelled) setLoading(false);
     })();
 
     return () => {
+      // A superseded run must not leave "Preparing…" pinned on: its own
+      // setLoading(false) is skipped via the cancelled guard (so it can't stomp a
+      // newer run's spinner), so clear it here — a newer run re-sets it itself.
       cancelled = true;
+      setLoading(false);
     };
   }, [hasRealData, userProfile, healthData]);
 
