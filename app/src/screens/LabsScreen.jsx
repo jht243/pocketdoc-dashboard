@@ -1,5 +1,5 @@
-import React from "react";
-import { AlertCircle, ChevronRight, Plus, Sparkles, TrendingUp } from "lucide-react";
+import React, { useState } from "react";
+import { AlertCircle, ChevronDown, ChevronRight, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
@@ -14,12 +14,28 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
   const allMarkers = healthData?.labs || [];
   const markers = [];
   const seen = new Set();
+  // Every occurrence of each marker, keyed by normalized name — the collapsed row
+  // shows the newest draw, tapping it reveals where every historical value came from.
+  const historyByMarker = new Map();
   for (const m of allMarkers) {
     const key = String(m.name || "").trim().toUpperCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    markers.push(m);
+    if (!key) continue;
+    if (!seen.has(key)) {
+      seen.add(key);
+      markers.push(m);
+    }
+    const list = historyByMarker.get(key) || [];
+    list.push(m);
+    historyByMarker.set(key, list);
   }
+  const [expandedKey, setExpandedKey] = useState(null);
+  // "Bloodtest 2026" style label: the source file the panel came from plus the year
+  // it was drawn (falling back to the import year when the draw date is unknown).
+  const sourceLabel = (m) => {
+    const year = String(m.drawnOn || m.date || m.created_at || "").slice(0, 4);
+    const src = m.source || "Imported file";
+    return year ? `${src} · ${year}` : src;
+  };
   const aiLabs = aiInsights?.labs || [];
   const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   return (
@@ -46,23 +62,53 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
 
       <SectionLabel>Latest results</SectionLabel>
       {markers.length > 0 ? <Card>
-        {markers.map((m, i) => (
-          <div key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "11px 0", borderBottom: i < markers.length - 1 ? `1px solid ${COLORS.border}` : "none"
-          }}>
-            <div>
-              <div style={{ fontSize: 13 }}>{m.name}</div>
-              {/* Each marker shows the draw date it came from — after dedup, rows can
-                  come from different panels, and an undated number reads as current. */}
-              {m.date && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{m.date}</div>}
+        {markers.map((m, i) => {
+          const key = String(m.name || "").trim().toUpperCase();
+          const history = historyByMarker.get(key) || [];
+          const expanded = expandedKey === key;
+          return (
+            <div key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`} style={{
+              borderBottom: i < markers.length - 1 ? `1px solid ${COLORS.border}` : "none"
+            }}>
+              <div
+                onClick={() => setExpandedKey(expanded ? null : key)}
+                style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "11px 0", cursor: "pointer"
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13 }}>{m.name}</div>
+                  {/* Each marker shows the draw date it came from — after dedup, rows can
+                      come from different panels, and an undated number reads as current. */}
+                  {m.date && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{m.date}</div>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
+                  <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor[m.status] }} />
+                  {expanded
+                    ? <ChevronDown size={14} color={COLORS.textMuted} />
+                    : <ChevronRight size={14} color={COLORS.textMuted} />}
+                </div>
+              </div>
+              {/* Provenance: one line per panel this marker appeared in — which file it
+                  came from, the year, and the value it held there. */}
+              {expanded && (
+                <div style={{ padding: "0 0 11px 12px" }}>
+                  {history.map((h, j) => (
+                    <div key={j} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "5px 0"
+                    }}>
+                      <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{sourceLabel(h)}</div>
+                      <div style={{ fontSize: 12, color: COLORS.textPrimary }}>{h.value}{h.unit ? ` ${h.unit}` : ""}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
-              <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor[m.status] }} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </Card> : <LockedDataSection
         title="Your lab markers"
         description="Import a lab result to see each marker, its range, and what needs attention."
