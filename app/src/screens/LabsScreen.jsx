@@ -6,7 +6,20 @@ import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, SERIF } from "../theme/tokens";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
-  const markers = healthData?.labs || [];
+  // One row per marker, always the most recent draw. The full list holds every
+  // panel ever imported (five panels ≈ 300 rows, five "CHOLESTEROL, TOTAL"s), and
+  // which duplicate the member saw first was decided by upload order — a March 2024
+  // cholesterol reading rendered as if it were current. `labs` arrives newest-draw-
+  // first, so the first occurrence of each name is the one to keep.
+  const allMarkers = healthData?.labs || [];
+  const markers = [];
+  const seen = new Set();
+  for (const m of allMarkers) {
+    const key = String(m.name || "").trim().toUpperCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    markers.push(m);
+  }
   const aiLabs = aiInsights?.labs || [];
   const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   return (
@@ -31,14 +44,19 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
         <ChevronRight size={16} color={COLORS.textMuted} />
       </button>
 
-      <SectionLabel>Latest panel</SectionLabel>
+      <SectionLabel>Latest results</SectionLabel>
       {markers.length > 0 ? <Card>
         {markers.map((m, i) => (
-          <div key={m.name} style={{
+          <div key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "11px 0", borderBottom: i < markers.length - 1 ? `1px solid ${COLORS.border}` : "none"
           }}>
-            <span style={{ fontSize: 13 }}>{m.name}</span>
+            <div>
+              <div style={{ fontSize: 13 }}>{m.name}</div>
+              {/* Each marker shows the draw date it came from — after dedup, rows can
+                  come from different panels, and an undated number reads as current. */}
+              {m.date && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{m.date}</div>}
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor[m.status] }} />

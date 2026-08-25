@@ -557,12 +557,20 @@ export async function loadLabMarkers(userId) {
     }
     return (flat || []).map((marker) => ({ ...marker, range: marker.ref_range || null, drawnOn: null, source: null }));
   }
-  return (data || []).map(({ lab_panels: panel, ...marker }) => ({
+  const rows = (data || []).map(({ lab_panels: panel, ...marker }) => ({
     ...marker,
     range: marker.ref_range || null,
     drawnOn: panel?.drawn_on || null,
     source: panel?.source || null,
   }));
+  // Newest DRAW first, not newest upload first. Uploading a 2024 panel today gives
+  // it the freshest created_at, and every consumer that takes the first match
+  // (Labs screen, insight pickers, AI context) would then report a two-year-old
+  // value as current. Compare at day granularity so a panel without a drawn_on
+  // falls back to its import day without outranking dated panels on timestamp.
+  const measuredOn = (m) => m.drawnOn || String(m.created_at || "").slice(0, 10);
+  rows.sort((a, b) => measuredOn(b).localeCompare(measuredOn(a)));
+  return rows;
 }
 
 /**

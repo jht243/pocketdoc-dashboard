@@ -104,7 +104,10 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
     ...marker,
     // Prefer the date blood was actually drawn; fall back to the import date only
     // when the user didn't tell us one.
-    date: new Date(marker.drawnOn || marker.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+    // A bare YYYY-MM-DD parses as UTC midnight, which toLocaleDateString would
+    // shift to the previous day anywhere west of Greenwich — so pin it to local
+    // midnight before formatting.
+    date: new Date(marker.drawnOn ? `${marker.drawnOn}T00:00:00` : marker.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
   }));
   return {
     labs,
