@@ -298,19 +298,27 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
                 ) : doc.extracted_text ? (
                   // Being readable and being counted are different things — a member
                   // whose extraction failed had a document the AI could read while their
-                  // Labs screen still showed nothing. Say which one this is.
+                  // Labs screen still showed nothing. Say which one this is, precisely.
                   filingId === doc.id ? (
                     <span style={{ color: COLORS.textMuted }}>Adding its results to your labs…</span>
+                  ) : doc.extract_error === NO_LAB_DATA_VERDICT ? (
+                    // Not an error: the file is saved and readable, it just holds no
+                    // data of a kind we file yet. More types will be supported over time.
+                    <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>
+                      Saved — your AI can read this. No lab values to file from it yet.
+                    </span></>
                   ) : resultsMissing(doc) ? (
                     <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
-                      Results couldn't be added yet — we'll try again
+                      Saved and readable — its results aren't in your labs yet. Retrying automatically.
                     </span></>
                   ) : (
                     <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>Your AI can read this</span></>
                   )
                 ) : (
                   <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
-                    {doc.extract_error ? "Couldn't be read — tap to retry" : "Not readable by your AI yet"}
+                    {doc.extract_error
+                      ? `Saved, but couldn't be read: ${String(doc.extract_error).slice(0, 120)} — tap Read to retry`
+                      : "Saved — not read by your AI yet"}
                   </span></>
                 )}
               </div>

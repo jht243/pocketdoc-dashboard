@@ -103,6 +103,10 @@ function ImportLabsScreen({ setActive, onImported }) {
   const [extractedMarkers, setExtractedMarkers] = useState([]);
   const [extractedGenetics, setExtractedGenetics] = useState([]);
   const [extractionError, setExtractionError] = useState(null);
+  // A neutral outcome, not a failure: the file is saved and readable, it just holds
+  // no data of a kind we file yet. Rendered without error styling — as we learn to
+  // extract more document types, these files start counting with no action needed.
+  const [extractionNotice, setExtractionNotice] = useState(null);
   const [savingGenetics, setSavingGenetics] = useState(false);
   const [savingLabs, setSavingLabs] = useState(false);
   // Which half of the two-step read is running, so the waiting screen says something
@@ -178,6 +182,7 @@ function ImportLabsScreen({ setActive, onImported }) {
       // discuss the report's narrative, which no marker schema captures.
       setStage("extracting");
       setExtractionError(null);
+      setExtractionNotice(null);
       const text = await transcribeDocument(uploaded, base64, mediaType);
       if (importType === "genetic") await extractGenetics(base64, mediaType, text);
       else await extractMarkers(base64, mediaType, text);
@@ -218,6 +223,7 @@ function ImportLabsScreen({ setActive, onImported }) {
   const extractMarkers = async (base64, mediaType, documentText = "") => {
     setStage("extracting");
     setExtractionError(null);
+    setExtractionNotice(null);
     setSavingLabs(true);
     try {
       const result = await ingestLabResults({
@@ -236,11 +242,11 @@ function ImportLabsScreen({ setActive, onImported }) {
       setSavedMarkerCount(result.saved ? result.markers.length : 0);
 
       if (result.error) {
-        setExtractionError(`Couldn't save your results: ${result.error.message || result.error}. Your file is still saved to your records.`);
+        setExtractionError(`Your file is saved to your records, but its results couldn't be added to your labs: ${result.error.message || result.error}.`);
       } else if (!result.markers.length && !result.empty) {
-        setExtractionError("Couldn't read any markers from this file. You can add them manually below, or try a clearer scan.");
+        setExtractionError("Your file is saved, but no markers could be read from it — the scan may be too unclear. You can add them manually below, or try a clearer photo.");
       } else if (!result.markers.length) {
-        setExtractionError("No lab markers were found in this file. If it has results on it, you can add them manually below.");
+        setExtractionNotice("Your file is saved and your AI can read it. It doesn't contain lab values PocketDoc files today — as we support more data types, documents like this will start counting automatically. If it does have results on it, you can add them manually below.");
       }
       if (result.saved) onImported?.();
       setStage("review");
@@ -262,6 +268,7 @@ function ImportLabsScreen({ setActive, onImported }) {
   const extractGenetics = async (base64, mediaType, documentText = "") => {
     setStage("extracting");
     setExtractionError(null);
+    setExtractionNotice(null);
     try {
       const contentBlock = documentText
         ? { type: "text", text: `Genetic report transcription:\n\n${documentText}` }
@@ -400,6 +407,7 @@ Rules:
     const { base64, mediaType } = imageData;
     setStage("extracting");
     setExtractionError(null);
+    setExtractionNotice(null);
     const text = await transcribeDocument(storedDoc, base64, mediaType);
     if (importType === "genetic") await extractGenetics(base64, mediaType, text);
     else await extractMarkers(base64, mediaType, text);
@@ -677,6 +685,14 @@ Rules:
         <>
           {imagePreview && (
             <img src={imagePreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 14, maxHeight: 120, objectFit: "cover" }} />
+          )}
+          {extractionNotice && (
+            <div style={{
+              padding: 12, background: COLORS.accentDim, border: `1px solid ${COLORS.border}`,
+              borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14, lineHeight: 1.5
+            }}>
+              {extractionNotice}
+            </div>
           )}
           {extractionError && (
             <div style={{
