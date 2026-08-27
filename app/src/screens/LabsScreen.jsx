@@ -3,6 +3,7 @@ import { AlertCircle, ChevronDown, ChevronRight, Plus, Sparkles, TrendingUp } fr
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
+import { UrgentBanner } from "../components/UrgentBanner";
 import { COLORS, SERIF } from "../theme/tokens";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
@@ -37,6 +38,9 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
     return year ? `${src} · ${year}` : src;
   };
   const aiLabs = aiInsights?.labs || [];
+  // A critical value is a lab finding, so the escalation belongs on this screen too —
+  // above the marker table, not somewhere in the insights below it.
+  const urgent = aiInsights?.urgent || [];
   const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   return (
     <div style={{ padding: "24px 18px" }}>
@@ -59,6 +63,8 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
         </div>
         <ChevronRight size={16} color={COLORS.textMuted} />
       </button>
+
+      <UrgentBanner items={urgent} />
 
       <SectionLabel>Latest results</SectionLabel>
       {markers.length > 0 ? <Card>
@@ -134,7 +140,11 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
                 <Sparkles size={18} color={color} style={{ marginTop: 2, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{c.title}</div>
-                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.action ? 10 : 0 }}>{c.body}</div>
+                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.basis ? 6 : (c.action ? 10 : 0) }}>{c.body}</div>
+                  {/* Rule 1.3 — which of the three reference points made this a finding. */}
+                  {c.basis && (
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.45, marginBottom: c.action ? 10 : 0 }}>{c.basis}</div>
+                  )}
                   {c.action && (
                     <button onClick={onAction} style={{ background: "none", border: `1px solid ${color}`, color, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>
                       {c.action.label} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
@@ -153,11 +163,11 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Vitamin D is low</div>
             <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
-              28 ng/mL is below the recommended range of 30–50 ng/mL. Low vitamin D is common
-              and usually addressed with daily supplementation, typically 2,000–5,000 IU of
-              D3, ideally taken with a meal containing fat for better absorption. Worth
-              re-checking in 8–12 weeks to confirm levels are responding before assuming a
-              dose adjustment is needed.
+              28 ng/mL sits below the 30–50 ng/mL range this panel reports, and below the
+              40–60 ng/mL most longevity practices target — so it reads as low against both
+              reference points, not just one. Vitamin D3 is the usual lever, absorbed better
+              with a meal containing fat. Your clinician sets the amount; ask them to re-check
+              in 8–12 weeks so you can see whether the level is actually responding.
             </div>
             <button onClick={() => goToMarket("vitd3")} style={{
               background: "none", border: `1px solid ${COLORS.tealLight}`, color: COLORS.tealLight,
@@ -183,7 +193,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
       {!testModeEnabled && markers.length === 0 && <><SectionLabel>Trends</SectionLabel>
       <LockedDataSection
         title="Marker trends"
-        description="Add at least two lab panels to unlock changes over time and pattern alerts."
+        description="Import a panel to see your markers read against both the lab range and the functional range. A second panel adds change over time."
         actionLabel="Import your first panel"
         onAction={() => setActive("importlabs")}
         rows={3}

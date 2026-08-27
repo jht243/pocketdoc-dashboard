@@ -3,6 +3,7 @@ import { AlertCircle, ChevronRight, FileText, Sparkles, Upload } from "lucide-re
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
+import { UrgentBanner } from "../components/UrgentBanner";
 import { COLORS, SERIF } from "../theme/tokens";
 import { getRecordInsight } from "../lib/deterministicInsights";
 import DocumentList from "../components/DocumentList";
@@ -13,6 +14,7 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
   // unavailable, or if the AI found nothing — an insight that was already on screen
   // must never collapse into the locked "import more" card.
   const insight = aiInsights?.record || getRecordInsight(healthData);
+  const urgent = aiInsights?.urgent || [];
   return (
     <div style={{ padding: "24px 18px" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your records</div>
@@ -20,6 +22,8 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
         Test results and appointment notes, reviewed for patterns your doctors may not have
         had the full picture to see.
       </div>
+
+      <UrgentBanner items={urgent} />
 
       {records.length > 0 ? <button onClick={() => setActive("discussion")} style={{
         width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.gold}60`, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: 14
@@ -57,12 +61,24 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
             ? <Sparkles size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />
             : <AlertCircle size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />}
           <div>
+            {/* Rule 2.4 — findings are organised by physiological system, so the card
+                names the system before it names any single marker. */}
+            {insight.system && (
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: COLORS.gold, marginBottom: 3 }}>
+                {insight.system}
+              </div>
+            )}
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
               {insight.title}
             </div>
-            <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
+            <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: insight.basis ? 6 : 10 }}>
               {insight.body}
             </div>
+            {insight.basis && (
+              <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.45, marginBottom: 10 }}>
+                {insight.basis}
+              </div>
+            )}
             <div style={{
               background: COLORS.bgCardAlt, borderRadius: 10, padding: 12, fontSize: 12,
               color: COLORS.textSecondary, lineHeight: 1.6
@@ -82,7 +98,7 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
       {!insight && <><SectionLabel>Data insight</SectionLabel>
       <LockedDataSection
         title="Patterns across your records"
-        description="Import results from more than one visit to unlock trends and discussion prompts."
+        description="Upload one result, report, or visit note and this fills in. More records sharpen it, but one is enough to start."
         actionLabel="Import lab results"
         onAction={() => setActive("importlabs")}
         rows={2}

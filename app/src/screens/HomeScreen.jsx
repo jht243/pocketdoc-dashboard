@@ -4,6 +4,7 @@ import { Card } from "../components/Card";
 import { ScoreBreakdownModal } from "../components/ScoreBreakdownModal";
 import { ScoreGauge } from "../components/ScoreGauge";
 import { LockedDataSection } from "../components/LockedDataSection";
+import { UrgentBanner } from "../components/UrgentBanner";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
@@ -18,7 +19,11 @@ function HomeScreen({
   // Once the AI insights have loaded (aiInsights !== null) they govern this card —
   // including deliberately showing nothing. Until then (or if the AI is unavailable)
   // fall back to the deterministic recommendation so the card is never empty.
-  const rec = aiInsights ? aiInsights.daily : getDailyRecommendation(healthData);
+  // Section 7 of the clinical spec: an urgent pattern stops the standard workflow.
+  // When one is present it is the only signal on this card slot — burying it under,
+  // or beside, a card about sleep is exactly what the rule forbids.
+  const urgent = aiInsights?.urgent || [];
+  const rec = urgent.length ? null : (aiInsights ? aiInsights.daily : getDailyRecommendation(healthData));
   const hasHealthData = Boolean(
     healthData?.labs?.length || healthData?.records?.length || healthData?.vitals?.length || healthData?.today || healthData?.score
   );
@@ -135,6 +140,9 @@ function HomeScreen({
         </p>
       </div>
 
+      {/* Element 0: urgency. Always first, before the score and before any card. */}
+      <UrgentBanner items={urgent} />
+
       {/* Element 1: Health score — one number, one sentence */}
       {score.hasData ? (
         <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
@@ -169,6 +177,11 @@ function HomeScreen({
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{rec.title}</div>
                 <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>{rec.body}</div>
+                {/* Which reference point this was judged against, and where the numbers
+                    came from — Rule 1.3 says the comparison must be stated, not implied. */}
+                {rec.basis && (
+                  <div style={{ fontSize: 10.5, color: COLORS.textMuted, marginTop: 6, lineHeight: 1.45 }}>{rec.basis}</div>
+                )}
                 {rec.action && (
                   <button style={{ marginTop: 10, background: "none", border: `1px solid ${color}`, color, fontSize: 11, fontWeight: 600, padding: "6px 11px", borderRadius: 8, cursor: "pointer" }}
                     onClick={() => { if (rec.action.target === "discussion" || rec.action.target === "bodyfat_history") setActive(rec.action.target === "bodyfat_history" ? "body" : "discussion"); else goToMarket(rec.action.target); }}>

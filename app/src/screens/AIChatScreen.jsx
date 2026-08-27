@@ -64,7 +64,7 @@ function cleanReply(text) {
 // Functional-medicine chat. The user's full health profile is injected as context and
 // the web-search model does live research (with citations) so answers are current and
 // grounded in the user's actual data — not generic, stale wellness advice.
-function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled }) {
+function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled, onMemberMessage }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -234,6 +234,10 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     // Written now rather than after the reply lands: a member who navigates away
     // mid-answer should still find their question waiting when they come back.
     if (user) await appendMessage(user.id, { role: "user", text: userText, imagePath });
+    // What the member just said is data, not only conversation — a newly described
+    // symptom should reach the insight cards on this turn rather than at the next
+    // lab import. Fired after the write so the reload sees the message.
+    if (user) onMemberMessage?.();
 
     const apiMessages = await buildApiMessages(thread);
 

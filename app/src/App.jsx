@@ -24,6 +24,7 @@ import {
 } from "./lib/testMode";
 import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
+import { loadMessages } from "./lib/chatStore";
 import { buildBaseItems, useScoreModel } from "./lib/scoring";
 import { calculateBloodworkScore } from "./lib/bloodworkScore";
 import { recordHealthScore } from "./lib/healthScoreStore";
@@ -149,6 +150,10 @@ function App() {
   // AI-generated insight cards for Home / Records / Labs. null = not ready yet or
   // AI unavailable → screens fall back to their deterministic templates.
   const [aiInsights, setAiInsights] = useState(null);
+  // Bumped by the chat screen on each member message. Rule 3 of the clinical
+  // spec treats what someone says about how they feel as data, so a new symptom
+  // has to re-run the cards — nothing else in the snapshot changes when they talk.
+  const [chatVersion, setChatVersion] = useState(0);
   // Pre-auth routing: welcome → auth, with privacy reachable from either.
   const [gate, setGate] = useState("welcome");
   const [resumeData, setResumeData] = useState(null);
@@ -238,14 +243,19 @@ function App() {
   useEffect(() => {
     if (!user || !healthData) { setAiInsights(null); return; }
     let cancelled = false;
-    generateAIInsights(healthData, userProfile, healthHistory).then((res) => {
-      if (!cancelled) setAiInsights(res);
-    });
+    // The member's own conversation is a data source for the cards, not just for
+    // the chat screen: a symptom described three times in six weeks is a finding,
+    // and generating insights blind to it produced cards about step counts while
+    // the member was writing about fatigue.
+    loadMessages(user.id)
+      .catch(() => [])
+      .then((messages) => generateAIInsights(healthData, userProfile, healthHistory, messages))
+      .then((res) => { if (!cancelled) setAiInsights(res); });
     return () => { cancelled = true; };
     // userProfile included: a medication or screening change alters what the cards
     // should say, not just new device/lab data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, healthData, userProfile]);
+  }, [user, healthData, userProfile, chatVersion]);
 
   // On sign-in, pull the stored profile. Completion — not merely having a dob — is
   // what decides home-vs-onboarding, now that we save partway through.
@@ -410,7 +420,7 @@ function App() {
     ),
     home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
     checkin: <CheckInScreen testModeEnabled={testModeEnabled} />,
-    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} />,
+    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
