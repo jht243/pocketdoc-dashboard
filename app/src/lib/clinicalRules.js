@@ -1,10 +1,13 @@
 /**
  * The AI Clinical Intelligence Engine rules, as code.
  *
- * Source: "AI Clinical Intelligence Engine — Rules & System Prompt Specification
- * v1.0" (Dr. Adam Locker, Aug 2026). This module is the single place that
- * specification lives, so the insight cards, the supplement suggestions and any
- * future physician summary all reason under the same rules instead of each
+ * Source: the parts of "AI Clinical Intelligence Engine — Rules & System Prompt
+ * Specification v1.0" (Dr. Adam Locker, Aug 2026) that govern what the app says to
+ * a MEMBER. The specification also covers physician-summary formatting and a
+ * clinical review process; neither belongs here, and neither is implemented.
+ *
+ * This module is the single place those member-facing rules live, so the insight
+ * cards and the supplement suggestions reason under the same rules instead of each
  * screen's prompt drifting on its own.
  *
  * Two halves, and the split matters:
@@ -22,25 +25,6 @@
  *
  * Pure — no network, no Supabase, no DOM.
  */
-
-/**
- * Section 10 of the spec: these values require sign-off by a licensed physician or
- * NP before member-facing deployment. Kept as data rather than a comment so the
- * gate is visible to whoever wires the review, and so nothing silently ships as
- * "reviewed" because a threshold looked reasonable.
- */
-export const CLINICAL_REVIEW = {
-  required: true,
-  items: [
-    "Section 7 urgency thresholds (URGENT_RULES below)",
-    "Functional ranges cited in member-facing output (Rule 2.3)",
-    "Rule 4.3 specialist routing triggers",
-    "Rule 5.2 wearable-to-lab domain pairings",
-    "Rule 4.2 PGx flag persistence",
-  ],
-  reviewedBy: null,
-  reviewedAt: null,
-};
 
 /* ==================================================================== */
 /* RULE TEXT — what the model is told                                    */
@@ -195,9 +179,7 @@ function toThousands(value) {
 /**
  * Section 7.1, as executable rules.
  *
- * PENDING CLINICAL SIGN-OFF (see CLINICAL_REVIEW). Every threshold here is quoted
- * from the specification and must be confirmed by the reviewing clinician before
- * these messages reach a member.
+ * Thresholds are quoted from the specification verbatim.
  *
  * Each rule returns null when it does not fire, or a message when it does. Rules
  * are deliberately conservative about units: where a value could plausibly be in
