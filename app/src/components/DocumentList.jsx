@@ -22,6 +22,26 @@ function isRetryableReadError(error) {
   return !!error && !PERMANENT_READ_ERRORS.test(String(error));
 }
 
+/**
+ * The stages a document actually moves through on its way into the health record,
+ * and how far along the bar sits while each one runs.
+ *
+ * The percentages aren't cosmetic: each stage owns a slice of the bar, and the bar
+ * only crosses into the next slice when that step of the real pipeline completes.
+ * Inside a slice it eases toward — but never reaches — the ceiling, so a slow model
+ * call still looks alive without ever claiming progress that hasn't happened.
+ */
+const READ_STAGES = {
+  queued:   { label: "Waiting to be read",              start: 2,   ceiling: 6 },
+  fetching: { label: "Opening your file",               start: 8,   ceiling: 24 },
+  reading:  { label: "Reading this document",           start: 26,  ceiling: 72 },
+  filing:   { label: "Adding its results to your labs", start: 74,  ceiling: 96 },
+  done:     { label: "Done",                            start: 100, ceiling: 100 },
+};
+
+/** How long a finished bar stays at 100% before the row goes back to its status line. */
+const DONE_LINGER_MS = 1400;
+
 function iconFor(doc) {
   if (doc.mime_type?.startsWith("image/")) return Camera;
   return KIND_ICON[doc.kind] || FileText;
@@ -49,13 +69,64 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [readingId, setReadingId] = useState(null);
+  // Where each document is in the read pipeline right now, keyed by id:
+  // { stage, pct }. Reading a file is the slowest thing this app does to something
+  // the member just handed over, and a row that says nothing for thirty seconds
+  // reads as broken — so every stage transition is shown as it happens.
+  const [progress, setProgress] = useState({});
   // Documents whose results are already in the health record, so the list can tell
   // "stored and read" apart from "actually counted in your labs and trends".
   const [panelDocIds, setPanelDocIds] = useState(new Set());
-  const [filingId, setFilingId] = useState(null);
+
   // Documents attempted this session, so a file that can't be read isn't retried on
   // every re-render of the screen.
   const attempted = useRef(new Set());
+
+  /** Move a document to a pipeline stage, never letting the bar travel backwards. */
+  const setStage = (docId, stage) => {
+    setProgress((prev) => {
+      const floor = READ_STAGES[stage].start;
+      const current = prev[docId]?.pct || 0;
+      return { ...prev, [docId]: { stage, pct: Math.max(floor, current) } };
+    });
+  };
+
+  /** Fill the bar, hold it there a beat so the member sees it land, then clear it. */
+  const finishProgress = (docId) => {
+    setProgress((prev) => (prev[docId] ? { ...prev, [docId]: { stage: "done", pct: 100 } } : prev));
+    setTimeout(() => {
+      setProgress((prev) => {
+        if (prev[docId]?.stage !== "done") return prev;
+        const next = { ...prev };
+        delete next[docId];
+        return next;
+      });
+    }, DONE_LINGER_MS);
+  };
+
+  // Ease each in-flight bar toward its stage ceiling. The real pipeline reports
+  // stages, not percentages — this is what turns four discrete steps into motion the
+  // member can watch, while the ceilings keep it honest about what has finished.
+  useEffect(() => {
+    const moving = Object.values(progress).some((p) => p.stage !== "done" && p.pct < READ_STAGES[p.stage].ceiling);
+    if (!moving) return;
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        let changed = false;
+        const next = {};
+        for (const [id, p] of Object.entries(prev)) {
+          const { ceiling } = READ_STAGES[p.stage];
+          if (p.stage === "done" || p.pct >= ceiling) { next[id] = p; continue; }
+          // Decelerating, but with a floor on the step so it never visibly stalls.
+          const pct = Math.min(ceiling, p.pct + Math.max(0.12, (ceiling - p.pct) * 0.05));
+          next[id] = { ...p, pct };
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }, 180);
+    return () => clearInterval(timer);
+  }, [progress]);
 
   const load = async () => {
     if (!user) return setLoading(false);
@@ -84,6 +155,11 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
    * in the background, oldest concern first.
    */
   const backfillUnread = async (rows = [], panelIds = new Set()) => {
+    // Decide the whole worklist before touching any of it, so every document that is
+    // going to be read says so from the start. Handling them one at a time and only
+    // labelling the current one would leave five files sitting silent behind the
+    // first — which is exactly the wait that reads as "nothing is happening".
+    const work = [];
     for (const doc of rows) {
       if (attempted.current.has(doc.id)) continue;
       attempted.current.add(doc.id);
@@ -92,7 +168,7 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
         // read it, which files its results as part of the same pass. A failed read is
         // usually a busy minute on the AI service, and leaving it parked behind a
         // "tap to retry" is the same dead end as leaving results behind a button.
-        await readDocument(doc);
+        work.push({ doc, job: "read" });
         continue;
       }
       // Read, but its numbers never reached the record: an import whose extraction hit
@@ -101,7 +177,18 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
       // member never has to know it happened.
       if (doc.extracted_text && doc.kind !== "genetic" && !panelIds.has(doc.id)
         && doc.extract_error !== NO_LAB_DATA_VERDICT) {
+        work.push({ doc, job: "file" });
+      }
+    }
+    if (!work.length) return;
+
+    work.forEach(({ doc }) => setStage(doc.id, "queued"));
+    for (const { doc, job } of work) {
+      if (job === "read") {
+        await readDocument(doc);
+      } else {
         await fileResults(doc, doc.extracted_text);
+        finishProgress(doc.id);
       }
     }
   };
@@ -116,7 +203,7 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
    */
   const fileResults = async (doc, text) => {
     if (!user || !text || doc.kind === "genetic") return;
-    setFilingId(doc.id);
+    setStage(doc.id, "filing");
     try {
       const { saved, markers, error } = await ingestLabResults({ userId: user.id, document: doc, text });
       if (saved) {
@@ -133,8 +220,6 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
       }
     } catch (err) {
       console.error("fileResults", err);
-    } finally {
-      setFilingId(null);
     }
   };
 
@@ -142,10 +227,12 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
   const readDocument = async (doc) => {
     if (!doc.storage_path) return;
     setReadingId(doc.id);
+    setStage(doc.id, "fetching");
     try {
       const url = await getDocumentUrl(doc.storage_path, 300);
       if (!url) throw new Error("Couldn't open the stored file.");
       const base64 = await fetchAsBase64(url);
+      setStage(doc.id, "reading");
       const { text, error } = await extractDocumentText(base64, doc.mime_type || "");
       await saveDocumentText(doc.id, text, error);
       // Update in place rather than refetching the list: a reload mid-backfill would
@@ -165,6 +252,7 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
         : d)));
     } finally {
       setReadingId(null);
+      finishProgress(doc.id);
     }
   };
 
@@ -255,11 +343,18 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
   }
 
   const shown = limit ? docs.slice(0, limit) : docs;
+  // Waiting members care about their place in line, not just that a queue exists.
+  const queue = shown.filter((d) => progress[d.id]?.stage === "queued").map((d) => d.id);
 
   return (
     <div>
       {shown.map((doc) => {
         const Icon = iconFor(doc);
+        const inFlight = progress[doc.id];
+        // A read that ended badly doesn't get a victory lap: drop straight back to the
+        // status line, which says precisely what went wrong and offers the retry.
+        const active = inFlight && inFlight.stage === "done" && !doc.extracted_text ? null : inFlight;
+        const queuePlace = active?.stage === "queued" ? queue.indexOf(doc.id) + 1 : 0;
         return (
           <div key={doc.id} style={{
             display: "flex", alignItems: "center", gap: 11,
@@ -292,20 +387,48 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
               </div>
               {/* Whether the AI can actually read this file — the one thing about a
                   stored document the member can't otherwise tell. */}
+              {active ? (
+                <div style={{ marginTop: 5 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 8, fontSize: 11, marginBottom: 4,
+                  }}>
+                    <span style={{ color: active.stage === "done" ? COLORS.tealLight : COLORS.textSecondary }}>
+                      {active.stage === "done"
+                        ? (panelDocIds.has(doc.id) ? "Done — its results are in your labs" : "Done — your AI can read this")
+                        : queuePlace > 1
+                          ? `${READ_STAGES.queued.label} — ${queuePlace} in line`
+                          : `${READ_STAGES[active.stage].label}…`}
+                    </span>
+                    <span style={{ color: COLORS.textMuted, fontVariantNumeric: "tabular-nums" }}>
+                      {Math.round(active.pct)}%
+                    </span>
+                  </div>
+                  <div style={{
+                    height: 4, borderRadius: 999, background: COLORS.ringTrack, overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%", width: `${active.pct}%`, borderRadius: 999,
+                      background: COLORS.accent,
+                      // Matches the ticker so the fill glides between updates rather
+                      // than stepping.
+                      transition: "width 200ms linear",
+                    }} />
+                  </div>
+                </div>
+              ) : (
               <div style={{ fontSize: 11, marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
-                {readingId === doc.id ? (
-                  <span style={{ color: COLORS.textMuted }}>Reading this document…</span>
-                ) : doc.extracted_text ? (
+                {doc.extracted_text ? (
                   // Being readable and being counted are different things — a member
                   // whose extraction failed had a document the AI could read while their
                   // Labs screen still showed nothing. Say which one this is, precisely.
-                  filingId === doc.id ? (
-                    <span style={{ color: COLORS.textMuted }}>Adding its results to your labs…</span>
-                  ) : doc.extract_error === NO_LAB_DATA_VERDICT ? (
-                    // Not an error: the file is saved and readable, it just holds no
-                    // data of a kind we file yet. More types will be supported over time.
+                  doc.extract_error === NO_LAB_DATA_VERDICT ? (
+                    // Not an error, and not pending: the file is saved and readable,
+                    // it simply has no lab values in it. Say that as a finished outcome
+                    // and stop there — a "yet" reads as "still working", and there is
+                    // nothing here for the member to do.
                     <><Sparkles size={11} color={COLORS.tealLight} /><span style={{ color: COLORS.tealLight }}>
-                      Saved — your AI can read this. No lab values to file from it yet.
+                      Saved — your AI can read this. It contains no lab values.
                     </span></>
                   ) : resultsMissing(doc) ? (
                     <><AlertCircle size={11} color={COLORS.warning} /><span style={{ color: COLORS.warning }}>
@@ -322,9 +445,10 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
                   </span></>
                 )}
               </div>
+              )}
             </button>
 
-            {!doc.extracted_text && readingId !== doc.id && (
+            {!doc.extracted_text && readingId !== doc.id && !active && (
               <button
                 onClick={() => readDocument(doc)}
                 title="Let the AI read this document"
