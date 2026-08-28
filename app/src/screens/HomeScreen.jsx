@@ -23,6 +23,9 @@ function HomeScreen({
   // When one is present it is the only signal on this card slot — burying it under,
   // or beside, a card about sleep is exactly what the rule forbids.
   const urgent = aiInsights?.urgent || [];
+  // A "worth repeating" note is not an emergency, so it sits in the same banner but
+  // does not clear the rest of the screen the way a real escalation does.
+  const recheck = aiInsights?.recheck || [];
   const rec = urgent.length ? null : (aiInsights ? aiInsights.daily : getDailyRecommendation(healthData));
   const hasHealthData = Boolean(
     healthData?.labs?.length || healthData?.records?.length || healthData?.vitals?.length || healthData?.today || healthData?.score
@@ -141,7 +144,7 @@ function HomeScreen({
       </div>
 
       {/* Element 0: urgency. Always first, before the score and before any card. */}
-      <UrgentBanner items={urgent} />
+      <UrgentBanner items={[...urgent, ...recheck]} />
 
       {/* Element 1: Health score — one number, one sentence */}
       {score.hasData ? (
