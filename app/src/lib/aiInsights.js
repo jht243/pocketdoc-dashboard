@@ -163,7 +163,7 @@ function sanitizeLabs(list, guard) {
  * @param {object}  profile
  * @param {object} [healthHistory]
  * @param {Array}  [messages]  the member's conversation, treated as longitudinal data
- * @returns {Promise<{urgent, daily, record, labs}|null>} null on any failure
+ * @returns {Promise<{urgent, recheck, daily, record, labs}|null>} null on any failure
  *   (→ deterministic fallback), EXCEPT that urgent findings are returned even when
  *   the model call fails, because they do not depend on it.
  */
@@ -172,7 +172,12 @@ export async function generateAIInsights(healthData, profile, healthHistory = nu
 
   // Section 7, before anything else and independent of the model. These are
   // returned whatever happens below.
-  const urgent = detectUrgentPatterns({ healthData, messages });
+  const findings = detectUrgentPatterns({ healthData, messages });
+  // Two different messages. "urgent" tells someone to be seen today and is reserved
+  // for a recent reading no clinician would sit on; "recheck" is the same threshold
+  // crossed by a reading too old to act on, and it says so calmly.
+  const urgent = findings.filter((f) => f.kind !== "recheck");
+  const recheck = findings.filter((f) => f.kind === "recheck");
   const freshness = dataFreshness(healthData);
   // What this member actually has. Passed as fact so a one-document or ring-only
   // member gets a finding scoped to their data instead of a card that quietly
@@ -198,9 +203,10 @@ ${conversation || "(no conversation on file yet)"}
 WHAT THIS MEMBER HAS — these are facts, not estimates. Honour them.
 ${breadth.summary}
 
-DATA AGE
+DATA AGE (Rule 0 — the newest reading is the fact; anything over 12 months old is context you may recommend repeating, never grounds for a current finding or for acting today)
 ${freshness.notes}
 ${urgent.length ? `\nURGENT PATTERNS ALREADY DETECTED IN THIS DATA (a deterministic check found these; they are being shown to the member above your cards — do not repeat them, do not soften them, and do not write a calm card that contradicts them):\n${urgent.map((u) => `- ${u.label}: ${u.message}`).join("\n")}` : ""}
+${recheck.length ? `\nOUT-OF-RANGE RESULTS THAT ARE TOO OLD TO BE URGENT (the member is being shown a calm "worth repeating" note for each; do NOT describe these as current, do NOT tell the member to seek care today over them, and do not restate them as emergencies):\n${recheck.map((u) => `- ${u.label}: ${u.source}`).join("\n")}` : ""}
 
 Produce insight cards as a JSON object with EXACTLY this shape:
 {
@@ -215,7 +221,7 @@ What each card is for:
 
 - "record": the strongest pattern in this member's data that is worth raising with a clinician — drawn from as many domains as they have. With several domains this is the card that justifies the platform, connecting things no single specialist saw together. With ONE domain it is still a real card: a cluster of markers inside a single panel, what a single uploaded report actually says, or a wearable metric moving against that person's own baseline. Name the physiological system in "system" (Metabolic, Lipid / cardiovascular, Thyroid, Sex hormones, Nutrients, Inflammation, Liver, Kidney, Haematology, Adrenal / HPA, or Recovery / sleep for a wearable-only finding). In "body", give the pattern first and the individual values second, with dates and — only where more than one reading exists — direction of travel; then the differential, most likely first, and what single test would settle it. "doctorPath" is the sentence the member should actually say to their doctor. "selfPayPath" is what they can order themselves if they cannot get it through their clinician. null ONLY if they have no data at all, or nothing in it supports a specific claim — not merely because a second source is missing.
 
-- "labs": 0-3 individual findings, most important first. A marker inside the lab range but outside the functional range is a legitimate finding on a single panel — the functional range does not need history to be useful. A marker moving steadily the wrong way across panels is a finding when panels exist. Say which of the three reference points made it one. Empty array when there is no bloodwork, rather than findings invented from another domain.
+- "labs": 0-3 individual findings, most important first — and where two findings are comparably important, the one measured most recently goes first. Use each marker's NEWEST reading; an earlier reading of the same marker belongs in the sentence only as direction of travel ("down from 14.1 in Jan 2025"). Never open a finding with a superseded value, and give the date of the reading you are reading. A marker inside the lab range but outside the functional range is a legitimate finding on a single panel — the functional range does not need history to be useful. A marker moving steadily the wrong way across panels is a finding when panels exist. Say which of the three reference points made it one. Empty array when there is no bloodwork, rather than findings invented from another domain.
 
 "basis" on every card: one short line naming the reference point you used and where the numbers came from. Examples: "Lab range 0.5-4.5 mIU/L; functional target 1.0-2.0. TSH 3.1, Jun 2026 panel." — "Trend across 3 panels, Apr 2025 to Jan 2026." — "7-day wearable trend against this member's own 20-day baseline."
 
@@ -231,6 +237,7 @@ Only write a card the data actually supports. Every number must trace to the dat
     const parsed = JSON.parse(raw);
     return {
       urgent,
+      recheck,
       daily: sanitizeDaily(parsed.daily, guard),
       record: sanitizeRecord(parsed.record, guard),
       labs: sanitizeLabs(parsed.labs, guard),
@@ -240,7 +247,7 @@ Only write a card the data actually supports. Every number must trace to the dat
     // An urgent pattern is not the model's finding to lose. If the call failed but
     // the deterministic check fired, the escalation still reaches the member and the
     // other three slots fall back to the deterministic templates.
-    return urgent.length ? { urgent, daily: null, record: null, labs: [] } : null;
+    return findings.length ? { urgent, recheck, daily: null, record: null, labs: [] } : null;
   }
 }
 

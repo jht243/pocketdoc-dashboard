@@ -9,6 +9,7 @@
  * Pure — no network, no Supabase, no DOM.
  */
 import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer } from "./intakeContent";
+import { describeLabAge } from "./clinicalRules";
 
 /* ---------------- value formatting ---------------- */
 
@@ -88,15 +89,42 @@ export function intakeLines(intake = {}, profile = {}) {
 
 /* ---------------- labs ---------------- */
 
-function labLines(labs = []) {
-  return labs
+/** Sortable draw date — `date` is a display string ("Jun 2026") and sorts wrongly as text. */
+const drawnAt = (lab) => String(lab?.drawnOn || lab?.created_at || lab?.date || "");
+
+/**
+ * The member's current bloodwork: one line per marker, newest reading only, newest
+ * marker first.
+ *
+ * Rule 0 — the newest result is the fact. Handing the model every historical copy of
+ * a marker in upload order invites it to quote a two-year-old value as if it were
+ * today's, which is exactly how a normal member gets told their haemoglobin is
+ * critical. So this block is deduplicated to the latest draw per marker and each
+ * line carries its own age; the full series still reaches the model in LAB TRENDS
+ * below, where the model is explicitly reading direction of travel.
+ */
+function labLines(labs = [], now = Date.now()) {
+  const latest = new Map();
+  for (const l of labs || []) {
+    const key = String(l?.name || "").toLowerCase().trim();
+    const held = latest.get(key);
+    if (!held || drawnAt(l).localeCompare(drawnAt(held)) > 0) latest.set(key, l);
+  }
+  return [...latest.values()]
+    .sort((a, b) => drawnAt(b).localeCompare(drawnAt(a)))
     .map((l) => {
+      const age = describeLabAge(l, now);
       const detail = [
         l.status || "status n/a",
         // The lab's own reference range travels with the value: "TSH 4.2" is only
         // interpretable against the range the lab that ran it publishes.
         l.range ? `ref range ${l.range}` : null,
-        l.date || null,
+        l.date ? `drawn ${l.date}` : null,
+        // Stated, not implied. The model cannot subtract a display date from today.
+        age.tier === "undated" ? "NO DATE ON FILE — weight accordingly"
+          : age.tier === "historical" ? `${age.label} — HISTORICAL ONLY, not a current finding`
+          : age.tier === "stale" ? `${age.label} — stale, say so before interpreting`
+          : age.label,
         l.source || null,
       ].filter(Boolean);
       return `- ${l.name}: ${l.value}${l.unit ? " " + l.unit : ""} (${detail.join(", ")})`;
@@ -161,14 +189,23 @@ export function labTrendLines(healthData) {
       .join("\n");
   }
   const byName = new Map();
-  // `labs` arrives newest-first; reverse so each series reads oldest → newest.
-  for (const lab of [...(healthData?.labs || [])].reverse()) {
+  for (const lab of healthData?.labs || []) {
     if (!byName.has(lab.name)) byName.set(lab.name, []);
     byName.get(lab.name).push(lab);
   }
   return [...byName.entries()]
     .filter(([, rows]) => rows.length > 1)
-    .map(([name, rows]) => `- ${name}: ${rows.map((r) => `${r.value}${r.date ? " (" + r.date + ")" : ""}`).join(" → ")}${rows[0].unit ? " " + rows[0].unit : ""}`)
+    .map(([name, rows]) => {
+      // Sort each series by its draw date rather than trusting the order the rows
+      // arrived in. This used to reverse the input on the assumption it was
+      // newest-first, which silently printed some trends backwards — and a reversed
+      // trend is not a cosmetic bug: "62 → 18" tells the model a ferritin is
+      // collapsing when it is in fact recovering. Undated rows sort to the front,
+      // where they cannot claim to be the current value.
+      const ordered = [...rows].sort((a, b) => drawnAt(a).localeCompare(drawnAt(b)));
+      const series = ordered.map((r) => `${r.value}${r.date ? " (" + r.date + ")" : ""}`).join(" → ");
+      return `- ${name}: ${series}${ordered[ordered.length - 1].unit ? " " + ordered[ordered.length - 1].unit : ""}`;
+    })
     .join("\n");
 }
 
@@ -454,7 +491,15 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
         .filter(Boolean).join("\n")
     : "";
 
-  return `DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
+  // The model has no clock. Without today's date it cannot tell a draw from last
+  // week apart from one from 2024, and every recency rule it is given is unusable.
+  const nowDate = new Date();
+  const todayLine = `TODAY'S DATE: ${nowDate.toISOString().slice(0, 10)} (${nowDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })})`;
+
+  return `${todayLine}
+DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
+
+RECENCY COMES FIRST. Every dated value below says how old it is. Read the newest result for a marker as the fact and older ones as direction of travel only; never present a superseded value as current, and never build a current finding — or any instruction to act now — on data more than 12 months old.
 
 Everything the app has collected about this person follows. Treat "(none recorded)" as genuinely missing data worth asking about — never as a normal result.
 
@@ -466,8 +511,8 @@ Numbers the member self-reported at intake are only worth citing when no lab res
 ${section("USER PROFILE", identity)}
 ${section("INTAKE QUESTIONNAIRE (their own answers — SELF-REPORTED, may be out of date)", intakeLines(intake, profile))}
 ${section("MEDICATIONS & SUPPLEMENTS", meds)}
-${section("LAB RESULTS (most recent)", labLines(healthData?.labs))}
-${section("LAB TRENDS (repeat measurements over time)", labTrendLines(healthData))}
+${section("LAB RESULTS — NEWEST READING PER MARKER, MOST RECENTLY DRAWN FIRST (this is the current picture; anything older lives in LAB TRENDS below and is history, not status)", labLines(healthData?.labs))}
+${section("LAB TRENDS (repeat measurements over time, OLDEST → NEWEST — the last value in each series is the current one)", labTrendLines(healthData))}
 ${section("WEARABLE SCORE (calculated from raw values vs their own baseline)", wearableScoreLines(healthData?.score?.wearable))}
 ${section("BLOODWORK SCORE (calculated from lab markers vs clinical thresholds)", bloodworkScoreLines(healthData?.score?.bloodwork))}
 ${section("WEARABLE — LATEST DAY (all synced metrics)", wearableTodayLines(today))}

@@ -41,6 +41,15 @@
  */
 export const CLINICAL_ANALYSIS_RULES = `HOW YOU ANALYSE (these rules govern every card you write)
 
+0. THE NEWEST DATA WINS. THIS RULE COMES BEFORE THE OTHERS.
+   Today's date is given to you at the top of the member's data, and every result is labelled with its own date and how old it is. Use them.
+   - Work from the MOST RECENT result for a marker. An older reading for that same marker is history: it is only there to show direction of travel, and it never stands in for where the member is now.
+   - Where two results disagree, the newer one is the fact and the older one is the trend. Never write about the older value as if it were current, and never lead a card with a superseded number.
+   - Order what you write by recency as well as severity. Something measured this month outranks something measured two years ago, even when the old number looks worse.
+   - Anything over 12 months old is HISTORICAL CONTEXT ONLY. You may say "your last measurement, two years ago, was X" and recommend repeating it. You may not build a current finding on it, and you may never use it to tell a member to act today.
+   - Always say when a reading is from. A value with no date attached is quoted with that stated plainly, and it carries less weight than a dated one.
+   - If the only thing you have on a topic is old, the honest card is that the data is out of date and which test would refresh it — not a confident reading of a stale number.
+
 1. PATTERNS, NEVER DIAGNOSES.
    You identify what a data pattern resembles and what it raises as a question. You never tell the member what they have.
    Write: "This pattern is consistent with several possibilities — most likely X, because [specific data point]. Here is what to bring to your doctor."
@@ -66,7 +75,7 @@ export const CLINICAL_ANALYSIS_RULES = `HOW YOU ANALYSE (these rules govern ever
    For a concerning cluster, give what it could represent ordered by likelihood given this member's full profile — never worst-case first, which only frightens. For the leading pathway say what single test or data point would confirm or rule it out, and give the member the words to ask for it.
 
 7. DISCLOSE DATA QUALITY AS INFORMATION, NOT AS A HEDGE.
-   Bloodwork older than 6 months is stale and you say so before interpreting it. Bloodwork older than 12 months is historical context only and must never be the basis of a current finding. A wearable that has not synced in over 7 days is not usable as current data. Missing data is itself worth a card: name the panel or the refresh that would answer the open question.
+   Every card names the date of the data behind it, so the member can see how current the claim is. Bloodwork older than 6 months is stale and you say so before interpreting it. Bloodwork older than 12 months is historical context only and must never be the basis of a current finding. A wearable that has not synced in over 7 days is not usable as current data. Missing data is itself worth a card: name the panel or the refresh that would answer the open question.
 
 8. CROSS-DOMAIN TREND DETECTION.
    On every pass, look explicitly for:
@@ -137,6 +146,19 @@ function matchesAlias(normalized, aliases) {
   });
 }
 
+/**
+ * Names that answer to a rule's alias but are a different test entirely.
+ *
+ * "HEMOGLOBIN A1c" contains the whole token "hemoglobin", so the anaemia rule read
+ * an A1c of 5.7 % as a haemoglobin of 5.7 g/dL and told a healthy member to go to
+ * an emergency department. A urgency rule that can misidentify the marker is worse
+ * than no rule at all, so every rule that shares a word with another test has to
+ * say which neighbours it is not.
+ */
+function isExcluded(normalized, excludes = []) {
+  return excludes.some((x) => normalized.includes(normalizeName(x)));
+}
+
 function toNumber(value) {
   const n = Number(String(value ?? "").replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n) ? n : null;
@@ -146,15 +168,34 @@ function toNumber(value) {
 const measuredOn = (lab) => String(lab?.drawnOn || lab?.created_at || lab?.date || "");
 
 /** Most recent row for a marker, with its numeric value. */
-function latestLab(labs, aliases) {
+function latestLab(labs, aliases, excludes = []) {
   const rows = (labs || [])
-    .filter((l) => matchesAlias(normalizeName(l.name), aliases))
+    .filter((l) => {
+      const name = normalizeName(l.name);
+      return matchesAlias(name, aliases) && !isExcluded(name, excludes);
+    })
     .sort((a, b) => measuredOn(b).localeCompare(measuredOn(a)));
   for (const lab of rows) {
     const value = toNumber(lab.value);
     if (value != null) return { lab, value };
   }
   return null;
+}
+
+/**
+ * The units a critical threshold was written in.
+ *
+ * A haemoglobin of 5.7 is a transfusion in g/dL and unremarkable in mmol/L or as a
+ * percentage; a calcium of 12 is a crisis in mg/dL and impossible in mmol/L. Where a
+ * row carries a unit we insist it is one the threshold was written for. An absent
+ * unit is allowed through — most uploaded panels have none — because the value-range
+ * sanity checks inside each rule still have to pass.
+ */
+function unitMatches(lab, allowed) {
+  if (!allowed) return true;
+  const u = normalizeName(lab?.unit).replace(/\s+/g, "");
+  if (!u) return true;
+  return allowed.some((a) => u.includes(normalizeName(a).replace(/\s+/g, "")));
 }
 
 /** Upper bound the lab itself published, e.g. "0.5-4.5" or "<40". */
@@ -189,11 +230,15 @@ const URGENT_RULES = [
   {
     id: "potassium",
     aliases: ["potassium", "k", "serum potassium"],
+    excludes: ["vitamin k", "urine", "24 hour", "24-hour"],
+    units: ["meq/l", "mmol/l"],
     test: (v) => (v < 3.0 || v > 6.0) && v < 15 ? `Your potassium is ${v} mEq/L` : null,
   },
   {
     id: "sodium",
     aliases: ["sodium", "na", "serum sodium"],
+    excludes: ["urine", "24 hour", "24-hour"],
+    units: ["meq/l", "mmol/l"],
     test: (v) => (v < 125 || v > 155) && v > 80 ? `Your sodium is ${v} mEq/L` : null,
   },
   {
@@ -211,11 +256,14 @@ const URGENT_RULES = [
   {
     id: "glucose",
     aliases: ["glucose", "fasting glucose", "blood glucose", "fasting blood glucose", "fbg"],
+    excludes: ["urine", "tolerance", "csf"],
+    units: ["mg/dl"],
     test: (v) => (v > 400 && v < 2000 ? `Your fasting glucose is ${v} mg/dL` : null),
   },
   {
     id: "hba1c",
     aliases: ["hba1c", "hemoglobin a1c", "haemoglobin a1c", "a1c", "hgb a1c"],
+    units: ["%"],
     test: (v) => (v > 10 && v < 25 ? `Your HbA1c is ${v}%` : null),
   },
   {
@@ -242,11 +290,19 @@ const URGENT_RULES = [
   {
     id: "hemoglobin",
     aliases: ["hemoglobin", "haemoglobin", "hgb", "hb"],
-    test: (v) => (v < 7.0 && v > 1 ? `Your haemoglobin is ${v} g/dL` : null),
+    // Every other test with "hemoglobin" in its name. A1c is the one that actually
+    // bit us: 5.7 % of total Hgb is a normal A1c and a life-threatening anaemia.
+    excludes: [
+      "a1c", "hba1c", "glycated", "glycohemoglobin", "glycohaemoglobin",
+      "corpuscular", "mch", "electrophoresis", "f ", "urine", "free",
+    ],
+    units: ["g/dl", "gm/dl"],
+    test: (v) => (v < 7.0 && v > 1 ? `Your hemoglobin is ${v} g/dL` : null),
   },
   {
     id: "platelets",
     aliases: ["platelets", "platelet count", "plt"],
+    excludes: ["mpv", "volume", "distribution"],
     test: (v) => {
       const k = toThousands(v);
       if (k < 50 && k > 0) return `Your platelet count is ${v}`;
@@ -257,11 +313,14 @@ const URGENT_RULES = [
   {
     id: "wbc",
     aliases: ["wbc", "white blood cell count", "white blood cells", "leukocytes"],
+    excludes: ["urine", "differential", "esterase"],
     test: (v) => (toThousands(v) > 30 ? `Your white blood cell count is ${v}` : null),
   },
   {
     id: "calcium",
     aliases: ["calcium", "serum calcium", "total calcium"],
+    excludes: ["ionized", "ionised", "urine", "score", "corrected"],
+    units: ["mg/dl"],
     test: (v) => (v > 12 && v < 30 ? `Your calcium is ${v} mg/dL` : null),
   },
 ];
@@ -292,8 +351,16 @@ const CRISIS_PHRASES = [
  * wearable for more than 48 hours. Two consecutive synced days above the threshold
  * is the shortest run that qualifies; a single spike is explicitly not a finding.
  */
-function sustainedTachycardia(history = []) {
-  const recent = history.slice(0, 3).filter((r) => r?.resting_hr != null);
+function sustainedTachycardia(history = [], now = Date.now()) {
+  const recent = history
+    .slice(0, 3)
+    .filter((r) => r?.resting_hr != null)
+    // Only days the ring actually synced this week. A pair of 121 bpm days from last
+    // spring is history, not an emergency happening right now.
+    .filter((r) => {
+      const t = Date.parse(r?.day || "");
+      return Number.isFinite(t) ? now - t <= 7 * 24 * 60 * 60 * 1000 : false;
+    });
   if (recent.length < 2) return null;
   const run = recent.slice(0, 2);
   if (!run.every((r) => Number(r.resting_hr) > 120)) return null;
@@ -301,48 +368,105 @@ function sustainedTachycardia(history = []) {
 }
 
 const ACT_NOW =
-  "Please contact your doctor's office now. If you cannot reach them, go to an urgent care centre or an emergency department.";
+  "Please contact your doctor's office now. If you cannot reach them, go to an urgent care center or an emergency department.";
 
 /**
- * Every Section 7 pattern present in this snapshot.
+ * How recent a result has to be before it can tell someone to seek care today.
+ *
+ * An abnormal value is a statement about the day it was drawn. Ninety days is the
+ * outer edge of "this is probably still true right now"; past that, the honest
+ * message is "repeat this test", not "go to an emergency department", and sending
+ * someone to the ER over a two-year-old panel is how an app teaches its members to
+ * ignore the one alert that matters.
+ */
+const URGENT_MAX_AGE_DAYS = 90;
+
+/** "3 months" / "2 years" / "18 days" — for telling a member how old a reading is. */
+export function ageLabel(days) {
+  if (days < 45) return `${days} day${days === 1 ? "" : "s"}`;
+  const months = Math.round(days / 30);
+  if (months < 24) return `${months} month${months === 1 ? "" : "s"}`;
+  return `${Math.floor(days / 365)} years`;
+}
+
+/**
+ * Every Section 7 pattern present in this snapshot, each tagged with what it earns.
  *
  * Runs before the model does and independently of it. If the model misses a
  * potassium of 6.4 — or writes a calm card about sleep instead — the member still
  * sees the escalation, because this function found it in the numbers.
  *
+ * Two gates stand between a threshold being crossed and a member being told to seek
+ * care today, and both exist because a false alarm costs more than a missed one here
+ * (a member who has been frightened once by a stale or misread number stops reading
+ * these entirely):
+ *
+ *   1. The marker has to be the one the rule names — see the `excludes` and `units`
+ *      on each rule.
+ *   2. The reading has to be recent enough to describe the member's body today.
+ *      Older findings come back as `kind: "recheck"`: same finding, no alarm, and a
+ *      plain instruction to repeat the test.
+ *
  * @param {object}   opts
  * @param {object}   opts.healthData
  * @param {Array}    [opts.messages]  conversation history, for the crisis check
- * @returns {Array<{id, label, message, source}>} empty when nothing qualifies
+ * @param {number}   [opts.now]       current time; injectable for tests
+ * @returns {Array<{id, kind, label, message, source}>} empty when nothing qualifies
  */
-export function detectUrgentPatterns({ healthData, messages = [] } = {}) {
+export function detectUrgentPatterns({ healthData, messages = [], now = Date.now() } = {}) {
   const found = [];
   const labs = healthData?.labs || [];
 
   for (const rule of URGENT_RULES) {
-    const hit = latestLab(labs, rule.aliases);
+    const hit = latestLab(labs, rule.aliases, rule.excludes);
     if (!hit) continue;
+    if (!unitMatches(hit.lab, rule.units)) continue;
     const message = rule.test(hit.value, hit.lab);
     if (!message) continue;
+
+    const drawn = parseDate(hit.lab);
+    const ageDays = drawn == null ? null : Math.round((now - drawn) / DAY);
+    const source = `${hit.lab.name} ${hit.lab.value}${hit.lab.unit ? " " + hit.lab.unit : ""}${hit.lab.date ? `, ${hit.lab.date}` : ""}`;
+
+    // Undated results are treated as old rather than as current: a value with no
+    // draw date behind it cannot support "today".
+    if (ageDays == null || ageDays > URGENT_MAX_AGE_DAYS) {
+      const when = ageDays == null
+        ? "and we do not have a date for it"
+        : `and that was ${ageLabel(ageDays)} ago`;
+      found.push({
+        id: rule.id,
+        kind: "recheck",
+        label: hit.lab.name,
+        message: `Your last ${hit.lab.name} reading was ${hit.lab.value}${hit.lab.unit ? " " + hit.lab.unit : ""} ${when}, so it does not describe where you are now. It was outside the range that would normally be looked at promptly, so ask for it to be repeated and reviewed with your current results.`,
+        source,
+      });
+      continue;
+    }
+
     found.push({
       id: rule.id,
+      kind: "urgent",
       label: hit.lab.name,
       message: `${message} — a level that needs evaluation today, not at your next appointment. ${ACT_NOW}`,
-      source: `${hit.lab.name} ${hit.lab.value}${hit.lab.unit ? " " + hit.lab.unit : ""}${hit.lab.date ? `, ${hit.lab.date}` : ""}`,
+      source,
     });
   }
 
-  // TSH — urgent only alongside a matching reported symptom.
+  // TSH — urgent only alongside a matching reported symptom, and only on a recent draw.
   const tsh = latestLab(labs, ["tsh", "thyroid stimulating hormone", "thyrotropin"]);
   if (tsh && tsh.value > 10 && tsh.value < 200) {
+    const drawn = parseDate(tsh.lab);
+    const fresh = drawn != null && (now - drawn) / DAY <= URGENT_MAX_AGE_DAYS;
     const reported = [
       ...(healthData?.today?.recentSymptoms || []),
       ...(healthData?.symptoms || []),
     ].map((s) => String(s).toLowerCase());
     const match = reported.find((s) => TSH_SYMPTOMS.some((k) => s.includes(k)));
-    if (match) {
+    if (match && fresh) {
       found.push({
         id: "tsh",
+        kind: "urgent",
         label: "TSH",
         message: `Your TSH is ${tsh.value} mIU/L alongside reported ${match} — that combination needs evaluation now rather than at your next appointment. ${ACT_NOW}`,
         source: `TSH ${tsh.lab.value}${tsh.lab.unit ? " " + tsh.lab.unit : ""}${tsh.lab.date ? `, ${tsh.lab.date}` : ""}; symptom reported: ${match}`,
@@ -350,10 +474,11 @@ export function detectUrgentPatterns({ healthData, messages = [] } = {}) {
     }
   }
 
-  const tachy = sustainedTachycardia(healthData?.history);
+  const tachy = sustainedTachycardia(healthData?.history, now);
   if (tachy) {
     found.push({
       id: "resting_hr",
+      kind: "urgent",
       label: "Resting heart rate",
       message: `${tachy}. That needs evaluation today rather than at your next appointment. ${ACT_NOW}`,
       source: "Wearable resting heart rate, last two synced days",
@@ -362,6 +487,8 @@ export function detectUrgentPatterns({ healthData, messages = [] } = {}) {
 
   // Crisis language in the member's own messages only — never in the AI's replies,
   // which quote the member's words back and would otherwise re-trigger forever.
+  // This one has no recency gate: it is about what the member is saying now, and it
+  // asks nobody to panic — it hands them a number to call.
   const recentMember = (messages || []).filter((m) => m?.role === "user").slice(-25);
   const crisis = recentMember.some((m) => {
     const text = String(m.text || "").toLowerCase();
@@ -370,6 +497,7 @@ export function detectUrgentPatterns({ healthData, messages = [] } = {}) {
   if (crisis) {
     found.unshift({
       id: "crisis",
+      kind: "urgent",
       label: "Support available now",
       message:
         "You have said something in this app that suggests you may be thinking about harming yourself. Please talk to someone now: call or text 988 (Suicide & Crisis Lifeline, US) or go to your nearest emergency department. If you are outside the US, your local emergency number will connect you to help.",
@@ -446,6 +574,26 @@ export function dataFreshness(healthData) {
     wearableStale: wearableAgeDays != null && wearableAgeDays > 7,
     notes: notes.join("\n"),
   };
+}
+
+/**
+ * How old one result is, in the words the model and the member both need.
+ *
+ * Recency is a rule with consequences (Rule 0: the newest result is the fact, and
+ * anything over a year old cannot support a current claim), so the age of every
+ * value is computed here and stated to the model rather than left for it to work
+ * out from a display string like "Jul 26, 2024" against a date it does not know.
+ *
+ * @returns {{days: number|null, label: string, tier: "current"|"stale"|"historical"|"undated"}}
+ */
+export function describeLabAge(lab, now = Date.now()) {
+  const t = parseDate(lab);
+  if (t == null) return { days: null, label: "no date on file", tier: "undated" };
+  const days = Math.max(0, Math.round((now - t) / DAY));
+  const label = `${ageLabel(days)} ago`;
+  if (days > 365) return { days, label, tier: "historical" };
+  if (days > 180) return { days, label, tier: "stale" };
+  return { days, label, tier: "current" };
 }
 
 /* ==================================================================== */
