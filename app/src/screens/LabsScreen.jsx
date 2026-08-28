@@ -31,12 +31,22 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
     historyByMarker.set(key, list);
   }
   const [expandedKey, setExpandedKey] = useState(null);
-  // "Bloodtest 2026" style label: the source file the panel came from plus the year
-  // it was drawn (falling back to the import year when the draw date is unknown).
+  // "Bloodtest 6/8/2026" style label: the source file the panel came from plus the
+  // full date it was drawn (falling back to the import date when the draw date is
+  // unknown). A bare year can't tell two draws from the same year apart, which is
+  // exactly what this list exists to show.
+  const drawDate = (m) => {
+    // A bare YYYY-MM-DD parses as UTC midnight, which renders as the previous day
+    // in any timezone west of Greenwich — pin it to local midnight instead.
+    const raw = m.drawnOn ? `${m.drawnOn}T00:00:00` : (m.created_at || "");
+    if (!raw) return m.date || "";
+    const d = new Date(raw);
+    return isNaN(d) ? (m.date || "") : d.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+  };
   const sourceLabel = (m) => {
-    const year = String(m.drawnOn || m.date || m.created_at || "").slice(0, 4);
+    const when = drawDate(m);
     const src = m.source || "Imported file";
-    return year ? `${src} · ${year}` : src;
+    return when ? `${src} · ${when}` : src;
   };
   const aiLabs = aiInsights?.labs || [];
   // A critical value is a lab finding, so the escalation belongs on this screen too —
