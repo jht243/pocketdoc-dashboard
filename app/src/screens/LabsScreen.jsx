@@ -5,6 +5,7 @@ import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { COLORS, SERIF } from "../theme/tokens";
+import { labToneColor } from "../lib/labTone";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
   // One row per marker, always the most recent draw. The full list holds every
@@ -41,7 +42,6 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
   // A critical value is a lab finding, so the escalation belongs on this screen too —
   // above the marker table, not somewhere in the insights below it.
   const urgent = aiInsights?.urgent || [];
-  const statusColor = { normal: COLORS.tealLight, watch: COLORS.warning, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   return (
     <div style={{ padding: "24px 18px" }}>
       <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Labs</div>
@@ -91,7 +91,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor[m.status] }} />
+                  <div style={{ width: 8, height: 8, borderRadius: 4, background: labToneColor(m) }} />
                   {expanded
                     ? <ChevronDown size={14} color={COLORS.textMuted} />
                     : <ChevronRight size={14} color={COLORS.textMuted} />}

@@ -8,6 +8,7 @@ import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
 import { fileBlock, ingestLabResults, toIsoDate } from "../lib/labIngest";
 import { extractDocumentText } from "../lib/documentText";
+import { labToneColor } from "../lib/labTone";
 
 /**
  * Turn the model's raw reply into a genome array — tolerantly.
@@ -413,7 +414,6 @@ Rules:
     else await extractMarkers(base64, mediaType, text);
   };
 
-  const statusColor = { normal: COLORS.tealLight, low: COLORS.danger, high: COLORS.warning, unknown: COLORS.textMuted };
   const geneStatusColor = { favorable: COLORS.tealLight, normal: COLORS.tealLight, variant: COLORS.warning, watch: COLORS.danger, unknown: COLORS.textMuted };
 
   return (
@@ -774,7 +774,7 @@ Rules:
                   }}><X size={14} /></button>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 10, color: statusColor[m.status] || COLORS.textMuted, background: COLORS.bgCardAlt, padding: "2px 8px", borderRadius: 6 }}>{m.status}</span>
+                  <span style={{ fontSize: 10, color: labToneColor(m), background: COLORS.bgCardAlt, padding: "2px 8px", borderRadius: 6 }}>{m.status}</span>
                   {m.range && <span style={{ fontSize: 10, color: COLORS.textMuted }}>Range: {m.range}</span>}
                 </div>
               </div>
