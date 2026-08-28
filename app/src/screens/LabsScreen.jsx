@@ -5,7 +5,8 @@ import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { COLORS, SERIF } from "../theme/tokens";
-import { labToneColor } from "../lib/labTone";
+import { labTone, labToneColor } from "../lib/labTone";
+import { groupMarkers } from "../lib/labGroups";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
   // One row per marker, always the most recent draw. The full list holds every
@@ -30,7 +31,18 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
     list.push(m);
     historyByMarker.set(key, list);
   }
+  // Panels, A→Z inside each. A member with several imports has 200+ deduped rows;
+  // a flat list of them is unreadable, so the screen shows one collapsed section per
+  // panel and opens only the ones holding something out of range.
+  const groups = groupMarkers(markers);
   const [expandedKey, setExpandedKey] = useState(null);
+  // Explicit taps win; anything untouched follows the "open if it needs attention"
+  // default, which has to stay derived because markers arrive after first render.
+  const [groupOverrides, setGroupOverrides] = useState({});
+  const groupIsOpen = (g) =>
+    groupOverrides[g.name] ?? g.markers.some((m) => labTone(m) === "bad");
+  const toggleGroup = (g) =>
+    setGroupOverrides((prev) => ({ ...prev, [g.name]: !groupIsOpen(g) }));
   // "Bloodtest 6/8/2026" style label: the source file the panel came from plus the
   // full date it was drawn (falling back to the import date when the draw date is
   // unknown). A bare year can't tell two draws from the same year apart, which is
@@ -77,55 +89,87 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
       <UrgentBanner items={urgent} />
 
       <SectionLabel>Latest results</SectionLabel>
-      {markers.length > 0 ? <Card>
-        {markers.map((m, i) => {
-          const key = String(m.name || "").trim().toUpperCase();
-          const history = historyByMarker.get(key) || [];
-          const expanded = expandedKey === key;
+      {markers.length > 0 ? <div>
+        {groups.map((g) => {
+          const open = groupIsOpen(g);
+          const flagged = g.markers.filter((m) => labTone(m) === "bad").length;
           return (
-            <div key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`} style={{
-              borderBottom: i < markers.length - 1 ? `1px solid ${COLORS.border}` : "none"
-            }}>
+            <Card key={g.name} style={{ padding: "4px 16px" }}>
               <div
-                onClick={() => setExpandedKey(expanded ? null : key)}
+                onClick={() => toggleGroup(g)}
                 style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "11px 0", cursor: "pointer"
+                  padding: "12px 0", cursor: "pointer"
                 }}
               >
-                <div>
-                  <div style={{ fontSize: 13 }}>{m.name}</div>
-                  {/* Each marker shows the draw date it came from — after dedup, rows can
-                      come from different panels, and an undated number reads as current. */}
-                  {m.date && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{m.date}</div>}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</div>
+                  {/* Count of markers out of range — the reason to open this panel. */}
+                  {flagged > 0 && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, color: COLORS.danger,
+                      background: COLORS.badDim, borderRadius: 10, padding: "2px 7px"
+                    }}>{flagged}</span>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: labToneColor(m) }} />
-                  {expanded
+                  <span style={{ fontSize: 12, color: COLORS.textMuted }}>{g.markers.length}</span>
+                  {open
                     ? <ChevronDown size={14} color={COLORS.textMuted} />
                     : <ChevronRight size={14} color={COLORS.textMuted} />}
                 </div>
               </div>
-              {/* Provenance: one line per panel this marker appeared in — which file it
-                  came from, the year, and the value it held there. */}
-              {expanded && (
-                <div style={{ padding: "0 0 11px 12px" }}>
-                  {history.map((h, j) => (
-                    <div key={j} style={{
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "5px 0"
-                    }}>
-                      <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{sourceLabel(h)}</div>
-                      <div style={{ fontSize: 12, color: COLORS.textPrimary }}>{h.value}{h.unit ? ` ${h.unit}` : ""}</div>
+              {open && g.markers.map((m, i) => {
+                const key = String(m.name || "").trim().toUpperCase();
+                const history = historyByMarker.get(key) || [];
+                const expanded = expandedKey === key;
+                return (
+                  <div key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`} style={{
+                    borderTop: `1px solid ${COLORS.border}`
+                  }}>
+                    <div
+                      onClick={() => setExpandedKey(expanded ? null : key)}
+                      style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "11px 0", cursor: "pointer"
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13 }}>{m.name}</div>
+                        {/* Each marker shows the draw date it came from — after dedup, rows can
+                            come from different panels, and an undated number reads as current. */}
+                        {m.date && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{m.date}</div>}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
+                        <div style={{ width: 8, height: 8, borderRadius: 4, background: labToneColor(m) }} />
+                        {expanded
+                          ? <ChevronDown size={14} color={COLORS.textMuted} />
+                          : <ChevronRight size={14} color={COLORS.textMuted} />}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    {/* Provenance: one line per panel this marker appeared in — which file it
+                        came from, the year, and the value it held there. */}
+                    {expanded && (
+                      <div style={{ padding: "0 0 11px 12px" }}>
+                        {history.map((h, j) => (
+                          <div key={j} style={{
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            padding: "5px 0"
+                          }}>
+                            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{sourceLabel(h)}</div>
+                            <div style={{ fontSize: 12, color: COLORS.textPrimary }}>{h.value}{h.unit ? ` ${h.unit}` : ""}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </Card>
           );
         })}
-      </Card> : <LockedDataSection
+      </div> : <LockedDataSection
         title="Your lab markers"
         description="Import a lab result to see each marker, its range, and what needs attention."
         actionLabel="Import lab results"
