@@ -7,6 +7,7 @@ import { UrgentBanner } from "../components/UrgentBanner";
 import { COLORS, SERIF } from "../theme/tokens";
 import { labTone, labToneColor } from "../lib/labTone";
 import { groupMarkers } from "../lib/labGroups";
+import { shortLabSource } from "../lib/labSource";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
   // One row per marker, always the most recent draw. The full list holds every
@@ -55,9 +56,17 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
     const d = new Date(raw);
     return isNaN(d) ? (m.date || "") : d.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
   };
+  // Older draws of the same marker often arrive without the reference range the
+  // newest panel printed. Judging them by that range is right — it's the same
+  // marker in the same units — and without it every historical dot would go grey.
+  const withRange = (h, current) => {
+    if (h.range || h.ref_range) return h;
+    const range = current?.range || current?.ref_range;
+    return range ? { ...h, range } : h;
+  };
   const sourceLabel = (m) => {
     const when = drawDate(m);
-    const src = m.source || "Imported file";
+    const src = shortLabSource(m.source) || "Imported file";
     return when ? `${src} · ${when}` : src;
   };
   const aiLabs = aiInsights?.labs || [];
@@ -149,7 +158,9 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
                       </div>
                     </div>
                     {/* Provenance: one line per panel this marker appeared in — which file it
-                        came from, the year, and the value it held there. */}
+                        came from, the year, and the value it held there. Each historical value
+                        carries its own dot: a member reading three testosterone draws needs to
+                        see which ones were out of range, not just that today's is. */}
                     {expanded && (
                       <div style={{ padding: "0 0 11px 12px" }}>
                         {history.map((h, j) => (
@@ -158,7 +169,10 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
                             padding: "5px 0"
                           }}>
                             <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{sourceLabel(h)}</div>
-                            <div style={{ fontSize: 12, color: COLORS.textPrimary }}>{h.value}{h.unit ? ` ${h.unit}` : ""}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontSize: 12, color: COLORS.textPrimary }}>{h.value}{h.unit ? ` ${h.unit}` : ""}</div>
+                              <div style={{ width: 8, height: 8, borderRadius: 4, background: labToneColor(withRange(h, m)) }} />
+                            </div>
                           </div>
                         ))}
                       </div>
