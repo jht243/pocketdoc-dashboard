@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Calendar, ChevronRight, Dna, FlaskConical, Home } from "lucide-react";
+import { Calendar, ChevronRight, ClipboardList, Dna, FlaskConical, Home } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import {
@@ -9,6 +9,7 @@ import {
   syncOuraNow,
 } from "../lib/wearableStore";
 import { useAuth } from "../lib/AuthContext";
+import { intakeProgressSummary } from "../lib/intakeContent";
 import { COLORS, DISPLAY } from "../theme/tokens";
 
 /**
@@ -74,6 +75,8 @@ function ProfileScreen({
   // Genetic markers are only real once a source is imported; there is no live
   // ingestion yet, so this is populated only by the demo snapshot.
   const hasGenetics = Boolean(healthData?.genetics?.length);
+  // Answers saved this session live in healthHistory; otherwise the stored profile.
+  const intakeProgress = intakeProgressSummary(healthHistory || userProfile?.intake);
   const [oura, setOura] = useState(null);      // null = still loading
   const [busy, setBusy] = useState(null);      // "connect" | "sync" | "disconnect"
   const [notice, setNotice] = useState(null);
@@ -148,6 +151,26 @@ function ProfileScreen({
           {identityParts.join(" · ")}
         </div>
       )}
+
+      <SectionLabel>Health history</SectionLabel>
+      <button onClick={() => setActive("healthhistory")} style={{
+        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.accent}50`,
+        borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", cursor: "pointer", marginBottom: 18
+      }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <ClipboardList size={18} color={COLORS.accent} />
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>
+              {intakeProgress.complete ? "Review your health history" : "Finish your health history"}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
+              {intakeProgress.done} of {intakeProgress.total} sections complete
+            </div>
+          </div>
+        </div>
+        <ChevronRight size={16} color={COLORS.textMuted} />
+      </button>
 
       <SectionLabel>Genetic profile</SectionLabel>
       <button onClick={() => setActive("geneticprofile")} style={{

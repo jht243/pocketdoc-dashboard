@@ -8,7 +8,7 @@
  *
  * Pure — no network, no Supabase, no DOM.
  */
-import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer } from "./intakeContent";
+import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer, INTAKE_PROGRESS_KEY } from "./intakeContent";
 import { describeLabAge } from "./clinicalRules";
 
 /* ---------------- value formatting ---------------- */
@@ -79,7 +79,7 @@ export function intakeLines(intake = {}, profile = {}) {
   // answers from a question since renamed) still belongs in the picture.
   const known = new Set(INTAKE_SECTIONS.flatMap((s) => s.questions.flatMap((q) => [q.id, `${q.id}__remind`])));
   const extras = Object.entries(intake)
-    .filter(([k, v]) => !known.has(k) && k !== "medications" && !isBlankAnswer(v))
+    .filter(([k, v]) => !known.has(k) && k !== "medications" && k !== INTAKE_PROGRESS_KEY && !isBlankAnswer(v))
     .map(([k, v]) => bullet(k, v))
     .filter(Boolean);
   if (extras.length) out.push(`Other recorded answers:\n${extras.join("\n")}`);
@@ -486,7 +486,8 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
   // the test-mode snapshot, which carries its own copy.
   const historyExtra = healthHistory
     ? Object.entries(healthHistory)
-        .filter(([, v]) => !isBlankAnswer(v))
+        // Which questionnaire sections are finished is app bookkeeping, not health data.
+        .filter(([k, v]) => k !== INTAKE_PROGRESS_KEY && !isBlankAnswer(v))
         .map(([k, v]) => bullet(k, v))
         .filter(Boolean).join("\n")
     : "";

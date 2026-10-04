@@ -9,7 +9,7 @@ import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText } from "../lib/profileStore";
 import { extractDocumentText } from "../lib/documentText";
-import { IntakeForm } from "../components/IntakeForm";
+import { SectionedIntake } from "../components/SectionedIntake";
 import { emptyAnswers } from "../lib/intakeContent";
 
 // ---- ONBOARDING SCREEN ----
@@ -323,17 +323,26 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
         <div>
           <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 6 }}>Your health picture</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
-            The more you share now, the more specific your advocate can be. Every field is optional — but each one changes the quality of what you get back.
+            Five short sections. Do as many as you like now — everything saves as you go, and you can finish the rest later from the Care tab. The more you share, the more specific your health team can be.
           </div>
 
-          <IntakeForm answers={intake} onChange={onIntakeChange} variant="onboarding" profile={profile} />
-
-          <button onClick={() => goToStep(4)} style={{ width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer" }}>
-            Upload bloodwork →
-          </button>
-          <button onClick={generateInsight} style={{ width: "100%", background: "none", border: "none", color: COLORS.textMuted, fontSize: 12, padding: "10px", cursor: "pointer", marginTop: 4 }}>
-            Skip bloodwork, show my insight now
-          </button>
+          <SectionedIntake
+            answers={intake}
+            onChange={onIntakeChange}
+            onSave={persistIntake}
+            profile={profile}
+            variant="onboarding"
+            footer={(
+              <>
+                <button onClick={() => goToStep(4)} style={{ width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer", marginTop: 8 }}>
+                  Continue to bloodwork →
+                </button>
+                <button onClick={generateInsight} style={{ width: "100%", background: "none", border: "none", color: COLORS.textMuted, fontSize: 12, padding: "10px", cursor: "pointer", marginTop: 4 }}>
+                  Skip bloodwork, show my insight now
+                </button>
+              </>
+            )}
+          />
         </div>
       )}
 

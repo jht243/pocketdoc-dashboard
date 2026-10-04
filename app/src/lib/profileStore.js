@@ -228,6 +228,19 @@ export async function saveMedications(userId, meds = []) {
     .select("name, dose, frequency, prescriber, type, active")
     .eq("user_id", userId);
 
+  // The questionnaire only knows medication names. Saving it (which now happens on
+  // every section save and autosave) must not wipe the dose, frequency and prescriber
+  // entered on the Medication screen, so a bare name inherits the stored row's details,
+  // and an unchanged list is not rewritten at all.
+  const key = (name) => String(name || "").trim().toLowerCase();
+  const previousByName = new Map((previous || []).map((m) => [key(m.name), m]));
+  const incoming = (meds || []).filter(Boolean).map((m) => (typeof m === "string" ? { name: m } : m)).filter((m) => m.name);
+  const sameList =
+    previous &&
+    incoming.length === previous.length &&
+    incoming.every((m) => typeof m.dose === "undefined" && previousByName.has(key(m.name)));
+  if (sameList) return { error: null };
+
   const { error: delErr } = await supabase
     .from("medications")
     .delete()
@@ -237,10 +250,8 @@ export async function saveMedications(userId, meds = []) {
     return { error: delErr };
   }
 
-  const rows = (meds || [])
-    .filter(Boolean)
-    .map((m) => (typeof m === "string" ? { name: m } : m))
-    .filter((m) => m.name)
+  const rows = incoming
+    .map((m) => ({ ...(previousByName.get(key(m.name)) || {}), ...m }))
     .map((m) => ({
       user_id: userId,
       name: m.name,

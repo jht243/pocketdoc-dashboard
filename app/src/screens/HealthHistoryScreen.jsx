@@ -1,13 +1,17 @@
-import React, { useState } from "react";
-import { CheckCircle2, ChevronRight } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { IntakeForm } from "../components/IntakeForm";
-import { emptyAnswers } from "../lib/intakeContent";
+import { SectionedIntake } from "../components/SectionedIntake";
+import { emptyAnswers, intakeProgressSummary } from "../lib/intakeContent";
+
+// How long typing has to pause before the answers are written. Short enough that
+// closing the tab mid-section loses at most a few keystrokes.
+const AUTOSAVE_MS = 1500;
 
 // ---- HEALTH HISTORY SCREEN ----
-// Post-onboarding questionnaire. Collected after the user has seen value, not before.
-// Feeds the AI chat, the Discussion Page, and the preventive care schedule.
-// Content is data-driven (lib/intakeContent.js) and rendered via <IntakeForm>.
+// Post-onboarding questionnaire, split into parts the member can finish over several
+// visits. Feeds the AI chat, the Discussion Page, and the preventive care schedule.
+// Content is data-driven (lib/intakeContent.js) and rendered via <SectionedIntake>.
 function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) {
   // Hydrate from what was already answered (onboarding or a previous visit) the same
   // way onboarding does. Starting blank collapsed every conditional branch, so the two
@@ -19,42 +23,49 @@ function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) 
     ...(userProfile?.intake || {}),
     ...(healthHistory || {}),
   }));
-  const [saved, setSaved] = useState(false);
+  const lastSaved = useRef(JSON.stringify(answers));
+  // Inside a part, the part has its own "All sections" back link and title.
+  const [inSection, setInSection] = useState(false);
 
-  const setValue = (key, value) => setAnswers((a) => ({ ...a, [key]: value }));
-
-  const handleSave = () => {
+  const persist = (next) => {
+    const serialized = JSON.stringify(next);
+    if (serialized === lastSaved.current) return;
+    lastSaved.current = serialized;
     // Preserve the payload shape existing consumers read (Home, test-mode snapshot,
     // AI prompt) while also passing the full answer set forward.
-    const healthHistory = {
-      ...answers,
-      conditions: answers.conditions || [],
-      medications: answers.medications || [],
-      pastEvents: answers.pastEvents || "",
-      familyHistory: answers.familyHistory || [],
-      lifestyle: { exercise: answers.exercise, sleep: answers.sleep, alcohol: answers.alcohol },
-      goals: answers.goals || [],
-    };
-    onSave(healthHistory);
-    setSaved(true);
-    setTimeout(() => setActive("home"), 1200);
+    onSave({
+      ...next,
+      conditions: next.conditions || [],
+      medications: next.medications || [],
+      pastEvents: next.pastEvents || "",
+      familyHistory: next.familyHistory || [],
+      lifestyle: { exercise: next.exercise, sleep: next.sleep, alcohol: next.alcohol },
+      goals: next.goals || [],
+    });
   };
 
-  if (saved) {
-    return (
-      <div style={{ padding: "24px 18px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400 }}>
-        <CheckCircle2 size={48} color={COLORS.tealLight} style={{ marginBottom: 16 }} />
-        <div style={{ fontFamily: DISPLAY, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 8 }}>Health history saved</div>
-        <div style={{ fontSize: 13, color: COLORS.textSecondary, textAlign: "center" }}>
-          Your advocate now has more context to give you specific, relevant guidance.
-        </div>
-      </div>
-    );
-  }
+  // Autosave after a pause in typing, so "Saved as you go" holds even if the member
+  // closes the app without pressing a button. The explicit buttons save immediately.
+  const latest = useRef(answers);
+  latest.current = answers;
+  useEffect(() => {
+    const t = setTimeout(() => persist(answers), AUTOSAVE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers]);
+  // Leaving the screen inside the autosave window still writes the last edits.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => persist(latest.current), []);
+
+  const setValue = (key, value) => setAnswers((a) => ({ ...a, [key]: value }));
+  const saveNow = (next) => { setAnswers(next); persist(next); };
+
+  const { complete } = intakeProgressSummary(answers);
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => setActive("home")} style={{
+      {!inSection && <>
+      <button onClick={() => { persist(answers); setActive("home"); }} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
@@ -62,25 +73,29 @@ function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) 
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Your health history</div>
-      <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 24 }}>
-        This stays private and makes every recommendation more specific to you. Nothing here is required — share what you can.
+      <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
+        Five short sections. Do one now and come back for the rest. Everything saves as you go, and nothing is required.
       </div>
+      </>}
 
-      <IntakeForm answers={answers} onChange={setValue} variant="history" profile={profile} />
-
-      <button onClick={handleSave} style={{
-        width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent,
-        fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer",
-        marginTop: 8, marginBottom: 10
-      }}>
-        Save my health history
-      </button>
-      <button onClick={() => setActive("home")} style={{
-        width: "100%", background: "none", border: "none", color: COLORS.textMuted,
-        fontSize: 12, padding: "8px", cursor: "pointer"
-      }}>
-        Skip for now
-      </button>
+      <SectionedIntake
+        answers={answers}
+        onChange={setValue}
+        onSave={saveNow}
+        profile={profile}
+        variant="history"
+        onOpenChange={(id) => setInSection(Boolean(id))}
+        footer={(
+          <button onClick={() => { persist(answers); setActive("home"); }} style={{
+            width: "100%", background: complete ? COLORS.teal : "none",
+            border: complete ? "none" : `1px solid ${COLORS.border}`,
+            color: complete ? COLORS.onAccent : COLORS.textSecondary,
+            fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer", marginTop: 8,
+          }}>
+            {complete ? "Done" : "Finish later"}
+          </button>
+        )}
+      />
     </div>
   );
 }

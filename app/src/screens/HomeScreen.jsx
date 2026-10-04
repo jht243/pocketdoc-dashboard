@@ -5,6 +5,7 @@ import { ScoreBreakdownModal } from "../components/ScoreBreakdownModal";
 import { ScoreGauge } from "../components/ScoreGauge";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { UrgentBanner } from "../components/UrgentBanner";
+import { intakeProgressSummary } from "../lib/intakeContent";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
@@ -68,7 +69,10 @@ function HomeScreen({
     if (!userProfile) return null;
     const overdue = userProfile.schedule?.filter(i => i.urgency === "overdue").length || 0;
     if (overdue > 0) return { label: `${overdue} overdue screening${overdue > 1 ? "s" : ""}`, target: "preventivecare", color: COLORS.danger };
-    if (!healthHistory) return { label: "Complete your health history", target: "healthhistory", color: COLORS.tealLight };
+    // Read from the saved answers, not from whether the screen was opened this session —
+    // the old check nagged every member again after each reload.
+    const intake = intakeProgressSummary(healthHistory || userProfile.intake);
+    if (!intake.complete) return { label: `Finish your health history · ${intake.done} of ${intake.total} done`, target: "healthhistory", color: COLORS.tealLight };
     return null;
   })();
 

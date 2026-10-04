@@ -498,3 +498,81 @@ export function hiddenAnswerKeys(answers, profile) {
   }
   return hidden;
 }
+
+/* ---------------- sectioned questionnaire ---------------- */
+
+/**
+ * The questionnaire split into five parts a member can finish one at a time and come
+ * back to — Adam's ask on the Sep 30 call ("five three-minute sections" with a save).
+ * Each part lists the INTAKE_SECTIONS it renders, plus a "have this ready" note so
+ * nobody opens a part, hits a question about surgery dates, and abandons it.
+ *
+ * Every INTAKE_SECTIONS id must appear in exactly one part.
+ */
+export const INTAKE_GROUPS = [
+  {
+    id: "about",
+    title: "About you & your goals",
+    sections: ["focus", "demographics", "goals"],
+    prep: "No documents needed. Your height and weight are the only numbers we ask for.",
+  },
+  {
+    id: "history",
+    title: "Medical history",
+    sections: ["conditions", "surgical", "allergies", "mental", "preventive"],
+    prep: "Have the approximate year of any diagnoses, surgeries, or hospital stays, and roughly when you last had a physical, a blood panel, and routine screenings.",
+  },
+  {
+    id: "medications",
+    title: "Medications & hormones",
+    sections: ["medications", "reproductive", "gaht", "trt", "peptides"],
+    prep: "Have your medication and supplement bottles or pharmacy list nearby, with doses. If you use testosterone, peptides, or hormone therapy, your most recent lab values help.",
+  },
+  {
+    id: "family",
+    title: "Family history & environment",
+    sections: ["family", "environment"],
+    prep: "It helps to know which close relatives had heart disease, stroke, cancer, diabetes, or dementia, and roughly at what age.",
+  },
+  {
+    id: "lifestyle",
+    title: "Lifestyle",
+    sections: ["activity", "nutrition", "sleep", "substances", "aiConversation"],
+    prep: "No documents needed. Answer for a typical week.",
+  },
+];
+
+// Answer key that records which parts the member has finished. Lives in the same
+// stored answer blob as everything else, so it survives a reload with no new column.
+export const INTAKE_PROGRESS_KEY = "intakeProgress";
+
+/** Questions (not notes) of a part that are currently shown, given what's been answered. */
+export function groupQuestions(group, answers = {}, profile) {
+  const out = [];
+  for (const section of INTAKE_SECTIONS) {
+    if (!group.sections.includes(section.id)) continue;
+    if (section.showIf && !section.showIf(answers, profile)) continue;
+    for (const q of section.questions) {
+      if (q.type === "note") continue;
+      if (q.showIf && !q.showIf(answers, profile)) continue;
+      out.push(q);
+    }
+  }
+  return out;
+}
+
+/** "done" once the member saved the part as finished, "started" once anything in it is answered. */
+export function groupStatus(group, answers = {}, profile) {
+  if (answers[INTAKE_PROGRESS_KEY]?.[group.id] === "done") return "done";
+  const started = groupQuestions(group, answers, profile).some(
+    (q) => !isBlankAnswer(answers[q.id]) || answers[`${q.id}__remind`]
+  );
+  return started ? "started" : "todo";
+}
+
+/** How many parts are finished, for progress bars and the Home nudge. */
+export function intakeProgressSummary(answers = {}) {
+  const progress = answers?.[INTAKE_PROGRESS_KEY] || {};
+  const done = INTAKE_GROUPS.filter((g) => progress[g.id] === "done").length;
+  return { done, total: INTAKE_GROUPS.length, complete: done === INTAKE_GROUPS.length };
+}
