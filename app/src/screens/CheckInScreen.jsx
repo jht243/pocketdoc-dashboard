@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { AlertCircle, Mic, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 function CheckInScreen({ testModeEnabled }) {
   const [recording, setRecording] = useState(false);
@@ -48,7 +48,7 @@ function CheckInScreen({ testModeEnabled }) {
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Personal Health Note</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Personal Health Note</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 26 }}>
         Tell your advocate how you're feeling, whenever something's worth noting. Speak
         naturally, just like you would to a nurse checking in on you.
@@ -122,8 +122,8 @@ function CheckInScreen({ testModeEnabled }) {
       ) : (
         <Card>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-            <Sparkles size={16} color={COLORS.gold} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.gold }}>Noted</span>
+            <Sparkles size={16} color={COLORS.accent} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.accent }}>Noted</span>
           </div>
           <div style={{ fontSize: 12, color: COLORS.textMuted, fontStyle: "italic", marginBottom: 10 }}>
             "{transcript}"

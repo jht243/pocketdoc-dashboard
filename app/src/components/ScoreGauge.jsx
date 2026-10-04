@@ -17,7 +17,9 @@ function ScoreGauge({ components = [], totalScore = 0, totalMax = 0, bloodwork, 
   const radii = dense ? [94, 82, 70] : [92, 77, 62];
   const stroke = dense ? 9 : 12;
   const captionSize = dense ? 9 : 10.5;
-  const ringColors = [COLORS.gold, COLORS.accent, COLORS.violet];
+  // Brand-family blues rather than status colors: an amber or green ring would read
+  // as "watch" or "improving", which a score component is not.
+  const ringColors = [COLORS.brand, COLORS.accent, COLORS.accentSoft];
 
   const Bar = ({ label, sub, value, max, color }) => (
     <div style={{ marginBottom: 10 }}>
@@ -38,12 +40,6 @@ function ScoreGauge({ components = [], totalScore = 0, totalMax = 0, bloodwork, 
     }}>
       <div style={{ position: "relative", width: 216, height: 216, margin: "0 auto" }}>
         <svg width="216" height="216" style={{ transform: "rotate(-90deg)" }}>
-          <defs>
-            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0ea5e9" />
-              <stop offset="100%" stopColor="#22c55e" />
-            </linearGradient>
-          </defs>
           {components.slice(0, radii.length).map((component, i) => {
             const r = radii[i];
             const circumference = 2 * Math.PI * r;
@@ -52,9 +48,8 @@ function ScoreGauge({ components = [], totalScore = 0, totalMax = 0, bloodwork, 
               <g key={component.key}>
                 <circle cx="108" cy="108" r={r} fill="none" stroke={COLORS.ringTrack} strokeWidth={stroke} />
                 <circle cx="108" cy="108" r={r} fill="none"
-                  stroke={i === 0 ? "url(#scoreGrad)" : ringColors[i]}
-                  strokeWidth={stroke} strokeDasharray={`${circumference * pct} ${circumference}`} strokeLinecap="round"
-                  style={i === 0 ? { filter: "drop-shadow(0 2px 8px rgba(22,163,74,0.25))" } : undefined} />
+                  stroke={ringColors[i]}
+                  strokeWidth={stroke} strokeDasharray={`${circumference * pct} ${circumference}`} strokeLinecap="round" />
               </g>
             );
           })}

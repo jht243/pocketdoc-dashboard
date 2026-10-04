@@ -9,7 +9,7 @@ import {
   syncOuraNow,
 } from "../lib/wearableStore";
 import { useAuth } from "../lib/AuthContext";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 /**
  * Devices other than Oura.
@@ -142,7 +142,7 @@ function ProfileScreen({
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Home
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your profile</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Your care</div>
       {identityParts.length > 0 && (
         <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
           {identityParts.join(" · ")}
@@ -151,12 +151,12 @@ function ProfileScreen({
 
       <SectionLabel>Genetic profile</SectionLabel>
       <button onClick={() => setActive("geneticprofile")} style={{
-        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.gold}50`,
+        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.accent}50`,
         borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center",
         justifyContent: "space-between", cursor: "pointer", marginBottom: 10
       }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <Dna size={18} color={COLORS.gold} />
+          <Dna size={18} color={COLORS.accent} />
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>
               {hasGenetics ? "View genetic markers" : "Connect genetic data"}

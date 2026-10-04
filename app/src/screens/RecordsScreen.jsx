@@ -4,7 +4,8 @@ import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
-import { COLORS, SERIF } from "../theme/tokens";
+import { EvidenceBox } from "../components/EvidenceBox";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { getRecordInsight } from "../lib/deterministicInsights";
 import DocumentList from "../components/DocumentList";
 
@@ -17,7 +18,7 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
   const urgent = aiInsights?.urgent || [];
   return (
     <div style={{ padding: "24px 18px" }}>
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your records</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Your records</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
         Test results and appointment notes, reviewed for patterns your doctors may not have
         had the full picture to see.
@@ -26,9 +27,9 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
       <UrgentBanner items={urgent} />
 
       {records.length > 0 ? <button onClick={() => setActive("discussion")} style={{
-        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.gold}60`, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: 14
+        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.accent}60`, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: 14
       }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}><FileText size={18} color={COLORS.gold} /><div style={{ textAlign: "left" }}><div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>Next appointment discussion page</div><div style={{ fontSize: 11, color: COLORS.textSecondary }}>Ready to share with your doctor</div></div></div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}><FileText size={18} color={COLORS.accent} /><div style={{ textAlign: "left" }}><div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>Next appointment discussion page</div><div style={{ fontSize: 11, color: COLORS.textSecondary }}>Ready to share with your doctor</div></div></div>
         <ChevronRight size={16} color={COLORS.textMuted} />
       </button> : <LockedDataSection
         title="Appointment discussion page"
@@ -54,31 +55,27 @@ function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
       </button>
 
       {insight && <><SectionLabel>Data insight</SectionLabel>
-      <Card style={{ border: `1px solid ${COLORS.gold}50`, background: COLORS.warnDim }}>
+      <Card style={{ border: `1px solid ${COLORS.accent}50`, background: COLORS.accentDim }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           {/* Star = AI-authored; deterministic fallback shows a normal icon. */}
           {insight.ai
-            ? <Sparkles size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />
-            : <AlertCircle size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />}
+            ? <Sparkles size={18} color={COLORS.accent} style={{ marginTop: 2, flexShrink: 0 }} />
+            : <AlertCircle size={18} color={COLORS.accent} style={{ marginTop: 2, flexShrink: 0 }} />}
           <div>
             {/* Rule 2.4 — findings are organised by physiological system, so the card
                 names the system before it names any single marker. */}
             {insight.system && (
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: COLORS.gold, marginBottom: 3 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: COLORS.accent, marginBottom: 3 }}>
                 {insight.system}
               </div>
             )}
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
               {insight.title}
             </div>
-            <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: insight.basis ? 6 : 10 }}>
+            <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: insight.basis ? 0 : 10 }}>
               {insight.body}
             </div>
-            {insight.basis && (
-              <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.45, marginBottom: 10 }}>
-                {insight.basis}
-              </div>
-            )}
+            {insight.basis && <EvidenceBox style={{ marginBottom: 10 }}>{insight.basis}</EvidenceBox>}
             <div style={{
               background: COLORS.bgCardAlt, borderRadius: 10, padding: 12, fontSize: 12,
               color: COLORS.textSecondary, lineHeight: 1.6

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Camera, ExternalLink, Mic, Send, Trash2, X } from "lucide-react";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText, firstCitations } from "../lib/api";
 import { buildHealthContext } from "../lib/healthContext";
 import { useAuth } from "../lib/AuthContext";
@@ -26,7 +26,7 @@ const MAX_CONTEXT_IMAGES = 2;
 
 // The persona: a functional-medicine expert who does live research and gives
 // specific, useful, data-grounded guidance — not a hedging "ask your doctor" bot.
-const PERSONA = `You are Guided Health AI — a knowledgeable functional-medicine health companion. You think like a functional-medicine practitioner: you look for root causes and connect labs, symptoms, lifestyle, medications, and genetics into a clear picture, then give specific, research-backed, actionable guidance tailored to THIS person's data.
+const PERSONA = `You are Thumbprint Health — a knowledgeable functional-medicine health companion. You think like a functional-medicine practitioner: you look for root causes and connect labs, symptoms, lifestyle, medications, and genetics into a clear picture, then give specific, research-backed, actionable guidance tailored to THIS person's data.
 
 How you answer:
 - Be genuinely useful and direct. Give concrete recommendations — specific supplements and typical dosage ranges, lifestyle and nutrition changes, which labs to run next, and how to interpret a result — grounded in current research and the user's own data. Do NOT deflect with a vague "ask your doctor"; give the substance.
@@ -283,7 +283,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         display: "flex", alignItems: "flex-start", gap: 10,
       }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em" }}>Ask your health advocate</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em" }}>Talk to your team</div>
           <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
             Functional-medicine guidance grounded in your data, with live research.
           </div>
@@ -396,12 +396,12 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       {/* Appointment detection nudge */}
       {apptPrompt && (
         <div style={{
-          margin: "0 14px", padding: 12, background: COLORS.warnDim,
-          border: `1px solid ${COLORS.gold}50`, borderRadius: 12,
+          margin: "0 14px", padding: 12, background: COLORS.accentDim,
+          border: `1px solid ${COLORS.accent}50`, borderRadius: 12,
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10
         }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.gold, marginBottom: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.accent, marginBottom: 2 }}>
               Appointment detected
             </div>
             <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
@@ -409,7 +409,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             </div>
           </div>
           <button onClick={() => setActive("discussion")} style={{
-            background: COLORS.gold, border: "none", color: COLORS.onAccent,
+            background: COLORS.accent, border: "none", color: COLORS.onAccent,
             fontSize: 11, fontWeight: 700, padding: "7px 12px", borderRadius: 8, cursor: "pointer", flexShrink: 0
           }}>Open</button>
         </div>

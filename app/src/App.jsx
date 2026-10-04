@@ -482,7 +482,7 @@ function App() {
     <div
       style={{
         background:
-          "radial-gradient(1200px 800px at 50% -10%, #ffffff 0%, #e4e9ef 60%)",
+          "radial-gradient(1200px 800px at 50% -10%, #FFFFFF 0%, #E3E9F0 60%)",
         padding: 16,
         // The page never scrolls — the phone frame sizes to the viewport and owns
         // its own scrolling internally.

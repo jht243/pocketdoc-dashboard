@@ -8,7 +8,10 @@ import { UrgentBanner } from "../components/UrgentBanner";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
-import { COLORS, SERIF, SHADOW } from "../theme/tokens";
+import { BrandMark } from "../components/BrandMark";
+import { EvidenceBox } from "../components/EvidenceBox";
+import { SectionLabel } from "../components/SectionLabel";
+import { COLORS, DISPLAY, SHADOW } from "../theme/tokens";
 
 function HomeScreen({
   setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
@@ -73,19 +76,9 @@ function HomeScreen({
     <div style={{ padding: "24px 18px", position: "relative" }}>
       {showBreakdown && <ScoreBreakdownModal onClose={() => setShowBreakdown(false)} nutritionEnabled={nutritionEnabled} healthData={healthData} userProfile={userProfile} />}
 
-      {/* Brand bar — matches the live dashboard */}
+      {/* Brand bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: SERIF, fontWeight: 600, fontSize: 17, letterSpacing: "-0.01em" }}>
-          <div style={{
-            width: 27, height: 27, borderRadius: 9,
-            background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
-            display: "grid", placeItems: "center",
-            boxShadow: "0 2px 8px rgba(14,165,233,0.3)"
-          }}>
-            <Activity size={15} color="#fff" strokeWidth={2.5} />
-          </div>
-          PocketDoc
-        </div>
+        <BrandMark size={26} fontSize={15} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             type="button"
@@ -109,33 +102,29 @@ function HomeScreen({
               justifyContent: testModeEnabled ? "flex-end" : "flex-start",
               background: testModeEnabled ? "rgba(255,255,255,0.35)" : COLORS.border,
             }}>
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: testModeEnabled ? "#fff" : COLORS.textMuted }} />
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: testModeEnabled ? COLORS.onAccent : COLORS.textMuted }} />
             </span>
           </button>
-          <button style={{
-            width: 40, height: 40, borderRadius: 14, background: COLORS.bgCard,
+          {/* No unread dot: nothing feeds notifications yet, so a dot would be a fake signal. */}
+          <button aria-label="Notifications" style={{
+            width: 36, height: 36, borderRadius: 10, background: COLORS.bgCard,
             border: `1px solid ${COLORS.border}`, boxShadow: SHADOW,
             display: "grid", placeItems: "center", position: "relative", cursor: "pointer", padding: 0
           }}>
-            <Bell size={18} color={COLORS.textSecondary} strokeWidth={1.9} />
-            <span style={{
-              position: "absolute", top: 9, right: 10, width: 7, height: 7, borderRadius: "50%",
-              background: COLORS.accent, boxShadow: "0 0 0 3px rgba(2,132,199,0.15)"
-            }} />
+            <Bell size={17} color={COLORS.textSecondary} strokeWidth={1.9} />
           </button>
-          <button onClick={() => setActive("profile")} style={{
-            width: 40, height: 40, borderRadius: 14, cursor: "pointer", padding: 0,
-            background: "linear-gradient(135deg, #0369a1, #15803d)",
-            border: `1px solid ${COLORS.strokeStrong}`,
+          <button onClick={() => setActive("profile")} aria-label="Your profile" style={{
+            width: 36, height: 36, borderRadius: "50%", cursor: "pointer", padding: 0,
+            background: COLORS.brand, border: "none",
             display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13,
-            letterSpacing: "0.02em", color: "#ffffff"
+            letterSpacing: "0.02em", color: COLORS.onAccent
           }}>{initials}</button>
         </div>
       </div>
 
       {/* Greeting */}
       <div style={{ marginBottom: 18 }}>
-        <h1 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 26, letterSpacing: "-0.01em", color: COLORS.textPrimary }}>
+        <h1 style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 24, letterSpacing: "-0.01em", color: COLORS.textPrimary }}>
           {greeting}{userName && userName !== "there" ? `, ${userName}` : ""}
         </h1>
         <p style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
@@ -145,6 +134,8 @@ function HomeScreen({
 
       {/* Element 0: urgency. Always first, before the score and before any card. */}
       <UrgentBanner items={[...urgent, ...recheck]} />
+
+      <SectionLabel>Today's signal</SectionLabel>
 
       {/* Element 1: Health score — one number, one sentence */}
       {score.hasData ? (
@@ -166,6 +157,7 @@ function HomeScreen({
       )}
 
       {/* Element 2: One action card — the single highest-priority signal */}
+      {rec && <SectionLabel>Top insight</SectionLabel>}
       {rec && (() => {
         // Hard rule: the sparkle icon means "AI-authored". Deterministic fallback
         // cards use a normal icon and never the star.
@@ -182,9 +174,7 @@ function HomeScreen({
                 <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>{rec.body}</div>
                 {/* Which reference point this was judged against, and where the numbers
                     came from — Rule 1.3 says the comparison must be stated, not implied. */}
-                {rec.basis && (
-                  <div style={{ fontSize: 10.5, color: COLORS.textMuted, marginTop: 6, lineHeight: 1.45 }}>{rec.basis}</div>
-                )}
+                {rec.basis && <EvidenceBox>{rec.basis}</EvidenceBox>}
                 {rec.action && (
                   <button style={{ marginTop: 10, background: "none", border: `1px solid ${color}`, color, fontSize: 11, fontWeight: 600, padding: "6px 11px", borderRadius: 8, cursor: "pointer" }}
                     onClick={() => { if (rec.action.target === "discussion" || rec.action.target === "bodyfat_history") setActive(rec.action.target === "bodyfat_history" ? "body" : "discussion"); else goToMarket(rec.action.target); }}>

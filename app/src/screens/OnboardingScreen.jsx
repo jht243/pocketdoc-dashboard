@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, Dna, Sparkles, Upload, X } from "lucide-react";
 import { Card } from "../components/Card";
 import { buildPreventiveCareSchedule } from "../lib/preventiveCare";
 import { isScreeningDone } from "../lib/screeningDates";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
@@ -199,7 +199,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       {/* STEP 1: Fast facts — name, age, sex, risk factors */}
       {step === 1 && (
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6 }}>Let's get started</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 6 }}>Let's get started</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 24 }}>
             A few quick facts and we'll show you exactly what preventive care you should be getting at your age — before you do anything else.
           </div>
@@ -251,7 +251,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       {/* STEP 2: Preventive care schedule — immediate value */}
       {step === 2 && (
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Your screening schedule</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Your screening schedule</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 14 }}>
             These are the screenings recommended for your age and profile, {profile.name}. We don’t
             know your history yet — <strong style={{ color: COLORS.textPrimary }}>mark anything you’ve
@@ -321,7 +321,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       {/* STEP 3: Health intake — purposeful questionnaire, no hiding behind chat */}
       {step === 3 && (
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6 }}>Your health picture</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 6 }}>Your health picture</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
             The more you share now, the more specific your advocate can be. Every field is optional — but each one changes the quality of what you get back.
           </div>
@@ -340,7 +340,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       {/* STEP 4: Bloodwork upload */}
       {step === 4 && (
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6 }}>Upload your bloodwork</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 6 }}>Upload your bloodwork</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 24 }}>
             This is where the real personalization happens. Upload a PDF or photo of any recent lab results — Quest, LabCorp, your doctor's office, anything.
           </div>
@@ -389,16 +389,16 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
           )}
 
           {/* Genetic testing offer — shown here because user now understands the platform */}
-          <Card style={{ border: `1px solid ${COLORS.gold}40`, background: COLORS.warnDim, marginBottom: 20 }}>
+          <Card style={{ border: `1px solid ${COLORS.accent}40`, background: COLORS.accentDim, marginBottom: 20 }}>
             <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <Dna size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />
+              <Dna size={18} color={COLORS.accent} style={{ marginTop: 2, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Want deeper personalization? Order a genetic panel.</div>
                 <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
                   A genetic panel tells your advocate how you process medications, which supplements actually work for your biology, and your hereditary risk factors. It changes the specificity of everything.
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button style={{ background: COLORS.gold, border: "none", color: COLORS.onAccent, fontSize: 11, fontWeight: 700, padding: "7px 12px", borderRadius: 8, cursor: "pointer" }}>Order panel — $299</button>
+                  <button style={{ background: COLORS.accent, border: "none", color: COLORS.onAccent, fontSize: 11, fontWeight: 700, padding: "7px 12px", borderRadius: 8, cursor: "pointer" }}>Order panel — $299</button>
                   <button style={{ background: "none", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, fontSize: 11, padding: "7px 12px", borderRadius: 8, cursor: "pointer" }}>I already have 23andMe data →</button>
                 </div>
               </div>
@@ -426,7 +426,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             </div>
           ) : (
             <div>
-              <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 20 }}>Hi {profile.name}</div>
+              <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 20 }}>Hi {profile.name}</div>
               <Card style={{ border: `1px solid ${COLORS.tealLight}30`, marginBottom: 18 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }}>
                   <Sparkles size={16} color={COLORS.tealLight} />

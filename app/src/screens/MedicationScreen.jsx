@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronRight, ExternalLink, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { loadMedications, saveMedications } from "../lib/profileStore";
 import { suggestSupplements } from "../lib/aiInsights";
@@ -137,7 +137,7 @@ function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMe
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Medications</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Medications</div>
           <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
             Every medication and supplement you take, in one place.
           </div>
@@ -153,10 +153,10 @@ function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMe
 
       {/* Reconciliation report — built entirely from the user's own entered list. */}
       {showReport && medications.length > 0 && (
-        <Card style={{ border: `1px solid ${COLORS.gold}50`, background: COLORS.warnDim, marginBottom: 18 }}>
+        <Card style={{ border: `1px solid ${COLORS.accent}50`, background: COLORS.accentDim, marginBottom: 18 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-            <Sparkles size={16} color={COLORS.gold} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.gold }}>Medication reconciliation</span>
+            <Sparkles size={16} color={COLORS.accent} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.accent }}>Medication reconciliation</span>
           </div>
           <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
             Share this complete list with any new prescriber so they can see everything you're
@@ -254,7 +254,7 @@ function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMe
         <div style={{ marginTop: 8 }}>
           <SectionLabel>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Sparkles size={16} color={COLORS.gold} /> Suggested for you
+              <Sparkles size={16} color={COLORS.accent} /> Suggested for you
             </span>
           </SectionLabel>
           <Card>

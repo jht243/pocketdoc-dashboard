@@ -15,8 +15,8 @@ function LockedDataSection({ title, description, actionLabel, onAction, rows = 2
           <div style={{ margin: "12px 0", opacity: 0.68 }}>
             {Array.from({ length: rows }).map((_, index) => (
               <div key={index} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: index < rows - 1 ? `1px solid ${COLORS.border}` : "none" }}>
-                <span style={{ width: index === 0 ? "43%" : "58%", height: 8, borderRadius: 8, background: "rgba(132,148,167,0.22)" }} />
-                <span style={{ width: "18%", height: 8, borderRadius: 8, background: "rgba(132,148,167,0.14)" }} />
+                <span style={{ width: index === 0 ? "43%" : "58%", height: 8, borderRadius: 8, background: COLORS.strokeStrong, opacity: 0.6 }} />
+                <span style={{ width: "18%", height: 8, borderRadius: 8, background: COLORS.strokeStrong, opacity: 0.35 }} />
               </div>
             ))}
           </div>

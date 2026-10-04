@@ -4,7 +4,8 @@ import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
-import { COLORS, SERIF } from "../theme/tokens";
+import { EvidenceBox } from "../components/EvidenceBox";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { labTone, labToneColor } from "../lib/labTone";
 import { groupMarkers } from "../lib/labGroups";
 import { shortLabSource } from "../lib/labSource";
@@ -75,7 +76,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
   const urgent = aiInsights?.urgent || [];
   return (
     <div style={{ padding: "24px 18px" }}>
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Labs</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>My biology</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
         Tracked across every panel, not just your most recent one.
       </div>
@@ -208,11 +209,9 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
                 <Sparkles size={18} color={color} style={{ marginTop: 2, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{c.title}</div>
-                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.basis ? 6 : (c.action ? 10 : 0) }}>{c.body}</div>
+                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.basis ? 0 : (c.action ? 10 : 0) }}>{c.body}</div>
                   {/* Rule 1.3 — which of the three reference points made this a finding. */}
-                  {c.basis && (
-                    <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.45, marginBottom: c.action ? 10 : 0 }}>{c.basis}</div>
-                  )}
+                  {c.basis && <EvidenceBox style={{ marginBottom: c.action ? 10 : 0 }}>{c.basis}</EvidenceBox>}
                   {c.action && (
                     <button onClick={onAction} style={{ background: "none", border: `1px solid ${color}`, color, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>
                       {c.action.label} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />

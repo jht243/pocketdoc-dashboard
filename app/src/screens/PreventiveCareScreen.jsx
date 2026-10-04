@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card } from "../components/Card";
 import { ScreeningMonthYear } from "../components/ScreeningMonthYear";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { saveScreenings } from "../lib/profileStore";
 import { currentYearMonth, formatCompletedMonth, isScreeningDone } from "../lib/screeningDates";
@@ -51,7 +51,7 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
         }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back
         </button>
-        <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 10 }}>Preventive care</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 10 }}>Preventive care</div>
         <Card style={{ textAlign: "center", padding: "30px 20px" }}>
           <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
             Complete onboarding to generate your personal preventive care schedule.
@@ -72,7 +72,7 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
       }}>
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back
       </button>
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Preventive care</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Preventive care</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 6 }}>
         {overdue > 0 && <span style={{ color: COLORS.danger }}>{overdue} overdue</span>}
         {overdue > 0 && dueSoon > 0 && <span style={{ color: COLORS.textMuted }}> · </span>}

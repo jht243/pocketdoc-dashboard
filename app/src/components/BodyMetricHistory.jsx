@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { Card } from "./Card";
 
 // ---- BODY SCREEN (vitals, sleep detail, weight & composition) ----
@@ -52,7 +52,7 @@ function BodyMetricHistory({ metric, series, goal, onClose }) {
       padding: "20px 18px 100px"
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em" }}>{label} history</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em" }}>{label} history</div>
         <button onClick={onClose} style={{
           background: COLORS.bgCardAlt, border: "none", borderRadius: 16, width: 32, height: 32,
           display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer"

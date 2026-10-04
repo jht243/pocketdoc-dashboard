@@ -1,49 +1,53 @@
-
-
-// ---- Design tokens (ported to the PocketDoc light system used on the live dashboard) ----
-// Key names are unchanged so every existing screen keeps compiling; only the values moved
-// from the old dark palette to the light one. Semantic aliases are added below for the
-// screens that have been fully ported.
+// ---- Design tokens — Thumbprint Health ----
+// Palette follows Section 1 of the Consumer Platform Developer Spec (doc 12): navy
+// brand, teal-blue accent, and muted clinical status colors. Two deliberate
+// departures: textMuted is darkened from the spec's #898781 so small captions pass
+// contrast on white, and the page sits on a faint grey so white cards keep their edge.
+// Key names are unchanged so every existing screen keeps compiling.
 const COLORS = {
-  bgDeep: "#f6f7f9",        // page background
-  bgCard: "#ffffff",        // card surface
-  bgCardAlt: "#f2f5f8",     // alt / hover surface
-  teal: "#0284c7",          // primary accent (solid fills)
-  tealLight: "#0284c7",     // accent for text/icons (must stay readable on white)
-  tealPale: "#0369a1",      // deeper accent for emphasis
-  gold: "#d97706",          // warn / base-ring
-  goldLight: "#f59e0b",
-  platinum: "#55657a",
-  textPrimary: "#0f172a",   // ink
-  textSecondary: "#55657a", // ink-2
-  textMuted: "#8494a7",     // ink-3
-  border: "rgba(15,23,42,0.08)",
-  danger: "#dc2626",
-  warning: "#d97706",
+  brand: "#1A3C5E",         // screen titles, key data values
+  bgDeep: "#F5F7FA",        // page background
+  bgCard: "#FFFFFF",        // card surface
+  bgCardAlt: "#F0F4F8",     // alt / tertiary surface (inputs, tab chips)
+  teal: "#2E7D9F",          // primary accent (solid fills)
+  tealLight: "#2E7D9F",     // accent for text/icons
+  tealPale: "#1A3C5E",      // deeper accent for emphasis
+  gold: "#8B6914",          // watch / amber text
+  goldLight: "#B08A2E",
+  platinum: "#5B6470",
+  textPrimary: "#1A3C5E",   // ink
+  textSecondary: "#4A4A4A", // body copy
+  textMuted: "#737780",     // labels, timestamps
+  border: "#DDE1E7",
+  danger: "#8B0000",
+  warning: "#8B6914",
 
-  // --- semantic additions (Render design system) ---
-  good: "#16a34a",
-  goodDim: "rgba(22,163,74,0.10)",
-  warnDim: "rgba(217,119,6,0.10)",
-  badDim: "rgba(220,38,38,0.08)",
-  accent: "#0284c7",
-  accentDim: "rgba(2,132,199,0.08)",
-  violet: "#6366f1",
-  strokeStrong: "rgba(15,23,42,0.14)",
-  ringTrack: "#e5eaf0",
-  onAccent: "#ffffff",      // text/icon color on top of a solid accent fill
+  // --- semantic additions ---
+  good: "#1A7A4A",
+  goodDim: "#EAF7F2",
+  warnDim: "#FFF8E7",
+  badDim: "#FFF0F0",
+  accent: "#2E7D9F",
+  accentDim: "#EBF4FB",     // also the evidence-box background
+  accentSoft: "#7FB3C9",    // third data series (score rings)
+  neutralDim: "#F0F4F8",    // "Need more data" / "Building" pills
+  violet: "#5B5FC7",
+  strokeStrong: "#C9CFD8",
+  ringTrack: "#E6EBF1",
+  onAccent: "#FFFFFF",      // text/icon color on top of a solid accent fill
 };
 
-const SHADOW = "0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.06)";
+const SHADOW = "0 1px 2px rgba(26,60,94,0.05)";
 
-const SERIF = "'Fraunces', Georgia, serif";
+// Headings and body share one sans family — the spec drops the serif display face.
+const SANS = "'Inter', -apple-system, system-ui, 'Segoe UI', Arial, sans-serif";
 
-const SANS = "'Inter', -apple-system, system-ui, sans-serif";
+const DISPLAY = SANS;
 
-const RADIUS = { lg: 22, md: 16, sm: 12 };
+const RADIUS = { lg: 12, md: 10, sm: 8 };
 
 export { COLORS };
 export { SHADOW };
-export { SERIF };
+export { DISPLAY };
 export { SANS };
 export { RADIUS };

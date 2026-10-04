@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Activity } from "lucide-react";
-import { COLORS, SHADOW, SERIF, RADIUS } from "../theme/tokens";
+import { COLORS, SHADOW, DISPLAY, RADIUS } from "../theme/tokens";
+import { BrandMark } from "../components/BrandMark";
 import { useAuth } from "../lib/AuthContext";
 
 export default function AuthScreen({ onPrivacy }) {
@@ -78,37 +78,14 @@ export default function AuthScreen({ onPrivacy }) {
 
   return (
     <div style={{ padding: "48px 22px", minHeight: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 9,
-          fontFamily: SERIF,
-          fontWeight: 600,
-          fontSize: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 10,
-            background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
-            display: "grid",
-            placeItems: "center",
-            boxShadow: "0 2px 8px rgba(14,165,233,0.3)",
-          }}
-        >
-          <Activity size={17} color="#fff" strokeWidth={2.5} />
-        </div>
-        Guided Health AI
+      <div style={{ marginBottom: 28 }}>
+        <BrandMark size={30} fontSize={18} />
       </div>
 
       <h1
         style={{
-          fontFamily: SERIF,
-          fontWeight: 500,
+          fontFamily: DISPLAY,
+          fontWeight: 600,
           fontSize: 26,
           letterSpacing: "-0.01em",
           marginBottom: 6,

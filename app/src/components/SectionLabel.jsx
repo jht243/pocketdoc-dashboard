@@ -1,13 +1,13 @@
 import React from "react";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS } from "../theme/tokens";
 
-// Section headings on the live dashboard are Fraunces serif, sentence case — not the
-// uppercase gold micro-label the dark mockup used.
+// Section headings follow the spec's grouping label — small, bold, uppercase, muted —
+// so a screen's hierarchy reads from the cards, not from competing headlines.
 function SectionLabel({ children }) {
   return (
     <div style={{
-      fontFamily: SERIF, fontWeight: 500, fontSize: 19, letterSpacing: "-0.01em",
-      color: COLORS.textPrimary, marginBottom: 12
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+      color: COLORS.textMuted, marginBottom: 8, marginTop: 4
     }}>{children}</div>
   );
 }

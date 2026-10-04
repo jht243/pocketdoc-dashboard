@@ -1,26 +1,26 @@
 /**
- * Shared branded email shell for Guided Health AI / PocketDoc.
+ * Shared branded email shell for Thumbprint Health.
  *
  * Table-based, inline styles only — works across Gmail, Apple Mail, Outlook,
  * and mobile clients. Colors match app/src/theme/tokens.js.
  */
 
 export const EMAIL_COLORS = {
-  bg: "#f6f7f9",
-  card: "#ffffff",
-  accent: "#0284c7",
-  accentDeep: "#0369a1",
-  text: "#0f172a",
-  textSecondary: "#55657a",
-  textMuted: "#8494a7",
-  border: "#e5eaf0",
-  good: "#16a34a",
-  onAccent: "#ffffff",
+  bg: "#F5F7FA",
+  card: "#FFFFFF",
+  accent: "#2E7D9F",
+  accentDeep: "#1A3C5E",
+  text: "#1A3C5E",
+  textSecondary: "#4A4A4A",
+  textMuted: "#737780",
+  border: "#DDE1E7",
+  good: "#1A7A4A",
+  onAccent: "#FFFFFF",
 };
 
-const BRAND = "Guided Health AI";
+const BRAND = "Thumbprint Health";
 const DISCLAIMER =
-  "Guided Health AI is a wellness companion, not a medical device. It does not diagnose, treat, or prescribe, and it never replaces your clinician.";
+  "Thumbprint Health is a wellness companion, not a medical device. It does not diagnose, treat, or prescribe, and it never replaces your clinician.";
 
 /**
  * @param {object} opts
@@ -94,11 +94,11 @@ export function renderEmailLayout({
             <td style="padding-bottom:20px">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td bgcolor="${EMAIL_COLORS.accent}" width="32" height="32" style="background-color:${EMAIL_COLORS.accent};border-radius:10px;width:32px;height:32px;text-align:center;vertical-align:middle">
-                    <span style="font-family:Georgia,'Times New Roman',serif;font-size:13px;font-weight:700;line-height:32px;color:${EMAIL_COLORS.onAccent}">GH</span>
+                  <td bgcolor="${EMAIL_COLORS.accentDeep}" width="32" height="32" style="background-color:${EMAIL_COLORS.accentDeep};border-radius:10px;width:32px;height:32px;text-align:center;vertical-align:middle">
+                    <span style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;line-height:32px;color:${EMAIL_COLORS.onAccent}">TH</span>
                   </td>
                   <td style="padding-left:10px;vertical-align:middle">
-                    <span style="font-family:Georgia,'Times New Roman',serif;font-size:17px;font-weight:600;line-height:1.2;color:${EMAIL_COLORS.text};letter-spacing:-0.01em">${BRAND}</span>
+                    <span style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:17px;font-weight:600;line-height:1.2;color:${EMAIL_COLORS.text};letter-spacing:-0.01em">${BRAND}</span>
                   </td>
                 </tr>
               </table>
@@ -107,7 +107,7 @@ export function renderEmailLayout({
           <!-- Card -->
           <tr>
             <td bgcolor="${EMAIL_COLORS.card}" style="background-color:${EMAIL_COLORS.card};border:1px solid ${EMAIL_COLORS.border};border-radius:16px;padding-top:32px;padding-bottom:32px;padding-left:28px;padding-right:28px">
-              <h1 style="margin-top:0;margin-bottom:8px;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:500;line-height:1.25;color:${EMAIL_COLORS.text};letter-spacing:-0.01em">
+              <h1 style="margin-top:0;margin-bottom:8px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:26px;font-weight:600;line-height:1.25;color:${EMAIL_COLORS.text};letter-spacing:-0.01em">
                 ${headline}
               </h1>
               ${subheaderBlock}
@@ -192,11 +192,11 @@ export function renderAuthEmailBody({
           <td style="padding-bottom:20px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td bgcolor="${c.accent}" width="32" height="32" style="background-color:${c.accent};border-radius:10px;width:32px;height:32px;text-align:center;vertical-align:middle">
-                  <span style="font-family:Georgia,'Times New Roman',serif;font-size:13px;font-weight:700;line-height:32px;color:${c.onAccent}">GH</span>
+                <td bgcolor="${c.accentDeep}" width="32" height="32" style="background-color:${c.accentDeep};border-radius:10px;width:32px;height:32px;text-align:center;vertical-align:middle">
+                  <span style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;line-height:32px;color:${c.onAccent}">TH</span>
                 </td>
                 <td style="padding-left:10px;vertical-align:middle">
-                  <span style="font-family:Georgia,'Times New Roman',serif;font-size:17px;font-weight:600;line-height:1.2;color:${c.text};letter-spacing:-0.01em">${BRAND}</span>
+                  <span style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:17px;font-weight:600;line-height:1.2;color:${c.text};letter-spacing:-0.01em">${BRAND}</span>
                 </td>
               </tr>
             </table>
@@ -204,7 +204,7 @@ export function renderAuthEmailBody({
         </tr>
         <tr>
           <td bgcolor="${c.card}" style="background-color:${c.card};border:1px solid ${c.border};border-radius:16px;padding-top:32px;padding-bottom:32px;padding-left:28px;padding-right:28px">
-            <h1 style="margin-top:0;margin-bottom:8px;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:500;line-height:1.25;color:${c.text};letter-spacing:-0.01em">${headline}</h1>
+            <h1 style="margin-top:0;margin-bottom:8px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:26px;font-weight:600;line-height:1.25;color:${c.text};letter-spacing:-0.01em">${headline}</h1>
             ${subheaderBlock}
             <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:${c.text}">${bodyHtml}</div>
             ${ctaBlock}
@@ -226,33 +226,33 @@ export function renderAuthEmailBody({
 /** Auth template catalog — subjects + bodies for Supabase Management API / dashboard. */
 export const AUTH_EMAIL_TEMPLATES = {
   confirmation: {
-    subject: "Confirm your Guided Health AI account",
+    subject: "Confirm your Thumbprint Health account",
     content: () =>
       renderAuthEmailBody({
         headline: "Confirm your email",
         subheader: "One quick step to finish creating your account.",
-        bodyHtml: `<p style="margin-top:0;margin-bottom:12px">Thanks for signing up for Guided Health AI. Confirm your email so we can keep your health profile secure and send you important updates.</p>
+        bodyHtml: `<p style="margin-top:0;margin-bottom:12px">Thanks for signing up for Thumbprint Health. Confirm your email so we can keep your health profile secure and send you important updates.</p>
 <p style="margin-top:0;margin-bottom:0">This link expires shortly and can only be used once.</p>`,
         ctaLabel: "Confirm email",
         ctaUrl: "{{ .ConfirmationURL }}",
       }),
   },
   invite: {
-    subject: "You're invited to Guided Health AI",
+    subject: "You're invited to Thumbprint Health",
     content: () =>
       renderAuthEmailBody({
         headline: "You're invited",
-        subheader: "Create your Guided Health AI account to get started.",
-        bodyHtml: `<p style="margin-top:0;margin-bottom:0">Someone invited you to join Guided Health AI — a proactive health companion for your labs, screenings, and care plan.</p>`,
+        subheader: "Create your Thumbprint Health account to get started.",
+        bodyHtml: `<p style="margin-top:0;margin-bottom:0">Someone invited you to join Thumbprint Health — a proactive health companion for your labs, screenings, and care plan.</p>`,
         ctaLabel: "Accept invitation",
         ctaUrl: "{{ .ConfirmationURL }}",
       }),
   },
   magic_link: {
-    subject: "Your Guided Health AI sign-in link",
+    subject: "Your Thumbprint Health sign-in link",
     content: () =>
       renderAuthEmailBody({
-        headline: "Sign in to Guided Health AI",
+        headline: "Sign in to Thumbprint Health",
         subheader: "Use the secure link below. No password needed.",
         bodyHtml: `<p style="margin-top:0;margin-bottom:0">This link expires shortly and can only be used once. If you did not request it, you can ignore this email.</p>`,
         ctaLabel: "Sign in",
@@ -260,7 +260,7 @@ export const AUTH_EMAIL_TEMPLATES = {
       }),
   },
   recovery: {
-    subject: "Reset your Guided Health AI password",
+    subject: "Reset your Thumbprint Health password",
     content: () =>
       renderAuthEmailBody({
         headline: "Reset your password",
@@ -276,13 +276,13 @@ export const AUTH_EMAIL_TEMPLATES = {
       renderAuthEmailBody({
         headline: "Confirm your new email",
         subheader: "Verify {{ .NewEmail }} as your updated address.",
-        bodyHtml: `<p style="margin-top:0;margin-bottom:0">Follow the button below to finish changing the email on your Guided Health AI account. If you did not request this, ignore this message.</p>`,
+        bodyHtml: `<p style="margin-top:0;margin-bottom:0">Follow the button below to finish changing the email on your Thumbprint Health account. If you did not request this, ignore this message.</p>`,
         ctaLabel: "Confirm new email",
         ctaUrl: "{{ .ConfirmationURL }}",
       }),
   },
   reauthentication: {
-    subject: "{{ .Token }} is your Guided Health AI verification code",
+    subject: "{{ .Token }} is your Thumbprint Health verification code",
     content: () =>
       renderAuthEmailBody({
         headline: "Your verification code",

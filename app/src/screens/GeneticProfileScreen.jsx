@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ChevronRight, Dna, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 // ---- HOME SCREEN ----
 // ---- PROFILE SCREEN ----
@@ -249,14 +249,14 @@ function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
             )}
             {m.notes && (
               <div style={{ marginBottom: 12, padding: "10px 12px", background: COLORS.bgCard, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 6, letterSpacing: 0.5 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, marginBottom: 6, letterSpacing: 0.5 }}>
                   FROM YOUR REPORT
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6 }}>{m.notes}</div>
               </div>
             )}
             {(m.forYou || []).length > 0 && (
-              <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 8, letterSpacing: 0.5 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, marginBottom: 8, letterSpacing: 0.5 }}>
                 WHAT THIS MEANS FOR YOU
               </div>
             )}
@@ -315,7 +315,7 @@ function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
             )}
             {m.notes && (
               <div style={{ marginBottom: 12, padding: "10px 12px", background: COLORS.bgCard, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.gold, marginBottom: 6, letterSpacing: 0.5 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, marginBottom: 6, letterSpacing: 0.5 }}>
                   FROM YOUR REPORT
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6 }}>{m.notes}</div>
@@ -372,7 +372,7 @@ function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Profile
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Genetic profile</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Genetic profile</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 6 }}>
         {hasGenetics
           ? "Based on your imported genetic data."
@@ -421,9 +421,9 @@ function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
           </div>
           {lifestyleMarkers.map((m, i) => <LifestyleMarkerCard key={m.id || `${m.gene}-${i}`} m={m} />)}
           <button onClick={() => setActive("importlabs")} style={{
-            width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.gold}50`,
+            width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.accent}50`,
             borderRadius: 14, padding: "14px", display: "flex", alignItems: "center",
-            justifyContent: "center", gap: 8, color: COLORS.gold, fontSize: 13,
+            justifyContent: "center", gap: 8, color: COLORS.accent, fontSize: 13,
             fontWeight: 600, cursor: "pointer", marginTop: 6
           }}>
             <Dna size={16} /> Import additional genetic data

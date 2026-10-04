@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Lock } from "lucide-react";
 import { PhoneFrame } from "./PhoneFrame";
-import { COLORS, SHADOW, SERIF, RADIUS } from "../theme/tokens";
+import { COLORS, SHADOW, DISPLAY, RADIUS } from "../theme/tokens";
 
 // Shared-password gate in front of the whole app. Only the SHA-256 of the password
 // ships in the bundle, never the password itself. This is a front-door gate for a
@@ -52,7 +52,7 @@ export default function SiteGate({ children }) {
   return (
     <div
       style={{
-        background: "radial-gradient(1200px 800px at 50% -10%, #ffffff 0%, #e4e9ef 60%)",
+        background: "radial-gradient(1200px 800px at 50% -10%, #FFFFFF 0%, #E3E9F0 60%)",
         padding: 16,
         height: "100dvh",
         overflow: "hidden",
@@ -69,19 +69,18 @@ export default function SiteGate({ children }) {
               width: 44,
               height: 44,
               borderRadius: 14,
-              background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
+              background: COLORS.brand,
               display: "grid",
               placeItems: "center",
-              boxShadow: "0 2px 8px rgba(14,165,233,0.3)",
               marginBottom: 22,
             }}
           >
-            <Lock size={20} color="#fff" strokeWidth={2.5} />
+            <Lock size={20} color={COLORS.onAccent} strokeWidth={2.5} />
           </div>
           <h1
             style={{
-              fontFamily: SERIF,
-              fontWeight: 500,
+              fontFamily: DISPLAY,
+              fontWeight: 600,
               fontSize: 26,
               letterSpacing: "-0.01em",
               marginBottom: 6,

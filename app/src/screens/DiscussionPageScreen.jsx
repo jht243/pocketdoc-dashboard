@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle2, ChevronRight, FileText, Sparkles, Upload } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { buildHealthContext } from "../lib/healthContext";
 
@@ -122,7 +122,7 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Records
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Discussion page</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Discussion page</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 }}>
         For your next appointment
       </div>
@@ -131,9 +131,9 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
       </div>
 
       <SectionLabel>Summary</SectionLabel>
-      <Card style={{ border: `1px solid ${COLORS.gold}50`, background: COLORS.warnDim }}>
+      <Card style={{ border: `1px solid ${COLORS.accent}50`, background: COLORS.accentDim }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <Sparkles size={18} color={COLORS.gold} style={{ marginTop: 2, flexShrink: 0 }} />
+          <Sparkles size={18} color={COLORS.accent} style={{ marginTop: 2, flexShrink: 0 }} />
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6 }}>
             {loading ? "Preparing your summary from your latest data…" : summary}
           </div>
@@ -180,7 +180,7 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
             display: "flex", gap: 8, padding: "9px 0",
             borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : "none"
           }}>
-            <span style={{ fontSize: 13, color: COLORS.gold, flexShrink: 0 }}>{i + 1}.</span>
+            <span style={{ fontSize: 13, color: COLORS.accent, flexShrink: 0 }}>{i + 1}.</span>
             <span style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5 }}>{q}</span>
           </div>
         ))}

@@ -5,7 +5,7 @@ import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { formatHoursMinutes } from "../lib/wearableShape";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 // ---- BODY SCREEN (vitals, sleep detail, weight & composition) ----
 // Everything here is driven by real data on `healthData` (or the demo snapshot in
@@ -48,7 +48,7 @@ function BodyScreen({ setActive, healthData }) {
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Home
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Body</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Body</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
         Today's vitals, sleep detail, and body composition trends.
       </div>

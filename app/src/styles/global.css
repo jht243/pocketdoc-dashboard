@@ -1,4 +1,4 @@
-/* Global reset — mirrors the reset used by the live PocketDoc dashboard.
+/* Global reset — shared by every Thumbprint Health screen.
    border-box matters: the screens use width:100% inputs with padding, which
    overflow their container without it. */
 * {
@@ -11,7 +11,7 @@
 
 html,
 body {
-  background: #eceff3;
+  background: #E9EDF2;
   height: 100%;
   /* The phone frame handles its own scrolling; the page must not add a second
      scrollbar that pushes the device below the fold. */
@@ -20,7 +20,7 @@ body {
 
 body {
   font-family: "Inter", -apple-system, system-ui, sans-serif;
-  color: #0f172a;
+  color: #1A3C5E;
   font-size: 15px;
   line-height: 1.45;
 }

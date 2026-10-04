@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { Camera, CheckCircle2, ChevronRight, Dna, Plus, Upload, X } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
@@ -247,7 +247,7 @@ function ImportLabsScreen({ setActive, onImported }) {
       } else if (!result.markers.length && !result.empty) {
         setExtractionError("Your file is saved, but no markers could be read from it — the scan may be too unclear. You can add them manually below, or try a clearer photo.");
       } else if (!result.markers.length) {
-        setExtractionNotice("Your file is saved and your AI can read it. It doesn't contain lab values PocketDoc files today — as we support more data types, documents like this will start counting automatically. If it does have results on it, you can add them manually below.");
+        setExtractionNotice("Your file is saved and your AI can read it. It doesn't contain lab values Thumbprint Health files today — as we support more data types, documents like this will start counting automatically. If it does have results on it, you can add them manually below.");
       }
       if (result.saved) onImported?.();
       setStage("review");
@@ -425,7 +425,7 @@ Rules:
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Records
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Import lab results</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Import lab results</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
         Upload a PDF, photograph a paper report, or enter results manually. Saved records
         feed your pattern review, your AI conversations, and your Discussion Page.
@@ -474,7 +474,7 @@ Rules:
             gap: 14, cursor: "pointer", marginBottom: 12, textAlign: "left"
           }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: COLORS.bgCardAlt, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Camera size={18} color={COLORS.gold} />
+              <Camera size={18} color={COLORS.accent} />
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textPrimary }}>Photograph a paper report</div>
@@ -497,12 +497,12 @@ Rules:
           </button>
 
           <button onClick={() => { setImportType("genetic"); fileRef.current?.click(); }} style={{
-            width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.gold}50`,
+            width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.accent}50`,
             borderRadius: 14, padding: "18px 16px", display: "flex", alignItems: "center",
             gap: 14, cursor: "pointer", marginBottom: 18, textAlign: "left"
           }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: COLORS.bgCardAlt, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Dna size={18} color={COLORS.gold} />
+              <Dna size={18} color={COLORS.accent} />
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textPrimary }}>Import genetic data</div>
@@ -652,7 +652,7 @@ Rules:
                 {g.title && <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>{g.title}</div>}
                 {g.notes && (
                   <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5, background: COLORS.bgCard, borderRadius: 8, padding: "8px 10px" }}>
-                    <span style={{ fontWeight: 600, color: COLORS.gold, letterSpacing: 0.4 }}>REPORT NOTES · </span>{g.notes}
+                    <span style={{ fontWeight: 600, color: COLORS.accent, letterSpacing: 0.4 }}>REPORT NOTES · </span>{g.notes}
                   </div>
                 )}
               </div>

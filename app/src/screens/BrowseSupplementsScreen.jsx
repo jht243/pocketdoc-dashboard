@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AlertCircle, ChevronRight, ExternalLink } from "lucide-react";
 import { Card } from "../components/Card";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { searchProducts } from "../lib/amazon";
 
 // ---- BROWSE SUPPLEMENTS (live Amazon catalog by category) ----
@@ -50,7 +50,7 @@ function BrowseSupplementsScreen({ setActive }) {
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Marketplace
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Browse supplements</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Browse supplements</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 18 }}>
         Live from Amazon. Prices and availability update in real time.
       </div>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 // ---- ORDER LABS SCREEN (Tasso at-home collection) ----
 function OrderLabsScreen({ setActive }) {
@@ -78,13 +78,13 @@ function OrderLabsScreen({ setActive }) {
   const PanelCard = ({ p, highlight }) => {
     const inCart = cart.includes(p.id);
     return (
-      <Card style={highlight ? { border: `1px solid ${COLORS.gold}50`, background: COLORS.warnDim } : {}}>
+      <Card style={highlight ? { border: `1px solid ${COLORS.accent}50`, background: COLORS.accentDim } : {}}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
           <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.tealLight }}>{p.price}</span>
         </div>
         {p.why && (
-          <div style={{ fontSize: 11, color: COLORS.gold, marginBottom: 6 }}>{p.why}</div>
+          <div style={{ fontSize: 11, color: COLORS.accent, marginBottom: 6 }}>{p.why}</div>
         )}
         <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
           {p.markers}
@@ -113,7 +113,7 @@ function OrderLabsScreen({ setActive }) {
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Labs
       </button>
 
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Order bloodwork</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Order bloodwork</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 }}>
         Collected at home with a Tasso device, no needle, no clinic visit.
       </div>

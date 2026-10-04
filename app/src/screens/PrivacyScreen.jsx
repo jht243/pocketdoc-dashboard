@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronRight } from "lucide-react";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 export const CONSENT_VERSION = "v2";
 
@@ -12,7 +12,7 @@ export const CONSENT_VERSION = "v2";
 export default function PrivacyScreen({ onBack }) {
   const Section = ({ title, children }) => (
     <div style={{ marginBottom: 20 }}>
-      <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 17, marginBottom: 6 }}>{title}</h2>
+      <h2 style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 17, marginBottom: 6 }}>{title}</h2>
       <p style={{ color: COLORS.textSecondary, fontSize: 13, lineHeight: 1.6 }}>{children}</p>
     </div>
   );
@@ -32,7 +32,7 @@ export default function PrivacyScreen({ onBack }) {
         </button>
       )}
 
-      <h1 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 25, letterSpacing: "-0.01em", marginBottom: 6 }}>
+      <h1 style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 25, letterSpacing: "-0.01em", marginBottom: 6 }}>
         Privacy &amp; your data
       </h1>
       <p style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 24 }}>
@@ -65,7 +65,7 @@ export default function PrivacyScreen({ onBack }) {
       </Section>
 
       <Section title="This is not medical care">
-        Guided Health AI is a wellness and organization tool. It does not diagnose,
+        Thumbprint Health is a wellness and organization tool. It does not diagnose,
         treat, or prescribe, and the assistant can be wrong. Always confirm anything
         you read here with a qualified clinician. If you think you have a medical
         emergency, call 911.

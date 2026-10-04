@@ -48,7 +48,7 @@ export function screeningReminderEmail({ firstName, items = [], ctaUrl = "https:
       <ul style="margin-top:0;margin-bottom:16px;padding-left:20px;font-size:14px;line-height:1.5;color:${EMAIL_COLORS.text}">${list}</ul>
       <p style="margin-top:0;margin-bottom:0">These are standard preventive-care recommendations — worth raising with your clinician at your next visit.</p>
     `,
-    ctaLabel: "Open Guided Health AI",
+    ctaLabel: "Open Thumbprint Health",
     ctaUrl,
   });
 
@@ -64,9 +64,9 @@ export function screeningReminderEmail({ firstName, items = [], ctaUrl = "https:
       `Based on your profile, the following ${countLabel}:`,
       ...items.map((i) => `- ${i.name}${i.frequency ? ` (${i.frequency})` : ""}`),
       "",
-      `Open Guided Health AI: ${ctaUrl}`,
+      `Open Thumbprint Health: ${ctaUrl}`,
       "",
-      "Guided Health AI is a wellness companion, not medical care.",
+      "Thumbprint Health is a wellness companion, not medical care.",
     ].join("\n"),
   };
 }

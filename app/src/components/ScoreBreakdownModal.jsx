@@ -1,7 +1,7 @@
 import React from "react";
 import { AlertCircle, Calendar, ShieldCheck, X } from "lucide-react";
 import { useScoreModel } from "../lib/scoring";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { Card } from "./Card";
 import { SectionLabel } from "./SectionLabel";
 
@@ -127,7 +127,7 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData, userProfil
       padding: "20px 18px 100px"
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em" }}>Score breakdown</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em" }}>Score breakdown</div>
         <button onClick={onClose} style={{
           background: COLORS.bgCardAlt, border: "none", borderRadius: 16, width: 32, height: 32,
           display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer"

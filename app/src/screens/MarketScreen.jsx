@@ -3,7 +3,7 @@ import { Activity, AlertCircle, ChevronRight, ExternalLink, Sparkles } from "luc
 import { Card } from "../components/Card";
 import { IVTherapyCard } from "../components/IVTherapyCard";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, SERIF } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 import { searchProducts } from "../lib/amazon";
 
 // The app's own reasoning still decides WHICH supplement categories to surface and
@@ -165,7 +165,7 @@ function MarketScreen({ highlight, setActive, healthData }) {
 
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
-      <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 4 }}>Marketplace</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Marketplace</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
         Bloodwork-based picks appear when your own labs support them. General
         suggestions are common staples, not personalized advice. Products and prices
