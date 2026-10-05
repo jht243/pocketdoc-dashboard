@@ -6,6 +6,8 @@ import { ScoreGauge } from "../components/ScoreGauge";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { intakeProgressSummary } from "../lib/intakeContent";
+import { buildThumbprintChecklist } from "../lib/thumbprintChecklist";
+import { ThumbprintChecklist } from "../components/ThumbprintChecklist";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
@@ -34,6 +36,11 @@ function HomeScreen({
   const hasHealthData = Boolean(
     healthData?.labs?.length || healthData?.records?.length || healthData?.vitals?.length || healthData?.today || healthData?.score
   );
+  // Until the baseline (blood panel, PGx, CGx, health history) is in, the checklist
+  // leads Home in place of the locked score — Sep 30 call: "we can't get a health
+  // score until we have genetics, pharmacology, and our first full blood panel."
+  const checklist = buildThumbprintChecklist({ healthData, userProfile, healthHistory });
+  const showChecklist = !checklist.complete;
   const userName = userProfile?.profile?.name || "there";
   const initials = userName !== "there" ? userName[0].toUpperCase() : "?";
 
@@ -72,7 +79,7 @@ function HomeScreen({
     // Read from the saved answers, not from whether the screen was opened this session —
     // the old check nagged every member again after each reload.
     const intake = intakeProgressSummary(healthHistory || userProfile.intake);
-    if (!intake.complete) return { label: `Finish your health history · ${intake.done} of ${intake.total} done`, target: "healthhistory", color: COLORS.tealLight };
+    if (!intake.complete && !showChecklist) return { label: `Finish your health history · ${intake.done} of ${intake.total} done`, target: "healthhistory", color: COLORS.tealLight };
     return null;
   })();
 
@@ -139,9 +146,16 @@ function HomeScreen({
       {/* Element 0: urgency. Always first, before the score and before any card. */}
       <UrgentBanner items={[...urgent, ...recheck]} />
 
-      <SectionLabel>Today's signal</SectionLabel>
+      {showChecklist && <>
+        <SectionLabel>Your Thumbprint</SectionLabel>
+        <ThumbprintChecklist checklist={checklist} setActive={setActive} />
+      </>}
 
-      {/* Element 1: Health score — one number, one sentence */}
+      {(score.hasData || !showChecklist) && <SectionLabel>Today's signal</SectionLabel>}
+
+      {/* Element 1: Health score — one number, one sentence. A member who already has
+          score data keeps it while finishing the checklist; for a new member the
+          checklist stands in for the locked score. */}
       {score.hasData ? (
         <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
           <Card style={{ marginBottom: 0, textAlign: "center", paddingTop: 20, paddingBottom: 20 }}>
@@ -150,7 +164,7 @@ function HomeScreen({
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Tap to see what's driving your score today</div>
           </Card>
         </button>
-      ) : (
+      ) : !showChecklist && (
         <LockedDataSection
           title="Your health score"
           description="Unlock your score by importing a lab result or connecting health data."
@@ -233,7 +247,7 @@ function HomeScreen({
         </Card>
       </button>}
 
-      {!hasHealthData && <LockedDataSection
+      {!hasHealthData && !showChecklist && <LockedDataSection
         title="Today's signals"
         description="Upload your first result to start unlocking trends, daily signals, and tailored next steps."
         actionLabel="Upload a result"
