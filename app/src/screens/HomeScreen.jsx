@@ -8,6 +8,7 @@ import { UrgentBanner } from "../components/UrgentBanner";
 import { intakeProgressSummary } from "../lib/intakeContent";
 import { buildThumbprintChecklist } from "../lib/thumbprintChecklist";
 import { ThumbprintChecklist } from "../components/ThumbprintChecklist";
+import { CheckInCard } from "../components/CheckInCard";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
@@ -145,6 +146,9 @@ function HomeScreen({
 
       {/* Element 0: urgency. Always first, before the score and before any card. */}
       <UrgentBanner items={[...urgent, ...recheck]} />
+
+      <SectionLabel>This morning</SectionLabel>
+      <CheckInCard checkIns={healthData?.checkIns || []} testModeEnabled={testModeEnabled} setActive={setActive} />
 
       {showChecklist && <>
         <SectionLabel>Your Thumbprint</SectionLabel>

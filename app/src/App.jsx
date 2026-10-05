@@ -25,6 +25,7 @@ import {
 import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
 import { loadMessages } from "./lib/chatStore";
+import { loadCheckIns } from "./lib/checkInStore";
 import { buildBaseItems, useScoreModel } from "./lib/scoring";
 import { calculateBloodworkScore } from "./lib/bloodworkScore";
 import { recordHealthScore } from "./lib/healthScoreStore";
@@ -98,7 +99,7 @@ function buildLiveScore(storedProfile, wearable, labs = []) {
 // Shape the DB rows (labs, uploaded documents, wearable) plus the derived score into
 // the single `liveHealthData` object every screen reads. Kept here so the mount load,
 // the onboarding hand-off, and the test-mode-off path can never drift apart.
-function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = []) {
+function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = [], checkIns = []) {
   // `date` is a display string; `created_at` is preserved on each marker and is what
   // the bloodwork rubric reads for recency.
   const labs = labMarkers.map((marker) => ({
@@ -124,6 +125,9 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
     // Real imported genomes (rich objects), read by the Genetic Profile screen and
     // summarized into the AI chat's health context. Empty until the user imports a source.
     genetics: geneticMarkers,
+    // Morning check-ins, newest first. Read by Home (streak), the check-in screen,
+    // and the AI context, which treats them as self-reported daily signals.
+    checkIns,
     today: wearable?.today,
     vitals: wearable?.vitals || [],
     // Per-metric latest + trailing range, and the raw daily rows behind it. The Body
@@ -180,16 +184,17 @@ function App() {
    */
   const refreshRecords = useCallback(async () => {
     if (!user) return;
-    const [documents, labMarkers, wearable, geneticMarkers] = await Promise.all([
+    const [documents, labMarkers, wearable, geneticMarkers, checkIns] = await Promise.all([
       loadDocuments(user.id),
       loadLabMarkers(user.id),
       loadWearableSnapshot(user.id),
       loadGeneticMarkers(user.id),
+      loadCheckIns(user.id),
     ]);
     // Rebuilt from the stored profile so the score's preventive-care half is scored
     // off the same schedule the rest of the app is reading.
     const stored = await loadFullProfile(user.id);
-    setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
+    setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
   }, [user]);
 
   /**
@@ -203,6 +208,14 @@ function App() {
     if (!user) return;
     const stored = await loadFullProfile(user.id);
     if (stored) setUserProfile((prev) => ({ ...(prev || {}), ...stored }));
+  }, [user]);
+
+  // Re-pull check-ins after one is saved, so Home's streak and today's reply update
+  // without a reload. Merges rather than replaces so labs and records survive.
+  const refreshCheckIns = useCallback(async () => {
+    if (!user) return;
+    const checkIns = await loadCheckIns(user.id);
+    setLiveHealthData((prev) => ({ ...(prev || {}), checkIns }));
   }, [user]);
 
   // Re-pull the wearable slice after a connect/sync/disconnect, without refetching
@@ -272,7 +285,7 @@ function App() {
       return;
     }
     setProfileLoading(true);
-    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id)]).then(([stored, testMode, documents, labMarkers, wearable, geneticMarkers]) => {
+    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id)]).then(([stored, testMode, documents, labMarkers, wearable, geneticMarkers, checkIns]) => {
       if (cancelled) return;
       // Both components of the score come from `buildLiveHealthData`: preventive-care
       // coverage (the same schedule the Preventive Care screen renders), and the
@@ -280,7 +293,7 @@ function App() {
       // useScoreModel returns hasData:false without it — and stays undefined until at
       // least one component has real data, so the dial is hidden rather than rendering
       // an honest-looking zero.
-      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
+      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
       // Coming back from Oura's consent screen lands on Profile, where the device
       // list and the result notice are — otherwise the user is dropped on Home with
       // no confirmation that anything happened.
@@ -365,13 +378,14 @@ function App() {
     // Uploads are no longer deferred to here — OnboardingScreen stores the file the
     // moment it's picked, so abandoning steps 4/5 can't lose it. Pull the labs, records,
     // and wearable saved during onboarding and fold them in over the interim score.
-    const [documents, labMarkers, wearable, geneticMarkers] = await Promise.all([
+    const [documents, labMarkers, wearable, geneticMarkers, checkIns] = await Promise.all([
       loadDocuments(user.id),
       loadLabMarkers(user.id),
       loadWearableSnapshot(user.id),
       loadGeneticMarkers(user.id),
+      loadCheckIns(user.id),
     ]);
-    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable, geneticMarkers));
+    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable, geneticMarkers, checkIns));
   };
 
   const handleTestModeChange = async (nextEnabled) => {
@@ -390,13 +404,13 @@ function App() {
       const { error } = await disableTestMode(user.id);
       if (!error) {
         const stored = await loadFullProfile(user.id);
-        const [documents, labMarkers, wearable, geneticMarkers] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id)]);
+        const [documents, labMarkers, wearable, geneticMarkers, checkIns] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id)]);
         setTestModeEnabled(false);
         setTestSnapshot(null);
         setHealthHistory(null);
         // Rebuild the full live snapshot — including `score`, which this path used to
         // omit, leaving the ring locked after leaving test mode.
-        setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers));
+        setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
         if (stored?.onboardingCompletedAt) {
           setUserProfile(stored);
           setActive("home");
@@ -419,7 +433,7 @@ function App() {
       />
     ),
     home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
-    checkin: <CheckInScreen testModeEnabled={testModeEnabled} />,
+    checkin: <CheckInScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
     aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
@@ -437,7 +451,7 @@ function App() {
   };
 
   const hiddenTabBar = [
-    "onboarding", "discussion", "orderlabs", "browsesupplements", "body",
+    "onboarding", "checkin", "discussion", "orderlabs", "browsesupplements", "body",
     "importlabs", "geneticprofile", "medications", "preventivecare", "healthhistory",
   ];
   const showTabBar = user && !recovering && !hiddenTabBar.includes(active);

@@ -9,6 +9,7 @@
  * Pure — no network, no Supabase, no DOM.
  */
 import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer, INTAKE_PROGRESS_KEY } from "./intakeContent";
+import { checkInContextLines } from "./checkInContent";
 import { describeLabAge } from "./clinicalRules";
 
 /* ---------------- value formatting ---------------- */
@@ -524,5 +525,6 @@ ${section("PREVENTIVE CARE SCHEDULE", scheduleLines(userProfile?.schedule, userP
 ${section("BODY COMPOSITION", body)}
 ${section("UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", records)}
 ${section("DAILY SCORE INPUTS", scoreLines)}
+${section("MORNING CHECK-INS (SELF-REPORTED daily answers, newest first — patterns across days matter more than any single morning)", checkInContextLines(healthData?.checkIns || []))}
 ${historyExtra ? section("HEALTH HISTORY (standalone questionnaire)", historyExtra) : ""}`;
 }
