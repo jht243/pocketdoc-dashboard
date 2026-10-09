@@ -339,9 +339,11 @@ function App() {
   }, [user?.id]);
 
   // Any screen change starts at the top — the phone frame is the scroll container,
-  // so without this you land at the previous screen's offset.
+  // so without this you land at the previous screen's offset. Except the chat,
+  // which opens at its newest message: this reset runs a frame later and was
+  // racing the chat's own scroll, leaving the member at the start of the thread.
   useEffect(() => {
-    scrollPhoneToTop();
+    if (active !== "aichat") scrollPhoneToTop();
   }, [active, gate]);
 
   const goToMarket = (highlight) => {

@@ -147,11 +147,20 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
   // else (their own message, the live care-team card, a reloaded thread) follows
   // the bottom as before.
   const placedReply = useRef(null);
+  const openedAtEnd = useRef(false);
   // True while a care-team round is still playing, so a follow-scroll queued
   // during it can tell, when it finally runs, whether it is still wanted.
   const followingLive = useRef(false);
   useEffect(() => {
     followingLive.current = messages.some(m => m.animate && (m.pending || (m.team?.length && !m.revealed)));
+    // Opening the chat jumps straight to the newest message. Animating down a long
+    // thread is slow, and it is cut short if anything else scrolls meanwhile.
+    if (!openedAtEnd.current) {
+      if (historyLoading) return;
+      openedAtEnd.current = true;
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+      return;
+    }
     const i = messages.length - 1;
     const last = messages[i];
     const arrived = last?.role === "assistant" && (last.localId || last.fresh) && !last.pending
@@ -165,7 +174,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       return;
     }
     bottomRef.current?.scrollIntoView({ behavior: scrollBehavior() });
-  }, [messages, loading]);
+  }, [messages, loading, historyLoading]);
 
   // The care-team card grows as it reveals each step without the message list
   // changing, so it asks for the scroll itself. Throttled to one frame.
