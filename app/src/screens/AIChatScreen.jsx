@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Camera, ExternalLink, Mic, Send, Trash2, X } from "lucide-react";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText, firstCitations } from "../lib/api";
@@ -8,6 +8,8 @@ import { rankCitations, sourceCaveat } from "../lib/sourceQuality";
 import {
   appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
 } from "../lib/chatStore";
+import { runCareTeam } from "../lib/careTeam";
+import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
 
 // Live research now comes from the hosted web-search tool in the gateway, not from
 // a special model id: the old `gpt-4o-search-preview` chat models were deprecated by
@@ -26,7 +28,7 @@ const MAX_CONTEXT_IMAGES = 2;
 
 // The persona: a functional-medicine expert who does live research and gives
 // specific, useful, data-grounded guidance — not a hedging "ask your doctor" bot.
-const PERSONA = `You are Thumbprint Health — a knowledgeable functional-medicine health companion. You think like a functional-medicine practitioner: you look for root causes and connect labs, symptoms, lifestyle, medications, and genetics into a clear picture, then give specific, research-backed, actionable guidance tailored to THIS person's data.
+const PERSONA = `You are Thumbprint Health — the member's own personal Healthcare Advocate (they know you as "My Advocate"), a knowledgeable functional-medicine health companion who works for them and coordinates a team of specialist advocates on their behalf. Speak as their advocate: on their side, in the first person. You think like a functional-medicine practitioner: you look for root causes and connect labs, symptoms, lifestyle, medications, and genetics into a clear picture, then give specific, research-backed, actionable guidance tailored to THIS person's data.
 
 How you answer:
 - Be genuinely useful and direct. Give concrete recommendations — specific supplements and typical dosage ranges, lifestyle and nutrition changes, which labs to run next, and how to interpret a result — grounded in current research and the user's own data. Do NOT deflect with a vague "ask your doctor"; give the substance.
@@ -90,6 +92,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
   // Every input the app holds — intake answers, labs and their trends, all synced
   // wearable metrics, genetics, preventive-care schedule, records — is assembled in
   // one place so a newly collected field can never reach a screen but miss the chat.
+  const healthContext = buildHealthContext({ userProfile, healthData, healthHistory, testModeEnabled });
   const healthProfile = [
     PERSONA,
     // Before onboarding there is nothing to ground an answer in, so say so rather
@@ -97,7 +100,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     userProfile?.profile
       ? null
       : "The user hasn't completed their health profile yet. Ask a couple of concise questions to get their goals and current situation, and still answer what they ask usefully with current research.",
-    buildHealthContext({ userProfile, healthData, healthHistory, testModeEnabled }),
+    healthContext,
   ].filter(Boolean).join("\n\n");
 
   const startingPrompts = healthData ? [
@@ -134,6 +137,23 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // The care-team card grows as it reveals each step without the message list
+  // changing, so it asks for the scroll itself. Throttled to one frame.
+  const growFrame = useRef(0);
+  const followTeam = useCallback(() => {
+    if (growFrame.current) return;
+    growFrame.current = requestAnimationFrame(() => {
+      growFrame.current = 0;
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+  }, []);
+
+  // A live team card holds its reply back until the last step has played, so the
+  // answer lands after the safety review rather than on top of it.
+  const markRevealed = useCallback((localId) => {
+    setMessages(prev => prev.map(m => (m.localId === localId ? { ...m, revealed: true } : m)));
+  }, []);
 
   const clearThread = async () => {
     if (!user || !messages.length || clearing) return;
@@ -245,6 +265,47 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     // vision model; everything else uses the search model for live research + citations.
     const hasImage = apiMessages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === "image"));
 
+    // Text questions go through the care team: the Advocate consults specialist
+    // advocates, they compare notes, and a safety review runs before the reply.
+    // Photo questions skip it, since the vision model answers from the image itself.
+    if (!hasImage) {
+      const localId = `team-${Date.now()}`;
+      const live = [];
+      setMessages(prev => [...prev, { role: "assistant", localId, pending: true, team: live, animate: true, text: "" }]);
+      try {
+        const { reply, citations, events } = await runCareTeam({
+          question: userText,
+          apiMessages,
+          systemPrompt: healthProfile,
+          healthContext,
+          userProfile,
+          healthData,
+          chatModel: CHAT_MODEL,
+          cleanReply,
+          onEvent: (e) => {
+            live.push(e);
+            const snapshot = [...live];
+            setMessages(prev => prev.map(m => (m.localId === localId ? { ...m, team: snapshot } : m)));
+          },
+        });
+        const ranked = rankCitations(citations);
+        setMessages(prev => prev.map(m => (m.localId === localId
+          ? { ...m, pending: false, text: reply, citations: ranked, team: events }
+          : m)));
+        if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations: ranked, team: events });
+      } catch (err) {
+        console.error("Care team request failed", err);
+        const text = `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`;
+        setMessages(prev => prev.map(m => (m.localId === localId
+          ? { role: "assistant", text, error: true }
+          : m)));
+        if (user) await appendMessage(user.id, { role: "assistant", text, error: true });
+      }
+      setImage(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       const data = await callAI({
         system: healthProfile,
@@ -285,7 +346,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: DISPLAY, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em" }}>Talk to your team</div>
           <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
-            Functional-medicine guidance grounded in your data, with live research.
+            My Advocate and a team of specialists, working from your data.
           </div>
         </div>
         {/* Permanent by default, deleted only on request — the member owns the thread. */}
@@ -327,6 +388,19 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
                 maxWidth: 200, borderRadius: 12, marginBottom: 6, alignSelf: "flex-end"
               }} />
             )}
+            {m.role === "assistant" && m.team?.length > 0 && (
+              <div style={{ width: "100%", marginBottom: 8, display: "flex" }}>
+                <CareTeamCard
+                  events={m.team}
+                  animate={!!m.animate}
+                  onGrow={m.animate ? followTeam : undefined}
+                  onRevealed={m.animate ? () => markRevealed(m.localId) : undefined}
+                />
+              </div>
+            )}
+            {/* A live team reply waits for its card to finish playing. */}
+            {!(m.team?.length && m.animate && (m.pending || !m.revealed)) && (<>
+            {m.role === "assistant" && m.team?.length > 0 && <AdvocateByline />}
             <div style={{
               maxWidth: "84%", padding: "10px 14px", borderRadius: 16,
               borderBottomRightRadius: m.role === "user" ? 4 : 16,
@@ -372,10 +446,11 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
                 </div>
               </div>
             )}
+            </>)}
           </div>
         ))}
 
-        {loading && (
+        {loading && !messages.some(m => m.pending) && (
           <div style={{ display: "flex", alignItems: "flex-start" }}>
             <div style={{
               background: COLORS.bgCard, borderRadius: 16, borderBottomLeftRadius: 4,
@@ -471,7 +546,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         </button>
       </div>
 
-      <style>{`@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }`}</style>
+      <style>{`@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }${CARE_TEAM_CSS}`}</style>
     </div>
   );
 }

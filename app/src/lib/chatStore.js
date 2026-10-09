@@ -26,6 +26,7 @@ function fromRow(row) {
     text: row.text || "",
     citations: row.citations || [],
     imagePath: row.image_path || null,
+    team: row.team || null,
     error: row.is_error,
     createdAt: row.created_at,
   };
@@ -55,20 +56,30 @@ export async function loadMessages(userId, limit = 200) {
  * Write one message. Called as each turn happens rather than batched at the end,
  * so a member who navigates away mid-answer still finds their question stored.
  */
-export async function appendMessage(userId, { role, text = "", citations = [], imagePath = null, error = false }) {
+export async function appendMessage(userId, { role, text = "", citations = [], imagePath = null, error = false, team = null }) {
   if (!isConfigured || !userId) return null;
-  const { data, error: dbError } = await supabase
+  const row = {
+    user_id: userId,
+    role,
+    text,
+    citations,
+    image_path: imagePath,
+    is_error: error,
+  };
+  // The care team's event log, so a stored reply can replay who was consulted.
+  // Only sent when there is one, so plain messages never depend on the column.
+  if (team) row.team = team;
+  let { data, error: dbError } = await supabase
     .from("conversation_messages")
-    .insert({
-      user_id: userId,
-      role,
-      text,
-      citations,
-      image_path: imagePath,
-      is_error: error,
-    })
+    .insert(row)
     .select()
     .single();
+  // A database that hasn't had the `team` migration yet must not cost the member
+  // their reply: store it without the trace instead.
+  if (dbError && team && /team/i.test(dbError.message || "")) {
+    delete row.team;
+    ({ data, error: dbError } = await supabase.from("conversation_messages").insert(row).select().single());
+  }
   if (dbError) {
     // A failed write must not swallow the reply the member is already reading, so
     // this is reported and the in-memory message stands.
