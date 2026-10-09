@@ -4,7 +4,7 @@ import {
   Moon, Pill, Salad, ShieldAlert, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound, Users,
 } from "lucide-react";
 import { COLORS } from "../theme/tokens";
-import { member, readTeam, ADVOCATE, SAFETY } from "../lib/careTeam";
+import { member, readTeam, photoUrl, ADVOCATE, SAFETY } from "../lib/careTeam";
 
 const ICONS = {
   Brain, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse, Moon, Pill, Salad,
@@ -20,6 +20,12 @@ export function TeamAvatar({ id, size = 28, state, ring = true }) {
   const m = member(id);
   const Icon = ICONS[m.icon] || Stethoscope;
   const working = state === "working";
+  const src = photoUrl(id, Math.round(size * 3));
+  const [broken, setBroken] = useState(false);
+  const photo = src && !broken;
+  // The specialty icon rides on the photo as a small badge, so the colour coding
+  // still reads at a glance. Too small to be legible on the tiniest avatars.
+  const badge = photo && size >= 26 ? Math.round(size * 0.42) : 0;
   return (
     <span style={{
       position: "relative", width: size, height: size, borderRadius: "50%", flexShrink: 0,
@@ -29,7 +35,24 @@ export function TeamAvatar({ id, size = 28, state, ring = true }) {
       "--ct-c": `${m.color}66`,
       transition: "width .35s, height .35s",
     }}>
-      <Icon size={Math.round(size * 0.52)} color="#fff" strokeWidth={2.2} />
+      {photo ? (
+        <img
+          src={src} alt={m.label} onError={() => setBroken(true)} draggable={false}
+          style={{
+            width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", display: "block",
+            border: `2px solid ${m.color}`, boxSizing: "border-box", background: COLORS.bgCardAlt,
+          }}
+        />
+      ) : (
+        <Icon size={Math.round(size * 0.52)} color="#fff" strokeWidth={2.2} />
+      )}
+      {badge > 0 && (
+        <span style={{
+          position: "absolute", left: -3, bottom: -3, width: badge, height: badge, borderRadius: "50%",
+          background: m.color, border: `1.5px solid ${COLORS.bgCard}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}><Icon size={Math.round(badge * 0.6)} color="#fff" strokeWidth={2.4} /></span>
+      )}
       {state === "done" && (
         <span style={{
           position: "absolute", right: -2, bottom: -2, width: 12, height: 12, borderRadius: "50%",

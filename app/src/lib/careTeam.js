@@ -100,6 +100,34 @@ const TAGLINES = {
 };
 for (const m of [ADVOCATE, SAFETY, ...SPECIALISTS]) m.tagline = TAGLINES[m.id] || "";
 
+// Portraits for the advocates: free-licence Unsplash photos, served from
+// Unsplash's CDN with a face crop. The Safety Review keeps its shield on purpose:
+// it is a rules check in code, and a face would suggest a person reviewed the
+// answer.
+const PHOTOS = {
+  advocate: "1594824476967-48c8b964273f",
+  bloodwork: "1736289173074-df6009da27c9",
+  cardiology: "1612349317150-e413f6a5b16d",
+  endocrinology: "1659353888906-adb3e0041693",
+  gynecology: "1623854767648-e7bb8009f0db",
+  urology: "1637059824899-a441006a6875",
+  audiology: "1622253692010-333f2da6031d",
+  pharmacy: "1770134223774-13b735e29201",
+  nutrition: "1643297654416-05795d62e39c",
+  sleep: "1645066928295-2506defde470",
+  genetics: "1712215544003-af10130f8eb3",
+  gastro: "1622902046580-2b47f47f5471",
+  neurology: "1678695972687-033fa0bdbac9",
+  dermatology: "1758691462651-611d730c5272",
+  ophthalmology: "1758691463582-11aea602cd4a",
+};
+export function photoUrl(id, px) {
+  const photo = PHOTOS[id];
+  return photo
+    ? `https://images.unsplash.com/photo-${photo}?w=${px}&h=${px}&fit=facearea&facepad=3&q=70&auto=format`
+    : null;
+}
+
 const BY_ID = Object.fromEntries([ADVOCATE, SAFETY, ...SPECIALISTS].map((m) => [m.id, m]));
 export const member = (id) => BY_ID[id] || { id, label: id, short: id, icon: "Stethoscope", color: "#5B6470" };
 
