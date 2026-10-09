@@ -138,7 +138,24 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // A reply that just arrived is scrolled to its top, so the member starts reading
+  // at the first line instead of landing at the end of a long answer. Everything
+  // else (their own message, the live care-team card, a reloaded thread) follows
+  // the bottom as before.
+  const placedReply = useRef(null);
   useEffect(() => {
+    const i = messages.length - 1;
+    const last = messages[i];
+    const arrived = last?.role === "assistant" && (last.localId || last.fresh) && !last.pending
+      && !(last.team?.length && last.animate && !last.revealed);
+    if (arrived) {
+      const key = last.localId || `reply-${i}`;
+      if (placedReply.current !== key) {
+        placedReply.current = key;
+        document.querySelector(`[data-msg="${i}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
@@ -340,7 +357,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       // Ranked before it is rendered or stored, so the member sees the best source
       // first and a stored reply keeps the same ordering when the thread reloads.
       const citations = rankCitations(firstCitations(data));
-      setMessages(prev => [...prev, { role: "assistant", text: reply, citations }]);
+      setMessages(prev => [...prev, { role: "assistant", text: reply, citations, fresh: true }]);
       if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations });
     } catch (err) {
       // Show what actually failed. A bare "something went wrong" is how a
@@ -400,7 +417,8 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         )}
 
         {messages.map((m, i) => (
-          <div key={i} style={{
+          <div key={i} data-msg={i} style={{
+            scrollMarginTop: 12,
             display: "flex", flexDirection: "column",
             alignItems: m.role === "user" ? "flex-end" : "flex-start"
           }}>
