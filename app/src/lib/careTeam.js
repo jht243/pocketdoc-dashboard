@@ -60,7 +60,7 @@ export const SPECIALISTS = [
   { id: "audiology", label: "Audiology", short: "Hearing", icon: "Ear", color: "#0891B2",
     lens: "hearing and ear health: hearing loss, tinnitus, noise exposure, ototoxic medications, hearing screening schedule" },
   { id: "pharmacy", label: "Pharmacist", short: "Pharmacist", icon: "Pill", color: "#7C3AED",
-    lens: "medications and supplements: interactions, dosing ranges, timing, nutrient depletions caused by medications, what to confirm with the prescriber" },
+    lens: "medications and supplements: interactions, timing, nutrient depletions caused by medications, what each supplement is for, and what to confirm with the prescriber (never a dose)" },
   { id: "nutrition", label: "Nutrition", short: "Nutrition", icon: "Salad", color: "#16A34A",
     lens: "diet and micronutrients: vitamin D, B12, iron/ferritin, magnesium, omega-3, protein intake, food patterns that move the markers in question" },
   { id: "sleep", label: "Sleep & Recovery", short: "Sleep", icon: "Moon", color: "#4F46E5",
@@ -202,7 +202,7 @@ The Healthcare Advocate is consulting you about the member's question. Answer th
 
 Rules:
 - Ground everything in the member's record below. Quote specific values with their dates. If the record has nothing relevant to your lens, say so plainly and name what data would help.
-- Describe patterns and possibilities, never a diagnosis. No prescriptions.
+- Describe patterns and possibilities, never a diagnosis. Never give a supplement or medication dose, and never say to start, stop or change a medication.
 - Be brief: 2 to 3 sentences, max 70 words.
 - The member can read this. Refer to them as "our member" (e.g. "our member's TSH"), never "he", "she", "this member" or "the patient".
 
