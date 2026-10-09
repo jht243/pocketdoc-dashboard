@@ -195,7 +195,7 @@ function App() {
     // off the same schedule the rest of the app is reading.
     const stored = await loadFullProfile(user.id);
     setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
-  }, [user]);
+  }, [user?.id]);
 
   /**
    * Re-pull the profile after a medication edit.
@@ -208,7 +208,7 @@ function App() {
     if (!user) return;
     const stored = await loadFullProfile(user.id);
     if (stored) setUserProfile((prev) => ({ ...(prev || {}), ...stored }));
-  }, [user]);
+  }, [user?.id]);
 
   // Re-pull check-ins after one is saved, so Home's streak and today's reply update
   // without a reload. Merges rather than replaces so labs and records survive.
@@ -216,7 +216,7 @@ function App() {
     if (!user) return;
     const checkIns = await loadCheckIns(user.id);
     setLiveHealthData((prev) => ({ ...(prev || {}), checkIns }));
-  }, [user]);
+  }, [user?.id]);
 
   // Re-pull the wearable slice after a connect/sync/disconnect, without refetching
   // the whole profile. Merges rather than replaces so labs and records survive.
@@ -237,7 +237,7 @@ function App() {
         ...(wearable ? {} : { wearable: undefined, sleepScore: undefined, sleepNote: undefined, zone2Minutes: undefined }),
       },
     }));
-  }, [user]);
+  }, [user?.id]);
 
   // Write today's combined score to its own history table whenever the snapshot
   // changes. Test mode never writes: a demo score in a member's real score history
@@ -268,10 +268,16 @@ function App() {
     // userProfile included: a medication or screening change alters what the cards
     // should say, not just new device/lab data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, healthData, userProfile, chatVersion]);
+  // user?.id, not user: a token refresh or tab refocus hands out a new user object,
+  // and each one queued another full insight generation ahead of the chat's calls.
+  }, [user?.id, healthData, userProfile, chatVersion]);
 
   // On sign-in, pull the stored profile. Completion — not merely having a dob — is
   // what decides home-vs-onboarding, now that we save partway through.
+  //
+  // Keyed on user?.id throughout this file, not the user object: Supabase hands out a
+  // new object on every token refresh, which re-ran this load — the splash screen
+  // flashed and the member was dropped back on Home mid-conversation.
   useEffect(() => {
     let cancelled = false;
     if (!user) {
@@ -325,12 +331,12 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user?.id]);
 
   // Record consent once, on the first authenticated render after sign-up.
   useEffect(() => {
     if (user) acceptConsent(user.id, CONSENT_VERSION);
-  }, [user]);
+  }, [user?.id]);
 
   // Any screen change starts at the top — the phone frame is the scroll container,
   // so without this you land at the previous screen's offset.

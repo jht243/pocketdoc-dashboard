@@ -132,7 +132,11 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       }
     })();
     return () => { cancelled = true; };
-  }, [user]);
+    // Keyed on the id, not the user object: Supabase hands out a new object on every
+    // token refresh and tab refocus, and reloading history then wiped the live
+    // care-team turn mid-answer, leaving the member staring at dots.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -256,8 +260,9 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     if (user) await appendMessage(user.id, { role: "user", text: userText, imagePath });
     // What the member just said is data, not only conversation — a newly described
     // symptom should reach the insight cards on this turn rather than at the next
-    // lab import. Fired after the write so the reload sees the message.
-    if (user) onMemberMessage?.();
+    // lab import. Fired once the reply is in: AI calls run one at a time, and the
+    // insight refresh queued ahead of the care team held the whole round up.
+    const refreshInsights = () => { if (user) onMemberMessage?.(); };
 
     const apiMessages = await buildApiMessages(thread);
 
@@ -271,7 +276,14 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     if (!hasImage) {
       const localId = `team-${Date.now()}`;
       const live = [];
-      setMessages(prev => [...prev, { role: "assistant", localId, pending: true, team: live, animate: true, text: "" }]);
+      // Upsert rather than map: if anything replaces the message list mid-round,
+      // the live turn is put back instead of silently going missing.
+      const patchLive = (patch) => setMessages(prev => (
+        prev.some(m => m.localId === localId)
+          ? prev.map(m => (m.localId === localId ? { ...m, ...patch } : m))
+          : [...prev, { role: "assistant", localId, pending: true, animate: true, text: "", team: [], ...patch }]
+      ));
+      patchLive({});
       try {
         const { reply, citations, events } = await runCareTeam({
           question: userText,
@@ -284,25 +296,21 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
           cleanReply,
           onEvent: (e) => {
             live.push(e);
-            const snapshot = [...live];
-            setMessages(prev => prev.map(m => (m.localId === localId ? { ...m, team: snapshot } : m)));
+            patchLive({ team: [...live] });
           },
         });
         const ranked = rankCitations(citations);
-        setMessages(prev => prev.map(m => (m.localId === localId
-          ? { ...m, pending: false, text: reply, citations: ranked, team: events }
-          : m)));
+        patchLive({ pending: false, text: reply, citations: ranked, team: events });
         if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations: ranked, team: events });
       } catch (err) {
         console.error("Care team request failed", err);
         const text = `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`;
-        setMessages(prev => prev.map(m => (m.localId === localId
-          ? { role: "assistant", text, error: true }
-          : m)));
+        patchLive({ pending: false, animate: false, team: [], text, error: true });
         if (user) await appendMessage(user.id, { role: "assistant", text, error: true });
       }
       setImage(null);
       setLoading(false);
+      refreshInsights();
       return;
     }
 
@@ -334,6 +342,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     }
     setImage(null);
     setLoading(false);
+    refreshInsights();
   };
 
   return (
