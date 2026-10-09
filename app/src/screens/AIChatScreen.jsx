@@ -10,6 +10,7 @@ import {
 } from "../lib/chatStore";
 import { runCareTeam } from "../lib/careTeam";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
+import { RichReply } from "../components/RichReply";
 
 // Live research now comes from the hosted web-search tool in the gateway, not from
 // a special model id: the old `gpt-4o-search-preview` chat models were deprecated by
@@ -41,22 +42,21 @@ How you answer:
 - The fallback rule: if no level-1 or level-2 source exists for the question, say so in the answer itself — "there's no guideline-level evidence on this; what's available is X" — and give your best read of the weaker material. Never dress a blog, a supplement retailer, or an SEO content site up as authority, and never let a thin evidence base go unmentioned.
 - Always ground answers in the user's actual data below (labs and their trends, medications, conditions, genetics, goals). Generic advice that ignores their profile is a failure.
 - Be concise and structured: lead with the answer, then the reasoning, then next steps.
+- Formatting: the reply is shown on a phone. Use short "## " headings, **bold** for key values, and "- " bullet lists. Use a markdown table only for genuinely tabular data (e.g. tests, how often, why), with at most 4 columns and short cells. Never wrap the reply in a code block.
 
 Safety — keep it light and never let it stop you from being useful:
 - This is educational information personalized to the user's data, not a formal diagnosis or a prescription.
 - For anything urgent or severe (chest pain, stroke signs, severe symptoms, suicidal thoughts, etc.), tell them to seek in-person or emergency care.
 - Before starting/stopping a prescription or making a major dose change, tell them to confirm with their prescriber — but still give them the substantive information and the specific questions to bring.`;
 
-// The web-search model writes markdown — inline citations like "([domain](url))",
-// **bold**, ## headings, --- rules. Bubbles render as plain pre-wrapped text and we
-// show sources as chips below the message, so strip the markup for a clean reply.
+// The web-search model writes markdown. Headings, bold, lists and tables are kept
+// for RichReply to render; what is stripped is the inline citation noise
+// ("([domain](url))", [1] markers), because sources are shown as chips below the
+// message.
 function cleanReply(text) {
   return String(text || "")
     .replace(/\s*\(\[[^\]]+\]\([^)]+\)\)/g, "")   // drop "([label](url))" citation groups
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")        // remaining [label](url) -> label
-    .replace(/\*\*([^*]+)\*\*/g, "$1")               // **bold** -> bold
-    .replace(/(^|\n)\s*#{1,6}\s*/g, "$1")            // ## heading -> heading
-    .replace(/(^|\n)\s*(?:---|___|\*\*\*)\s*(?=\n|$)/g, "$1")  // horizontal rules
     .replace(/\s*\[\d+\](?!\()/g, "")                // orphan [1] footnote markers
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -423,7 +423,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             {!(m.team?.length && m.animate && (m.pending || !m.revealed)) && (<>
             {m.role === "assistant" && m.team?.length > 0 && <AdvocateByline />}
             <div style={{
-              maxWidth: "84%", padding: "10px 14px", borderRadius: 16,
+              maxWidth: m.role === "assistant" ? "92%" : "84%", padding: "10px 14px", borderRadius: 16,
               borderBottomRightRadius: m.role === "user" ? 4 : 16,
               borderBottomLeftRadius: m.role === "assistant" ? 4 : 16,
               background: m.role === "user" ? COLORS.teal : COLORS.bgCard,
@@ -431,7 +431,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
               fontSize: 13, lineHeight: 1.6,
             }}>
               {m.role === "assistant"
-                ? <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
+                ? (m.error ? <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div> : <RichReply text={m.text} />)
                 : m.text}
             </div>
             {/* Web-research citations */}

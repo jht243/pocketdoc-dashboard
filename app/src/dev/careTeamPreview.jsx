@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
+import { RichReply } from "../components/RichReply";
 import { COLORS } from "../theme/tokens";
 import "../styles/global.css";
 
@@ -35,16 +36,24 @@ const SCRIPT = [
   [0, { type: "answer", seconds: 21 }],
 ];
 
-const REPLY = `Your fatigue most likely has more than one contributor, and your thyroid is the lead.
+const REPLY = `## Short answer
+Your fatigue most likely has more than one contributor, and **your thyroid is the lead**.
 
-Endocrinology flagged that your TSH has risen from 2.1 to 3.8 over 18 months while free T4 sits low-normal. With Hashimoto's, that pattern is consistent with your thyroid gradually needing more support.
+## What the team found
+- **Endocrinology:** TSH rose from 2.1 to 3.8 over 18 months while free T4 sits low-normal.
+- **Blood Work:** vitamin D (31 ng/mL) and ferritin (48 ng/mL) are both *below functional targets*.
+  - Low iron can make thyroid conversion worse.
 
-Blood Work added that vitamin D (31 ng/mL) and ferritin (48 ng/mL) are both below functional targets, and the team noted low iron can make thyroid conversion worse.
+## What to test, and how often
+| Test | How Often | Why | Note |
+|------|-----------|-----|------|
+| ApoB, LDL, HDL, TG | 3–6 mo | CVD risk, statin effect | ApoB is critical; LDL-C can lag behind |
+| hs-CRP | 3–6 mo | Chronic inflammation | Over 1.0 mg/L is noteworthy |
+| TSH, Free T4, Free T3, TPO ab | 6 mo | Thyroid autoimmunity | Symptoms can precede abnormal TSH |
 
-Next steps
-1. Ask for a full thyroid panel: TSH, free T4, free T3 and TPO antibodies.
-2. Retest vitamin D and ferritin at the same draw.
-3. Ask your prescriber whether CoQ10 makes sense alongside rosuvastatin.`;
+---
+1. Ask for a full thyroid panel.
+2. Retest vitamin D and ferritin at the same draw.`;
 
 function Preview() {
   const [run, setRun] = useState(0);
@@ -84,7 +93,7 @@ function Preview() {
           {revealed && (
             <>
               <AdvocateByline />
-              <div style={{ maxWidth: "84%", background: COLORS.bgCard, padding: "10px 14px", borderRadius: 16, borderBottomLeftRadius: 4, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: COLORS.textPrimary }}>{REPLY}</div>
+              <div style={{ maxWidth: "92%", background: COLORS.bgCard, padding: "10px 14px", borderRadius: 16, borderBottomLeftRadius: 4, fontSize: 13, lineHeight: 1.6, color: COLORS.textPrimary }}><RichReply text={REPLY} /></div>
             </>
           )}
         </div>
