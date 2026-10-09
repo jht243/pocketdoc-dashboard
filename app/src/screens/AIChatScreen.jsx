@@ -62,6 +62,10 @@ function cleanReply(text) {
     .trim();
 }
 
+// Browsers do not run smooth-scroll animations in a background tab, so a smooth
+// scroll requested there never moves. Jump instead when nobody is watching.
+const scrollBehavior = () => (document.visibilityState === "visible" ? "smooth" : "auto");
+
 // ---- AI CHAT SCREEN ----
 // Functional-medicine chat. The user's full health profile is injected as context and
 // the web-search model does live research (with citations) so answers are current and
@@ -143,7 +147,11 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
   // else (their own message, the live care-team card, a reloaded thread) follows
   // the bottom as before.
   const placedReply = useRef(null);
+  // True while a care-team round is still playing, so a follow-scroll queued
+  // during it can tell, when it finally runs, whether it is still wanted.
+  const followingLive = useRef(false);
   useEffect(() => {
+    followingLive.current = messages.some(m => m.animate && (m.pending || (m.team?.length && !m.revealed)));
     const i = messages.length - 1;
     const last = messages[i];
     const arrived = last?.role === "assistant" && (last.localId || last.fresh) && !last.pending
@@ -152,21 +160,25 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
       const key = last.localId || `reply-${i}`;
       if (placedReply.current !== key) {
         placedReply.current = key;
-        document.querySelector(`[data-msg="${i}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.querySelector(`[data-msg="${i}"]`)?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       }
       return;
     }
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: scrollBehavior() });
   }, [messages, loading]);
 
   // The care-team card grows as it reveals each step without the message list
   // changing, so it asks for the scroll itself. Throttled to one frame.
   const growFrame = useRef(0);
+  // A frame requested while the tab is in the background only runs when it next
+  // paints, which can be after the reply has landed, so it rechecks that the round
+  // is still playing rather than dragging the member past the answer's first line.
   const followTeam = useCallback(() => {
     if (growFrame.current) return;
     growFrame.current = requestAnimationFrame(() => {
       growFrame.current = 0;
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      if (!followingLive.current) return;
+      bottomRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "end" });
     });
   }, []);
 
