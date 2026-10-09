@@ -17,7 +17,7 @@
  * to read.
  */
 import { callAI, firstText, firstCitations } from "./api";
-import { violatesForbiddenOutput, hasFunctionalConcern, detectUrgentPatterns } from "./clinicalRules";
+import { violatesForbiddenOutput, hasFunctionalConcern, detectUrgentPatterns, FORBIDDEN_OUTPUT_RULES } from "./clinicalRules";
 
 // Routing, consults and the huddle are short, structured calls, so a fast model
 // keeps the whole round inside the time a member will watch it. The Advocate's
@@ -248,6 +248,33 @@ Reply with JSON only, 2 to 4 notes in a natural order:
   return { notes, consensus: clip(out.consensus, 180) };
 }
 
+/**
+ * Last line of the safety review: drop every sentence that still breaks a
+ * clinical rule after the rewrites. Works line by line so headings, bullets and
+ * table rows keep their shape; a bullet or row left with nothing is removed.
+ */
+function scrubForbidden(text, breaks) {
+  const out = [];
+  for (const line of String(text).split("\n")) {
+    if (!breaks(line)) { out.push(line); continue; }
+    const lead = /^(\s*(?:[-*\u2022]|\d+[.)])\s+)/.exec(line)?.[1] || "";
+    // A sentence that opens with a label ("Vitamin K2 (MK-7): ...") keeps the label,
+    // so the item stays named and the member is told who sets the amount.
+    let kept = line.slice(lead.length)
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => {
+        if (!breaks(sentence)) return sentence;
+        const label = /^((?:\*\*)?[^:.]{1,60}:(?:\*\*)?)\s/.exec(sentence);
+        return label ? `${label[1]} your prescriber sets the amount.` : "";
+      })
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (kept && !breaks(kept) && !/^\|/.test(line)) out.push(lead + kept);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /* ---------------- orchestration ---------------- */
 
 /**
@@ -333,33 +360,49 @@ export async function runCareTeam({
   const citations = firstCitations(data);
   emit({ type: "draft_done", sources: citations.length });
 
-  // 5. Safety review. Deterministic, from the clinical rules: forbidden output is
-  // caught in code, and a flagged draft is sent back once for a rewrite.
+  // 5. Safety review. Deterministic, from the clinical rules. The spec says the
+  // rules are enforced at the output, not just asked for, so a flagged draft gets
+  // up to two rewrites, and anything that still breaks a rule is cut in code
+  // before the member sees it.
   emit({ type: "safety_start" });
   const urgent = detectUrgentPatterns({ healthData, messages: [{ role: "user", text: question }] })
     .filter((u) => u.kind !== "recheck");
-  let problem = violatesForbiddenOutput(reply, { hasFunctionalConcern: hasFunctionalConcern(healthData) });
+  const functional = hasFunctionalConcern(healthData);
+  const breaks = (text) => violatesForbiddenOutput(text, { hasFunctionalConcern: functional });
+  let problem = breaks(reply);
   let revised = false;
-  if (problem) {
-    emit({ type: "safety_flag", problem });
+  let scrubbed = false;
+  if (problem) emit({ type: "safety_flag", problem });
+  for (let attempt = 0; problem && attempt < 2; attempt++) {
     try {
       const fix = await callAI({
-        system: "You edit health guidance so it obeys the app's clinical rules. Keep the substance, structure and length. Change only what breaks the rule. Return the full corrected reply, nothing else.",
+        system: `You edit health guidance so it obeys the app's clinical rules. Keep the substance, structure and length, and change only what breaks a rule. Return the full corrected reply, nothing else.
+
+${FORBIDDEN_OUTPUT_RULES}
+
+For doses specifically: remove EVERY amount of a supplement or medication, including ranges and "commonly used" or "typical" doses (any number with IU, mcg, mg, g or units). Say what the supplement is for and that the member's prescriber sets the amount. Lab values with their units (e.g. "28 ng/mL") are fine and stay.`,
         messages: [{ role: "user", content: `Rule broken: ${problem}\n\nReply to correct:\n${reply}` }],
         model: TEAM_MODEL,
-        maxTokens: 1200,
+        maxTokens: 1600,
       });
       const fixed = cleanReply(firstText(fix));
       if (fixed) { reply = fixed; revised = true; }
-      problem = violatesForbiddenOutput(reply, { hasFunctionalConcern: hasFunctionalConcern(healthData) });
     } catch (err) {
       console.error("care team revise", err);
+      break;
     }
+    problem = breaks(reply);
+  }
+  if (problem) {
+    const cut = scrubForbidden(reply, breaks);
+    if (cut !== reply) { reply = cut; revised = true; scrubbed = true; }
+    problem = breaks(reply);
   }
   emit({
     type: "safety_done",
     clean: !problem,
     revised,
+    scrubbed,
     // Crisis language is surfaced as the action, not as a "finding" in the record.
     urgent: urgent.map((u) => (u.id === "crisis" ? "If you're thinking about harming yourself, call or text 988 now" : u.label)),
   });
