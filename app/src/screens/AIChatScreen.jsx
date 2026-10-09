@@ -486,7 +486,9 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
+        {/* The input bar is sticky over the bottom of this list, so scrolling the
+            marker flush to the edge left the newest line hidden behind it. */}
+        <div ref={bottomRef} style={{ scrollMarginBottom: 96 }} />
       </div>
 
       {/* Appointment detection nudge */}

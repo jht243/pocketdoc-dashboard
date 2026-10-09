@@ -171,7 +171,7 @@ ${list}
 Pick the 2 or 3 specialists whose lens matters most for THIS question and THIS member's data (pick 1 only for a trivial question). For each, write the specific thing you want them to look at, phrased as a direct ask that names the member's actual markers, values, medications or symptoms where relevant (max 22 words). You are the member's own advocate speaking to a colleague on their behalf, so refer to them as "my member" (e.g. "Is my member's TSH trend…"), never "he", "she" or "the patient".
 
 Reply with JSON only:
-{"reason":"one sentence, max 20 words, on why this team","consult":[{"id":"<specialist id>","ask":"<the ask>"}]}
+{"reason":"one sentence, max 20 words, on why this team, written TO the member in the second person (\"your fatigue touches thyroid and iron\"), never \"this member\" or \"the patient\"","consult":[{"id":"<specialist id>","ask":"<the ask>"}]}
 
 The member's health record:
 ${healthContext}`;
@@ -204,6 +204,7 @@ Rules:
 - Ground everything in the member's record below. Quote specific values with their dates. If the record has nothing relevant to your lens, say so plainly and name what data would help.
 - Describe patterns and possibilities, never a diagnosis. No prescriptions.
 - Be brief: 2 to 3 sentences, max 70 words.
+- The member can read this. Refer to them as "our member" (e.g. "our member's TSH"), never "he", "she", "this member" or "the patient".
 
 Reply with JSON only:
 {"headline":"your key point in max 9 words","finding":"your 2-3 sentence answer to the Advocate","flag":"ok|watch|urgent"}
@@ -228,7 +229,7 @@ ${healthContext}`;
 
 async function huddle({ question, findings }) {
   const team = findings.map((f) => `- ${f.id} (${member(f.id).label}): ${f.finding}`).join("\n");
-  const system = `You are writing the short internal discussion between specialist advocates on a member's care team after each has reported. They react to EACH OTHER's findings: connect them, flag a conflict, or add a caveat the others missed. Only use what is in their findings; add no new data.
+  const system = `You are writing the short internal discussion between specialist advocates on a member's care team after each has reported. They react to EACH OTHER's findings: connect them, flag a conflict, or add a caveat the others missed. Only use what is in their findings; add no new data. The member can read this, so refer to them as "our member", never "he", "she", "this member" or "the patient".
 
 Reply with JSON only, 2 to 4 notes in a natural order:
 {"notes":[{"from":"<specialist id>","to":"<specialist id>","note":"max 26 words, first person, addressed to the other specialist"}],"consensus":"one sentence, max 22 words, on what the team agrees matters most"}`;
