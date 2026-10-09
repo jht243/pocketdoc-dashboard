@@ -248,6 +248,23 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     }
     setLoading(true);
 
+    // Text questions go through the care team: the Advocate consults specialist
+    // advocates, they compare notes, and a safety review runs before the reply.
+    // Decided by THIS message only. Checking the whole window meant one photo sent
+    // weeks ago routed every later question down the photo path, so the team never ran.
+    const teamTurn = !image;
+    const localId = `team-${Date.now()}`;
+    const live = [];
+    // Upsert rather than map: if anything replaces the message list mid-round,
+    // the live turn is put back instead of silently going missing.
+    const patchLive = (patch) => setMessages(prev => (
+      prev.some(m => m.localId === localId)
+        ? prev.map(m => (m.localId === localId ? { ...m, ...patch } : m))
+        : [...prev, { role: "assistant", localId, pending: true, animate: true, text: "", team: [], ...patch }]
+    ));
+    // Up before the database write, so the card is there the moment they hit send.
+    if (teamTurn) patchLive({ team: [{ type: "route_start", t: 0 }] });
+
     // Store the photo before the row that points at it, so a message can never
     // reference an object whose upload failed.
     let imagePath = null;
@@ -270,24 +287,19 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     // vision model; everything else uses the search model for live research + citations.
     const hasImage = apiMessages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === "image"));
 
-    // Text questions go through the care team: the Advocate consults specialist
-    // advocates, they compare notes, and a safety review runs before the reply.
-    // Photo questions skip it, since the vision model answers from the image itself.
-    if (!hasImage) {
-      const localId = `team-${Date.now()}`;
-      const live = [];
-      // Upsert rather than map: if anything replaces the message list mid-round,
-      // the live turn is put back instead of silently going missing.
-      const patchLive = (patch) => setMessages(prev => (
-        prev.some(m => m.localId === localId)
-          ? prev.map(m => (m.localId === localId ? { ...m, ...patch } : m))
-          : [...prev, { role: "assistant", localId, pending: true, animate: true, text: "", team: [], ...patch }]
-      ));
-      patchLive({});
+    // Photo questions skip the team, since the vision model answers from the image.
+    if (teamTurn) {
+      // An older photo still in the window is dropped from the team's copy of the
+      // thread: the question being asked is text, and the research model reads text.
+      const textThread = apiMessages
+        .map(m => (Array.isArray(m.content)
+          ? { ...m, content: m.content.filter(c => c.type === "text").map(c => c.text).join("\n") }
+          : m))
+        .filter(m => m.content);
       try {
         const { reply, citations, events } = await runCareTeam({
           question: userText,
-          apiMessages,
+          apiMessages: textThread,
           systemPrompt: healthProfile,
           healthContext,
           userProfile,
