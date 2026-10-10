@@ -166,7 +166,7 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
       </div>
       <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Morning check-in</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
-        {questions.length} quick taps, about 20 seconds. Each morning builds the picture your bloodwork can't show on its own: sleep, energy and stress between draws.
+        {questions.filter((x) => x.type !== "note").length} quick taps, about 20 seconds. Each morning builds the picture your bloodwork can't show on its own: sleep, energy and stress between draws.
       </div>
       <div style={{ marginBottom: 20 }}>{streakBadge(streak)}</div>
       {windowNow === "open" ? (
