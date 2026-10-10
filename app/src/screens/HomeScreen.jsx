@@ -125,7 +125,7 @@ function HomeScreen({
           }}>
             <Bell size={17} color={COLORS.textSecondary} strokeWidth={1.9} />
           </button>
-          <button onClick={() => setActive("profile")} aria-label="Your profile" style={{
+          <button onClick={() => setActive("account")} aria-label="Your account" style={{
             width: 36, height: 36, borderRadius: "50%", cursor: "pointer", padding: 0,
             background: COLORS.brand, border: "none",
             display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13,

@@ -152,6 +152,16 @@ function ProfileScreen({
         </div>
       )}
 
+      <button onClick={() => setActive("account")} style={{
+        width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
+        borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", cursor: "pointer", marginBottom: 18, fontSize: 14,
+        color: COLORS.textPrimary, fontWeight: 600,
+      }}>
+        Account & login
+        <ChevronRight size={16} color={COLORS.textMuted} />
+      </button>
+
       <SectionLabel>Health history</SectionLabel>
       <button onClick={() => setActive("healthhistory")} style={{
         width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.accent}50`,

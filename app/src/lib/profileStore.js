@@ -836,3 +836,85 @@ export async function markScreeningDone(userId, key, completedAt) {
   if (error) console.error("markScreeningDone", error);
   return { error };
 }
+
+/* ---------------- account ---------------- */
+
+const ACCOUNT_COLUMNS = "first_name, dob, sex, phone, address_line1, address_line2, city, state, postal_code";
+
+/**
+ * The member's own account details, read straight from their stored row. The
+ * Account screen always shows these, even in Test mode: it is about the real
+ * person, never the demo snapshot.
+ */
+export async function loadAccount(userId) {
+  if (!isConfigured || !userId) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(ACCOUNT_COLUMNS)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("loadAccount", error);
+    return null;
+  }
+  return {
+    name: data?.first_name || "",
+    dob: data?.dob || "",
+    sex: data?.sex || "",
+    phone: data?.phone || "",
+    addressLine1: data?.address_line1 || "",
+    addressLine2: data?.address_line2 || "",
+    city: data?.city || "",
+    state: data?.state || "",
+    postalCode: data?.postal_code || "",
+  };
+}
+
+/**
+ * Save account details. An UPDATE of just these columns, so it can never touch
+ * onboarding or questionnaire fields. A member with no profile row yet gets one.
+ */
+export async function saveAccount(userId, a) {
+  if (!isConfigured || !userId) return { error: new Error("not configured") };
+  const clean = (v) => (String(v ?? "").trim() || null);
+  const row = {
+    first_name: clean(a.name),
+    dob: clean(a.dob),
+    sex: clean(a.sex),
+    phone: clean(a.phone),
+    address_line1: clean(a.addressLine1),
+    address_line2: clean(a.addressLine2),
+    city: clean(a.city),
+    state: clean(a.state),
+    postal_code: clean(a.postalCode),
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase.from("profiles").update(row).eq("user_id", userId).select("user_id");
+  if (error) {
+    console.error("saveAccount", error);
+    return { error };
+  }
+  if (!data?.length) {
+    const { error: insertError } = await supabase.from("profiles").insert({ user_id: userId, ...row });
+    if (insertError) console.error("saveAccount/insert", insertError);
+    return { error: insertError };
+  }
+  return { error: null };
+}
+
+/**
+ * Permanently delete the member's account: their files, every stored row, and
+ * the login. Done server-side (ghai-delete-account) because deleting an auth
+ * user needs the service role.
+ */
+export async function deleteAccount() {
+  if (!isConfigured) return { error: new Error("not configured") };
+  const { data, error } = await supabase.functions.invoke("ghai-delete-account", { body: { confirm: "DELETE" } });
+  if (error) {
+    let message = error.message;
+    try { message = (await error.context?.json?.())?.error || message; } catch { /* keep generic */ }
+    return { error: new Error(message) };
+  }
+  if (data?.error) return { error: new Error(data.error) };
+  return { error: null };
+}
