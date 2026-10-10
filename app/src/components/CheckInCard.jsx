@@ -18,7 +18,7 @@ function CheckInCard({ checkIns = [], testModeEnabled, setActive }) {
     : todays?.skipped
       ? "Skipped today. Your streak is safe."
       : win === "open"
-        ? `Under two minutes. Open until ${WINDOW_CLOSE_HOUR} AM.`
+        ? `About 20 seconds. Open until ${WINDOW_CLOSE_HOUR} AM.`
         : win === "before"
           ? `Opens at ${WINDOW_OPEN_HOUR} AM.`
           : `Closed at ${WINDOW_CLOSE_HOUR} AM. Next one opens tomorrow at ${WINDOW_OPEN_HOUR} AM.`;

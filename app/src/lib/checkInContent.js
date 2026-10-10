@@ -3,7 +3,8 @@
  *
  * Source: the Morning Check-In feature spec (doc 19, Sep 24), the engagement model
  * (doc 14) and the Sep 30 call. Followed as a guide, not literally:
- *   - Nine one-tap questions plus an optional 140-character note (doc 19's set).
+ *   - Three one-tap questions plus an optional 140-character note (doc 19 had nine;
+ *     cut on member feedback, Oct 10).
  *   - Condition-based extras are rule-driven here (one example: thyroid medication).
  *     Adam's docs want an AI agent to choose them; that is a later phase, and every
  *     clinical question added here still needs Medical Director sign-off.
@@ -16,16 +17,15 @@ export const SKIPS_PER_14_DAYS = 2;
 export const NOTE_MAX = 140;
 
 // `scale` questions store 1–5; the two end labels are shown under the buttons.
+// Three taps, then the optional note. Doc 19 asked for nine; members found that too
+// long for a morning, so it is cut to the three signals that move most with the
+// labs this app watches (sleep, energy, stress). The ids are unchanged, so earlier
+// check-ins still read the same, and older answers (hours slept, mood and so on)
+// still appear in a member's history and AI context when present.
 export const BASE_QUESTIONS = [
-  { id: "sleepHours", group: "Sleep", label: "How many hours did you sleep last night?", type: "choice", options: ["4 or less", "5", "6", "7", "8", "9+"] },
-  { id: "rested", group: "Sleep", label: "How rested do you feel right now?", type: "scale", low: "Exhausted", high: "Fully rested" },
-  { id: "nightWaking", group: "Sleep", label: "Did you wake up during the night?", type: "choice", options: ["No", "Once or twice", "Multiple times"] },
-  { id: "energy", group: "Yesterday", label: "How was your energy level yesterday?", type: "scale", low: "Drained", high: "Strong" },
-  { id: "hydration", group: "Yesterday", label: "Did you hit your hydration goal yesterday?", type: "choice", options: ["Yes", "Mostly", "No"] },
-  { id: "nutrition", group: "Yesterday", label: "How would you rate your nutrition yesterday?", type: "choice", options: ["On track", "Mostly good", "Off track"] },
-  { id: "exercise", group: "Yesterday", label: "Did you exercise yesterday?", type: "choice", options: ["Yes — intense", "Yes — light", "No"] },
-  { id: "stress", group: "This morning", label: "How is your stress level this morning?", type: "scale", low: "Calm", high: "Overwhelmed" },
-  { id: "mood", group: "This morning", label: "How would you describe your mood this morning?", type: "choice", options: ["Good", "Neutral", "Low"] },
+  { id: "rested", group: "Sleep", label: "How well did you sleep?", type: "scale", low: "Poorly", high: "Great" },
+  { id: "energy", group: "Energy", label: "How's your energy today?", type: "scale", low: "Drained", high: "Strong" },
+  { id: "stress", group: "Stress", label: "How stressed do you feel?", type: "scale", low: "Calm", high: "Overwhelmed" },
 ];
 
 export const NOTE_QUESTION = {
@@ -131,7 +131,7 @@ export function fallbackReply(answers, checkIns = [], today = localDay()) {
   // Today's answers aren't saved yet when the reply is written; count them in.
   const withToday = [{ day: today, skipped: false, answers }, ...checkIns.filter((c) => c.day !== today)];
   const week = lastDays(withToday, today, 7);
-  const woke = week.filter((c) => c.answers?.nightWaking && c.answers.nightWaking !== "No").length;
+  const poorSleep = week.filter((c) => Number(c.answers?.rested) > 0 && Number(c.answers.rested) <= 2).length;
   const lowEnergyRun = (() => {
     let n = 0;
     for (const c of week) { if (Number(c.answers?.energy) <= 2) n += 1; else break; }
@@ -140,9 +140,9 @@ export function fallbackReply(answers, checkIns = [], today = localDay()) {
   const rested7 = avg(week.slice(1).map((c) => Number(c.answers?.rested)).filter(Boolean));
 
   if (lowEnergyRun >= 3) return `This is the ${ordinal(lowEnergyRun)} morning in a row with low energy. Keep logging it; if it continues, it's worth raising with your provider alongside your next blood panel.`;
-  if (woke >= 3) return `You've reported waking during the night ${woke} times this week. That pattern is worth tracking before your next blood draw.`;
-  if (Number(answers.rested) >= 4 && rested7 != null && Number(answers.rested) > rested7) return `Strong start: today's rested score is above your recent average of ${rested7.toFixed(1)} out of 5.`;
-  if (answers.mood === "Low" && Number(answers.stress) >= 4) return "Logged. A low-mood, high-stress morning is useful context for your health team. Be easy on yourself today.";
+  if (poorSleep >= 3) return `You've reported poor sleep ${poorSleep} times this week. That pattern is worth tracking before your next blood draw.`;
+  if (Number(answers.rested) >= 4 && rested7 != null && Number(answers.rested) > rested7) return `Strong start: today's sleep score is above your recent average of ${rested7.toFixed(1)} out of 5.`;
+  if (Number(answers.stress) >= 4) return "Logged. A high-stress morning is useful context for your health team. Be easy on yourself today.";
   const days = week.length;
   return days > 1
     ? `Logged. That's ${days} check-ins this week, and each one sharpens the picture before your next blood draw.`
@@ -157,9 +157,9 @@ function ordinal(n) {
 export function answerSummary(answers = {}, note = "") {
   const parts = [
     answers.sleepHours && `slept ${answers.sleepHours}h`,
-    answers.rested && `rested ${answers.rested}/5`,
+    answers.rested && `sleep quality ${answers.rested}/5`,
     answers.nightWaking && `night waking: ${answers.nightWaking}`,
-    answers.energy && `energy yesterday ${answers.energy}/5`,
+    answers.energy && `energy ${answers.energy}/5`,
     answers.hydration && `hydration: ${answers.hydration}`,
     answers.nutrition && `nutrition: ${answers.nutrition}`,
     answers.exercise && `exercise: ${answers.exercise}`,
@@ -178,7 +178,7 @@ export function checkInContextLines(checkIns = [], today = localDay()) {
   const week = recent.filter((c) => c.day >= shiftDay(today, -6));
   const mean = (k) => avg(week.map((c) => Number(c.answers?.[k])).filter((v) => Number.isFinite(v) && v > 0));
   const fmt = (v) => (v == null ? "n/a" : v.toFixed(1));
-  const head = `- 7-day averages (1-5 scales): rested ${fmt(mean("rested"))}, energy ${fmt(mean("energy"))}, stress ${fmt(mean("stress"))}. Check-ins in last 7 days: ${week.length}. Streak: ${computeStreak(checkIns, today)} days.`;
+  const head = `- 7-day averages (1-5 scales): sleep quality ${fmt(mean("rested"))}, energy ${fmt(mean("energy"))}, stress ${fmt(mean("stress"))}. Check-ins in last 7 days: ${week.length}. Streak: ${computeStreak(checkIns, today)} days.`;
   const rows = recent.map((c) => `- ${c.day}: ${answerSummary(c.answers, c.note)}`);
   return [head, ...rows].join("\n");
 }

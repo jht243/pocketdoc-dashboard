@@ -66,8 +66,9 @@ async function generateReply({ answers, note, checkIns, userProfile, healthData,
 
 // ---- MORNING CHECK-IN ----
 // One question per screen, large tap targets, a progress line, and one personal
-// sentence back at the end. Open 5–11 AM local time; test mode ignores the window
-// and never writes, so a demo can't land in the member's real history.
+// sentence back at the end. Open 5–11 AM local time; test mode ignores the window.
+// Answers are always saved, Test mode included: they are the member's own answers,
+// not demo data, and dropping them silently is what kept the streak at 0.
 function CheckInScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled, checkIns = [], onSaved }) {
   const { user } = useAuth();
   const today = localDay();
@@ -94,7 +95,7 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
   };
 
   const persist = async (row) => {
-    if (testModeEnabled || !user) return true;
+    if (!user) return true;
     const { error } = await saveCheckIn(user.id, row);
     if (error) { setSaveError("We couldn't save this check-in. Check your connection and try again."); return false; }
     onSaved?.();
@@ -143,7 +144,6 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
         </div>
       )}
       {saveError && <div style={{ fontSize: 12, color: COLORS.danger, marginTop: 10 }}>{saveError}</div>}
-      {testModeEnabled && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Test mode: this check-in was not saved.</div>}
       <button onClick={() => setActive("home")} style={{ ...primaryBtn, marginTop: "auto" }}>Back to Home</button>
     </>);
   }
@@ -166,7 +166,7 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
       </div>
       <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Morning check-in</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
-        {questions.length} quick questions, under two minutes. Each morning builds the picture your bloodwork can't show on its own: sleep, energy, stress, and mood between draws.
+        {questions.length} quick taps, about 20 seconds. Each morning builds the picture your bloodwork can't show on its own: sleep, energy and stress between draws.
       </div>
       <div style={{ marginBottom: 20 }}>{streakBadge(streak)}</div>
       {windowNow === "open" ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { TabBar } from "./components/TabBar";
 import { COLORS } from "./theme/tokens";
@@ -49,6 +49,7 @@ import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { OrderLabsScreen } from "./screens/OrderLabsScreen";
 import { PreventiveCareScreen } from "./screens/PreventiveCareScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
+import { AccountScreen } from "./screens/AccountScreen";
 import { RecordsScreen } from "./screens/RecordsScreen";
 
 const Splash = ({ children }) => (
@@ -163,7 +164,14 @@ function App() {
   const [resumeData, setResumeData] = useState(null);
 
   // Health snapshot in play: the seeded test-mode snapshot, or live records.
-  const healthData = testModeEnabled ? testSnapshot?.health || null : liveHealthData;
+  // Check-ins are the member's own answers, never demo data, so Test mode reads the
+  // real ones on top of the snapshot. Without this a check-in made in Test mode
+  // never showed up, and the streak sat at 0.
+  const healthData = useMemo(() => (
+    testModeEnabled
+      ? (testSnapshot?.health ? { ...testSnapshot.health, checkIns: liveHealthData?.checkIns || [] } : null)
+      : liveHealthData
+  ), [testModeEnabled, testSnapshot, liveHealthData]);
   // The assembled Health Score. Computed here rather than only inside Home so it can
   // be persisted regardless of which screen the member happens to be looking at.
   const scoreModel = useScoreModel(nutritionEnabled, healthData, userProfile);
@@ -449,6 +457,9 @@ function App() {
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
+    // In Test mode the screens show the demo profile; reloading the real one over it
+    // after an account save would mix the two.
+    account: <AccountScreen setActive={setActive} onSaved={testModeEnabled ? undefined : refreshProfile} />,
     profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={setActive} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={setActive} onImported={refreshRecords} />,
