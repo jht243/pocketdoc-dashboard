@@ -8,7 +8,7 @@ import { rankCitations, sourceCaveat } from "../lib/sourceQuality";
 import {
   appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
 } from "../lib/chatStore";
-import { runCareTeam } from "../lib/careTeam";
+import { runCareTeam, safetyReview } from "../lib/careTeam";
 import { FORBIDDEN_OUTPUT_RULES } from "../lib/clinicalRules";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
 import { RichReply } from "../components/RichReply";
@@ -379,7 +379,14 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         // from the attached image instead.
         webSearch: !hasImage,
       });
-      const reply = cleanReply(firstText(data, "I couldn't generate a response."));
+      // Photo replies skip the care team but not the safety review: the same
+      // clinical rules apply to an answer about a picture of a supplement label.
+      const { reply } = await safetyReview({
+        reply: cleanReply(firstText(data, "I couldn't generate a response.")),
+        question: userText,
+        healthData,
+        cleanReply,
+      });
       // Ranked before it is rendered or stored, so the member sees the best source
       // first and a stored reply keeps the same ordering when the thread reloads.
       const citations = rankCitations(firstCitations(data));

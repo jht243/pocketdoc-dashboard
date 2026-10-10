@@ -275,6 +275,61 @@ function scrubForbidden(text, breaks) {
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/**
+ * The safety review every AI chat reply goes through before the member sees it,
+ * whether it came from the care team or from a photo question.
+ *
+ * Deterministic, from Dr. Locker's clinical rules. The spec says the rules are
+ * enforced at the output, not just asked for: a flagged reply gets up to two
+ * rewrites, and anything that still breaks a rule is cut in code.
+ *
+ * @returns {Promise<{reply, clean, revised, scrubbed, problem, urgent}>}
+ */
+export async function safetyReview({ reply, question = "", healthData, cleanReply = (t) => t, onFlag }) {
+  const urgent = detectUrgentPatterns({ healthData, messages: [{ role: "user", text: question }] })
+    .filter((u) => u.kind !== "recheck");
+  const functional = hasFunctionalConcern(healthData);
+  const breaks = (text) => violatesForbiddenOutput(text, { hasFunctionalConcern: functional });
+  let problem = breaks(reply);
+  let revised = false;
+  let scrubbed = false;
+  if (problem) onFlag?.(problem);
+  for (let attempt = 0; problem && attempt < 2; attempt++) {
+    try {
+      const fix = await callAI({
+        system: `You edit health guidance so it obeys the app's clinical rules. Keep the substance, structure and length, and change only what breaks a rule. Return the full corrected reply, nothing else.
+
+${FORBIDDEN_OUTPUT_RULES}
+
+For doses specifically: remove EVERY amount of a supplement or medication, including ranges and "commonly used" or "typical" doses (any number with IU, mcg, mg, g or units). Say what the supplement is for and that the member's prescriber sets the amount. Lab values with their units (e.g. "28 ng/mL") are fine and stay.`,
+        messages: [{ role: "user", content: `Rule broken: ${problem}\n\nReply to correct:\n${reply}` }],
+        model: TEAM_MODEL,
+        maxTokens: 1600,
+      });
+      const fixed = cleanReply(firstText(fix));
+      if (fixed) { reply = fixed; revised = true; }
+    } catch (err) {
+      console.error("safety revise", err);
+      break;
+    }
+    problem = breaks(reply);
+  }
+  if (problem) {
+    const cut = scrubForbidden(reply, breaks);
+    if (cut !== reply) { reply = cut; revised = true; scrubbed = true; }
+    problem = breaks(reply);
+  }
+  return {
+    reply,
+    clean: !problem,
+    revised,
+    scrubbed,
+    problem,
+    // Crisis language is surfaced as the action, not as a "finding" in the record.
+    urgent: urgent.map((u) => (u.id === "crisis" ? "If you're thinking about harming yourself, call or text 988 now" : u.label)),
+  };
+}
+
 /* ---------------- orchestration ---------------- */
 
 /**
@@ -360,51 +415,19 @@ export async function runCareTeam({
   const citations = firstCitations(data);
   emit({ type: "draft_done", sources: citations.length });
 
-  // 5. Safety review. Deterministic, from the clinical rules. The spec says the
-  // rules are enforced at the output, not just asked for, so a flagged draft gets
-  // up to two rewrites, and anything that still breaks a rule is cut in code
-  // before the member sees it.
+  // 5. Safety review (shared with photo questions; see safetyReview).
   emit({ type: "safety_start" });
-  const urgent = detectUrgentPatterns({ healthData, messages: [{ role: "user", text: question }] })
-    .filter((u) => u.kind !== "recheck");
-  const functional = hasFunctionalConcern(healthData);
-  const breaks = (text) => violatesForbiddenOutput(text, { hasFunctionalConcern: functional });
-  let problem = breaks(reply);
-  let revised = false;
-  let scrubbed = false;
-  if (problem) emit({ type: "safety_flag", problem });
-  for (let attempt = 0; problem && attempt < 2; attempt++) {
-    try {
-      const fix = await callAI({
-        system: `You edit health guidance so it obeys the app's clinical rules. Keep the substance, structure and length, and change only what breaks a rule. Return the full corrected reply, nothing else.
-
-${FORBIDDEN_OUTPUT_RULES}
-
-For doses specifically: remove EVERY amount of a supplement or medication, including ranges and "commonly used" or "typical" doses (any number with IU, mcg, mg, g or units). Say what the supplement is for and that the member's prescriber sets the amount. Lab values with their units (e.g. "28 ng/mL") are fine and stay.`,
-        messages: [{ role: "user", content: `Rule broken: ${problem}\n\nReply to correct:\n${reply}` }],
-        model: TEAM_MODEL,
-        maxTokens: 1600,
-      });
-      const fixed = cleanReply(firstText(fix));
-      if (fixed) { reply = fixed; revised = true; }
-    } catch (err) {
-      console.error("care team revise", err);
-      break;
-    }
-    problem = breaks(reply);
-  }
-  if (problem) {
-    const cut = scrubForbidden(reply, breaks);
-    if (cut !== reply) { reply = cut; revised = true; scrubbed = true; }
-    problem = breaks(reply);
-  }
+  const review = await safetyReview({
+    reply, question, healthData, cleanReply,
+    onFlag: (problem) => emit({ type: "safety_flag", problem }),
+  });
+  reply = review.reply;
   emit({
     type: "safety_done",
-    clean: !problem,
-    revised,
-    scrubbed,
-    // Crisis language is surfaced as the action, not as a "finding" in the record.
-    urgent: urgent.map((u) => (u.id === "crisis" ? "If you're thinking about harming yourself, call or text 988 now" : u.label)),
+    clean: review.clean,
+    revised: review.revised,
+    scrubbed: review.scrubbed,
+    urgent: review.urgent,
   });
 
   emit({ type: "answer", seconds: Math.round((Date.now() - started) / 1000) });
