@@ -3,7 +3,7 @@ import { FileText, Camera, Dna, Trash2, ChevronRight, Sparkles, AlertCircle } fr
 import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds, countDocumentData, markDocumentNoLabData, NO_LAB_DATA_VERDICT } from "../lib/profileStore";
-import { extractDocumentText, fetchAsBase64 } from "../lib/documentText";
+import { extractDocumentText, fetchAsBase64, nameStoredDocument, needsContentName } from "../lib/documentText";
 import { ingestLabResults } from "../lib/labIngest";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
@@ -160,6 +160,10 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
     // labelling the current one would leave five files sitting silent behind the
     // first — which is exactly the wait that reads as "nothing is happening".
     const work = [];
+    // Read before naming existed: the text is on the row, so a name is one small
+    // call. Kept apart from `work` — it's cosmetic, so it shows no progress bar and
+    // runs after anything the member's labs are waiting on.
+    const unnamed = [];
     for (const doc of rows) {
       if (attempted.current.has(doc.id)) continue;
       attempted.current.add(doc.id);
@@ -179,8 +183,8 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
         && doc.extract_error !== NO_LAB_DATA_VERDICT) {
         work.push({ doc, job: "file" });
       }
+      if (doc.extracted_text && needsContentName(doc.file_name)) unnamed.push(doc);
     }
-    if (!work.length) return;
 
     work.forEach(({ doc }) => setStage(doc.id, "queued"));
     for (const { doc, job } of work) {
@@ -191,6 +195,15 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
         finishProgress(doc.id);
       }
     }
+    for (const doc of unnamed) await applyContentName(doc, doc.extracted_text);
+  };
+
+  /** Swap an upload's file name for one read from its contents, in the list and the database. */
+  const applyContentName = async (doc, text) => {
+    const name = await nameStoredDocument(doc, text);
+    if (!name) return;
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, file_name: name } : d)));
+    onDocumentsChange?.();
   };
 
   /**
@@ -244,6 +257,7 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
       // Reading a lab report and filing its results are one action from the member's
       // side, so they happen together rather than leaving results behind a second tap.
       if (text) await fileResults(doc, text);
+      if (text) await applyContentName(doc, text);
     } catch (err) {
       console.error("readDocument", err);
       await saveDocumentText(doc.id, "", err.message);

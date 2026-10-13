@@ -356,6 +356,21 @@ export async function saveDocumentText(documentId, text, error = null) {
 }
 
 /**
+ * Give a document the name its contents earned.
+ *
+ * The original file name is still recoverable from `storage_path`, which embeds it.
+ */
+export async function renameDocument(documentId, name) {
+  if (!isConfigured || !documentId || !name) return { error: null };
+  const { error } = await supabase
+    .from("documents")
+    .update({ file_name: name })
+    .eq("id", documentId);
+  if (error) console.error("renameDocument", error);
+  return { error };
+}
+
+/**
  * Sentinel recorded on a document whose transcription contains no lab markers.
  *
  * A genetic report or an appointment note reads fine but has nothing to file into

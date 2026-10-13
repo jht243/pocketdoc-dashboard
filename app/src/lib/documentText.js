@@ -12,6 +12,7 @@
  * the document itself.
  */
 import { callAI, firstText } from "./api";
+import { renameDocument } from "./profileStore";
 
 /**
  * How much of one document we keep.
@@ -117,4 +118,86 @@ export async function extractDocumentText(base64, mediaType = "") {
     console.error("extractDocumentText", err);
     return { text: "", error: err.message || "Extraction failed." };
   }
+}
+
+const NAME_PROMPT = `You name health documents for a member's records list, based on what the document says.
+
+Return ONE short title, 3 to 8 words, and nothing else. Shape it as:
+  [Lab or company] [Document type] — [Mon YYYY]
+e.g. "Quest Diagnostics Lipid Panel — Mar 2024", "Function Health Biomarker Report — Jan 2025",
+"23andMe Raw Genotype Data", "Chest X-Ray Report — Aug 2023", "Cardiology Visit Note — Feb 2025".
+
+Rules:
+- Name the specific test or document type ("Comprehensive Metabolic Panel", not "Lab Report") when the document says it. If it covers many panels, use a broader name ("Annual Blood Panel").
+- Use the collection or visit date, not a print or report date, when both are given. Omit the date if there is none.
+- Omit the lab or company if the document doesn't name one.
+- Never include the patient's name, date of birth, account, accession, claim or order numbers, or any other identifier.
+- No quotes, no file extension, no trailing punctuation.
+- If you can't tell what the document is, output exactly: UNKNOWN`;
+
+/** How much of a transcription the namer sees — the header holds everything a name needs. */
+const NAME_SOURCE_CHARS = 4000;
+
+/**
+ * Has this document never been given a content-based name?
+ *
+ * Every file a browser hands over carries an extension (.pdf, .jpg, .HEIC, .txt) and a
+ * generated name never does, so the extension is the marker — it lets the Records list
+ * name files stored before naming existed, exactly once, without a column to track it.
+ */
+export function needsContentName(fileName) {
+  return !fileName || /\.[a-z0-9]{2,5}$/i.test(String(fileName).trim());
+}
+
+/** Clean the model's title into something safe to show and store, or null. */
+function cleanName(raw) {
+  const name = String(raw || "")
+    .split("\n")[0]
+    .replace(/^["'`*\s]+|["'`*\s]+$/g, "")
+    .replace(/^title:\s*/i, "")
+    // A period anywhere could end up looking like an extension, which would mark the
+    // document as unnamed and have it renamed on every visit.
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!name || /^unknown$/i.test(name) || name.length > 90) return null;
+  return name;
+}
+
+/**
+ * A human name for a document, read from its transcription — what the member would
+ * call it, instead of "IMG_4821.HEIC" or "R0034492_final(2).pdf".
+ *
+ * @returns {Promise<string|null>} null when the document can't be named; the caller
+ *   keeps whatever name it already has
+ */
+export async function nameDocument(text) {
+  const source = String(text || "").trim().slice(0, NAME_SOURCE_CHARS);
+  if (!source) return null;
+  try {
+    const data = await callAI({
+      system: NAME_PROMPT,
+      messages: [{ role: "user", content: [{ type: "text", text: `Document transcription:\n\n${source}` }] }],
+      maxTokens: 40,
+    });
+    return cleanName(firstText(data, ""));
+  } catch (err) {
+    // A document keeping its upload name is a cosmetic miss, never a reason to fail
+    // the read that produced the text.
+    console.error("nameDocument", err);
+    return null;
+  }
+}
+
+/**
+ * Name a stored document from its transcription and save the name.
+ *
+ * @returns {Promise<string|null>} the new name, or null if it kept its old one
+ */
+export async function nameStoredDocument(document, text) {
+  if (!document?.id || !text || !needsContentName(document.file_name)) return null;
+  const name = await nameDocument(text);
+  if (!name) return null;
+  const { error } = await renameDocument(document.id, name);
+  return error ? null : name;
 }

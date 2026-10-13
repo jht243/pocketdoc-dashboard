@@ -8,7 +8,7 @@ import { callAI, firstText } from "../lib/api";
 import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText } from "../lib/profileStore";
-import { extractDocumentText } from "../lib/documentText";
+import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
 import { SectionedIntake } from "../components/SectionedIntake";
 import { emptyAnswers } from "../lib/intakeContent";
 
@@ -139,7 +139,11 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       // to every later conversation.
       if (uploaded?.id) {
         extractDocumentText(base64, mediaType)
-          .then(({ text, error }) => saveDocumentText(uploaded.id, text, error))
+          .then(async ({ text, error }) => {
+            await saveDocumentText(uploaded.id, text, error);
+            const name = await nameStoredDocument(uploaded, text);
+            if (name) setUploadedFileName(name);
+          })
           .catch((err) => console.error("onboarding transcription", err));
       }
     };

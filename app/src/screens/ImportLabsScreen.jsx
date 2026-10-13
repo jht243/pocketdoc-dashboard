@@ -7,7 +7,7 @@ import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
 import { fileBlock, ingestLabResults, toIsoDate } from "../lib/labIngest";
-import { extractDocumentText } from "../lib/documentText";
+import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
 import { labToneColor } from "../lib/labTone";
 
 /**
@@ -206,6 +206,15 @@ function ImportLabsScreen({ setActive, onImported }) {
       text = result.text || "";
       if (document?.id) await saveDocumentText(document.id, text, result.error);
       if (text) onImported?.();
+      // Name it from what it says. Not awaited: a name is a small text call and the
+      // member is waiting on their results, not on the label.
+      if (text) {
+        nameStoredDocument(document, text).then((name) => {
+          if (!name || storedDocRef.current?.id !== document.id) return;
+          rememberDoc({ ...storedDocRef.current, file_name: name });
+          onImported?.();
+        });
+      }
     } catch (err) {
       console.error("transcribeDocument", err);
     } finally {
