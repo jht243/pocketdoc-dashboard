@@ -854,7 +854,31 @@ export async function markScreeningDone(userId, key, completedAt) {
 
 /* ---------------- account ---------------- */
 
-const ACCOUNT_COLUMNS = "first_name, dob, sex, phone, address_line1, address_line2, city, state, postal_code";
+const ACCOUNT_COLUMNS = "first_name, last_name, email, dob, sex, phone, address_line1, address_line2, city, state, postal_code, country";
+
+/**
+ * What it takes to place an order on a member's behalf — a lab draw, a
+ * prescription, a supplement shipment. Every one of these partners asks for the
+ * legal name, date of birth and sex the order is for, a phone and email to reach
+ * them, and where to ship. Payment details are never stored here; checkout
+ * collects them.
+ */
+const ORDER_FIELDS = [
+  ["firstName", "first name"],
+  ["lastName", "last name"],
+  ["dob", "date of birth"],
+  ["sex", "sex at birth"],
+  ["phone", "phone"],
+  ["addressLine1", "street address"],
+  ["city", "city"],
+  ["state", "state"],
+  ["postalCode", "ZIP code"],
+];
+
+/** Labels of the order details this account is still missing, in form order. */
+export function missingOrderDetails(account) {
+  return ORDER_FIELDS.filter(([key]) => !String(account?.[key] ?? "").trim()).map(([, label]) => label);
+}
 
 /**
  * The member's own account details, read straight from their stored row. The
@@ -873,7 +897,10 @@ export async function loadAccount(userId) {
     return null;
   }
   return {
-    name: data?.first_name || "",
+    firstName: data?.first_name || "",
+    lastName: data?.last_name || "",
+    // Mirrored from the login by a trigger; shown, never written from here.
+    email: data?.email || "",
     dob: data?.dob || "",
     sex: data?.sex || "",
     phone: data?.phone || "",
@@ -882,6 +909,7 @@ export async function loadAccount(userId) {
     city: data?.city || "",
     state: data?.state || "",
     postalCode: data?.postal_code || "",
+    country: data?.country || "US",
   };
 }
 
@@ -893,7 +921,8 @@ export async function saveAccount(userId, a) {
   if (!isConfigured || !userId) return { error: new Error("not configured") };
   const clean = (v) => (String(v ?? "").trim() || null);
   const row = {
-    first_name: clean(a.name),
+    first_name: clean(a.firstName),
+    last_name: clean(a.lastName),
     dob: clean(a.dob),
     sex: clean(a.sex),
     phone: clean(a.phone),
@@ -902,6 +931,7 @@ export async function saveAccount(userId, a) {
     city: clean(a.city),
     state: clean(a.state),
     postal_code: clean(a.postalCode),
+    country: clean(a.country) || "US",
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await supabase.from("profiles").update(row).eq("user_id", userId).select("user_id");

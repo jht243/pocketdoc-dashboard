@@ -5,11 +5,39 @@ import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { useAuth } from "../lib/AuthContext";
 import { supabase } from "../lib/supabase";
-import { loadAccount, saveAccount, deleteAccount } from "../lib/profileStore";
+import { loadAccount, saveAccount, deleteAccount, missingOrderDetails } from "../lib/profileStore";
 
 const EMPTY = {
-  name: "", dob: "", sex: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "",
+  firstName: "", lastName: "", email: "", dob: "", sex: "", phone: "",
+  addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "US",
 };
+
+// A select rather than free text: an order partner rejects "Calif." or "ny ".
+const US_STATES = [
+  ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"], ["CA", "California"],
+  ["CO", "Colorado"], ["CT", "Connecticut"], ["DE", "Delaware"], ["DC", "District of Columbia"],
+  ["FL", "Florida"], ["GA", "Georgia"], ["HI", "Hawaii"], ["ID", "Idaho"], ["IL", "Illinois"],
+  ["IN", "Indiana"], ["IA", "Iowa"], ["KS", "Kansas"], ["KY", "Kentucky"], ["LA", "Louisiana"],
+  ["ME", "Maine"], ["MD", "Maryland"], ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"],
+  ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"], ["NV", "Nevada"],
+  ["NH", "New Hampshire"], ["NJ", "New Jersey"], ["NM", "New Mexico"], ["NY", "New York"],
+  ["NC", "North Carolina"], ["ND", "North Dakota"], ["OH", "Ohio"], ["OK", "Oklahoma"], ["OR", "Oregon"],
+  ["PA", "Pennsylvania"], ["RI", "Rhode Island"], ["SC", "South Carolina"], ["SD", "South Dakota"],
+  ["TN", "Tennessee"], ["TX", "Texas"], ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"],
+  ["WA", "Washington"], ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"],
+];
+
+/**
+ * Catch what would bounce an order, without forcing anything: every field stays
+ * optional so a member can save part of their details now and finish later.
+ */
+function formatProblem(f) {
+  const digits = f.phone.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  if (f.phone.trim() && digits.length !== 10) return "Enter a 10-digit phone number.";
+  if (f.postalCode.trim() && !/^\d{5}(-?\d{4})?$/.test(f.postalCode.trim())) return "Enter a 5-digit ZIP code.";
+  if (f.dob && new Date(`${f.dob}T00:00:00`) > new Date()) return "Date of birth can't be in the future.";
+  return null;
+}
 
 const input = {
   width: "100%", boxSizing: "border-box", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
@@ -48,6 +76,24 @@ function Notice({ tone = "ok", children }) {
   );
 }
 
+/** Which order details are still missing — the member can't otherwise tell why it matters. */
+function MissingDetails({ missing }) {
+  if (!missing.length) return null;
+  return (
+    <div style={{
+      fontSize: 12.5, lineHeight: 1.45, marginBottom: 14, padding: "8px 10px", borderRadius: RADIUS.sm,
+      background: COLORS.accentDim, color: COLORS.textSecondary,
+    }}>
+      To order labs or prescriptions for you, we still need your {joinList(missing)}.
+    </div>
+  );
+}
+
+function joinList(items) {
+  if (items.length <= 2) return items.join(" and ");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
 // ---- ACCOUNT ----
 // The member's own details and login: name, date of birth, contact and address,
 // email and password, sign out, and permanent deletion. Always the real account,
@@ -58,6 +104,8 @@ function AccountScreen({ setActive, onSaved }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [detailsMsg, setDetailsMsg] = useState(null);
+  // What's actually stored, so "still needed" reflects the record, not unsaved typing.
+  const [savedForm, setSavedForm] = useState(EMPTY);
 
   const [email, setEmail] = useState("");
   const [emailMsg, setEmailMsg] = useState(null);
@@ -76,6 +124,7 @@ function AccountScreen({ setActive, onSaved }) {
     loadAccount(user.id).then((a) => {
       if (cancelled) return;
       setForm({ ...EMPTY, ...(a || {}) });
+      setSavedForm({ ...EMPTY, ...(a || {}) });
       setLoaded(true);
     });
     return () => { cancelled = true; };
@@ -84,10 +133,13 @@ function AccountScreen({ setActive, onSaved }) {
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setDetailsMsg(null); };
 
   const saveDetails = async () => {
+    const problem = formatProblem(form);
+    if (problem) { setDetailsMsg({ tone: "bad", text: problem }); return; }
     setSaving(true);
     const { error } = await saveAccount(user.id, form);
     setSaving(false);
     setDetailsMsg(error ? { tone: "bad", text: "Couldn't save. Check your connection and try again." } : { tone: "ok", text: "Saved." });
+    if (!error) setSavedForm(form);
     if (!error) onSaved?.();
   };
 
@@ -144,9 +196,19 @@ function AccountScreen({ setActive, onSaved }) {
           <div style={{ fontSize: 13, color: COLORS.textMuted }}>Loading…</div>
         ) : (
           <>
-            <Field id="acct-name" title="Full name">
-              <input id="acct-name" style={input} value={form.name} onChange={set("name")} autoComplete="name" />
-            </Field>
+            <MissingDetails missing={missingOrderDetails(savedForm)} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <Field id="acct-first" title="Legal first name">
+                  <input id="acct-first" style={input} value={form.firstName} onChange={set("firstName")} autoComplete="given-name" />
+                </Field>
+              </div>
+              <div style={{ flex: 1 }}>
+                <Field id="acct-last" title="Legal last name">
+                  <input id="acct-last" style={input} value={form.lastName} onChange={set("lastName")} autoComplete="family-name" />
+                </Field>
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <Field id="acct-dob" title="Date of birth">
@@ -178,7 +240,14 @@ function AccountScreen({ setActive, onSaved }) {
             <div style={{ display: "flex", gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <Field id="acct-state" title="State">
-                  <input id="acct-state" style={input} value={form.state} onChange={set("state")} autoComplete="address-level1" />
+                  <select id="acct-state" style={input} value={form.state} onChange={set("state")} autoComplete="address-level1">
+                    <option value="">Select</option>
+                    {/* Keep a stored value the list doesn't know, rather than silently blanking it. */}
+                    {form.state && !US_STATES.some(([code]) => code === form.state) && (
+                      <option value={form.state}>{form.state}</option>
+                    )}
+                    {US_STATES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                  </select>
                 </Field>
               </div>
               <div style={{ flex: 1 }}>
