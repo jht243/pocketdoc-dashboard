@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, LogOut, Trash2 } from "lucide-react";
 import { COLORS, DISPLAY, RADIUS } from "../theme/tokens";
 import { Card } from "../components/Card";
@@ -27,17 +27,41 @@ const US_STATES = [
   ["WA", "Washington"], ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"],
 ];
 
+/** How long typing has to pause before the details save themselves. */
+const AUTOSAVE_MS = 800;
+
 /**
- * Catch what would bounce an order, without forcing anything: every field stays
- * optional so a member can save part of their details now and finish later.
+ * Fields whose value would bounce an order, each with what to tell the member.
+ * Every field stays optional so a member can fill in part now and finish later.
  */
-function formatProblem(f) {
-  const digits = f.phone.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
-  if (f.phone.trim() && digits.length !== 10) return "Enter a 10-digit phone number.";
-  if (f.postalCode.trim() && !/^\d{5}(-?\d{4})?$/.test(f.postalCode.trim())) return "Enter a 5-digit ZIP code.";
-  if (f.dob && new Date(`${f.dob}T00:00:00`) > new Date()) return "Date of birth can't be in the future.";
-  return null;
+const FORMAT_CHECKS = {
+  phone: (v) => {
+    const digits = v.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+    return v.trim() && digits.length !== 10 ? "Enter a 10-digit phone number." : null;
+  },
+  postalCode: (v) => (v.trim() && !/^\d{5}(-?\d{4})?$/.test(v.trim()) ? "Enter a 5-digit ZIP code." : null),
+  dob: (v) => (v && new Date(`${v}T00:00:00`) > new Date() ? "Date of birth can't be in the future." : null),
+};
+
+/**
+ * What can be stored right now: everything typed, except a field that's still
+ * malformed, which keeps its last saved value. One half-typed phone number must
+ * never stop the address beside it from saving.
+ */
+function savable(form, saved) {
+  const next = { ...form };
+  let problem = null;
+  for (const [key, check] of Object.entries(FORMAT_CHECKS)) {
+    const message = check(form[key] || "");
+    if (message) {
+      next[key] = saved[key];
+      problem = problem || message;
+    }
+  }
+  return { next, problem };
 }
+
+const sameDetails = (a, b) => Object.keys(EMPTY).every((k) => (a[k] || "") === (b[k] || ""));
 
 const input = {
   width: "100%", boxSizing: "border-box", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
@@ -130,18 +154,47 @@ function AccountScreen({ setActive, onSaved }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setDetailsMsg(null); };
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const saveDetails = async () => {
-    const problem = formatProblem(form);
-    if (problem) { setDetailsMsg({ tone: "bad", text: problem }); return; }
+  // Details save themselves. A "Save" button below eleven fields is one a member
+  // scrolls past or never reaches before tapping Back, and then everything they
+  // typed is gone without a word.
+  const latest = useRef({ form, savedForm, loaded });
+  latest.current = { form, savedForm, loaded };
+
+  const persist = async (current, saved) => {
+    const { next, problem } = savable(current, saved);
+    if (sameDetails(next, saved)) {
+      setDetailsMsg(problem ? { tone: "bad", text: problem } : null);
+      return;
+    }
     setSaving(true);
-    const { error } = await saveAccount(user.id, form);
+    const { error } = await saveAccount(user.id, next);
     setSaving(false);
-    setDetailsMsg(error ? { tone: "bad", text: "Couldn't save. Check your connection and try again." } : { tone: "ok", text: "Saved." });
-    if (!error) setSavedForm(form);
-    if (!error) onSaved?.();
+    if (error) {
+      setDetailsMsg({ tone: "bad", text: "Couldn't save. Check your connection — we'll try again as you keep typing." });
+      return;
+    }
+    setSavedForm(next);
+    setDetailsMsg(problem ? { tone: "bad", text: problem } : { tone: "ok", text: "Saved." });
+    onSaved?.();
   };
+
+  useEffect(() => {
+    if (!loaded || !user) return undefined;
+    const timer = setTimeout(() => persist(form, savedForm), AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, loaded]);
+
+  // Leaving inside the debounce window still keeps what was typed.
+  useEffect(() => () => {
+    const { form: f, savedForm: saved, loaded: ready } = latest.current;
+    if (!ready || !user) return;
+    const { next } = savable(f, saved);
+    if (!sameDetails(next, saved)) saveAccount(user.id, next).then(({ error }) => { if (!error) onSaved?.(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const changeEmail = async () => {
     const next = email.trim();
@@ -256,9 +309,9 @@ function AccountScreen({ setActive, onSaved }) {
                 </Field>
               </div>
             </div>
-            <button onClick={saveDetails} disabled={saving} style={{ ...primary, opacity: saving ? 0.6 : 1 }}>
-              {saving ? "Saving…" : "Save details"}
-            </button>
+            <div style={{ fontSize: 12, color: COLORS.textMuted }}>
+              {saving ? "Saving…" : "Changes save automatically."}
+            </div>
             <Notice tone={detailsMsg?.tone}>{detailsMsg?.text}</Notice>
           </>
         )}
