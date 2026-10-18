@@ -278,9 +278,9 @@ test('completed questionnaires are written into the AI context', async () => {
     { instrument: 'single_drug', answers: { times: 0 }, score: 0, positive: false, cutoff: 1, completed_on: '2026-10-17' },
   ];
   const text = questionnaireLines(rows);
-  assert.match(text, /2026-10-18 PHQ-2 \(depression screen\): score 4 of 6, POSITIVE screen \(cut-off 3\)/);
+  assert.match(text, /2026-10-18 PHQ-2 \(depression screen; the member knows it as the "Mood check"\): score 4 of 6, POSITIVE screen \(cut-off 3\)/);
   assert.match(text, /"Feeling down, depressed, or hopeless": More than half the days/);
-  assert.match(text, /drug-use screen\): negative screen \(cut-off 1\)\. Answers: .*: Never\./);
+  assert.match(text, /drug-use screen; the member knows it as the "Drug use check"\): negative screen \(cut-off 1\)\. Answers: .*: Never\./);
   assert.doesNotMatch(text, /score 0/);
   // healthContext.js carries it as its own keyed section, the key the agents read.
   const ctx = readFileSync(new URL('../../src/lib/healthContext.js', import.meta.url), 'utf8');

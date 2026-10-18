@@ -217,6 +217,6 @@ export function questionnaireLines(rows = []) {
       .join("; ");
     // The drug screen's stored value is a count bucket, not a score worth quoting.
     const score = def.max != null ? `score ${r.score}${max}, ` : "";
-    return `- ${r.completed_on} ${def.name} (${SCREEN_FOR[r.instrument] || def.title}): ${score}${verdict}.${answers ? ` Answers: ${answers}.` : ""}`;
+    return `- ${r.completed_on} ${def.name} (${SCREEN_FOR[r.instrument] || def.title}; the member knows it as the "${def.title}"): ${score}${verdict}.${answers ? ` Answers: ${answers}.` : ""}`;
   }).filter(Boolean).join("\n");
 }
