@@ -46,6 +46,7 @@ const DEFAULT_PARENT = {
   geneticprofile: "profile",
   medications: "profile",
   preventivecare: "profile",
+  market: "profile",
   browsesupplements: "market",
 };
 

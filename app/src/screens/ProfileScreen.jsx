@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Calendar, ChevronRight, ClipboardList, Dna, FlaskConical, Home } from "lucide-react";
+import { Calendar, ChevronRight, ClipboardList, Dna, FlaskConical, Home, ShoppingBag } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import {
@@ -227,6 +227,24 @@ function ProfileScreen({
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>Screening schedule</div>
             <div style={{ fontSize: 11, color: COLORS.textSecondary }}>Your age-based preventive care checklist</div>
+          </div>
+        </div>
+        <ChevronRight size={16} color={COLORS.textMuted} />
+      </button>
+
+      {/* The store is its own place, reached on purpose and never from a finding or an
+          answer (Adam Locker, Oct 19 2026): the recommendation and the sale stay apart. */}
+      <SectionLabel>Marketplace</SectionLabel>
+      <button onClick={() => setActive("market")} style={{
+        width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.tealLight}40`,
+        borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", cursor: "pointer", marginBottom: 18
+      }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <ShoppingBag size={18} color={COLORS.tealLight} />
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>Supplements & local services</div>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>General products, not personalized. Live from Amazon.</div>
           </div>
         </div>
         <ChevronRight size={16} color={COLORS.textMuted} />

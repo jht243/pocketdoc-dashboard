@@ -424,7 +424,7 @@ function App() {
     aichat: <AIChatScreen setActive={navigate} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
     records: <RecordsScreen setActive={navigate} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
     labs: <LabsScreen setActive={navigate} healthData={healthData} aiInsights={aiInsights} userProfile={userProfile} />,
-    market: <MarketScreen setActive={navigate} />,
+    market: <MarketScreen setActive={navigate} {...back} />,
     discussion: <DiscussionPageScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} />,
     browsesupplements: <BrowseSupplementsScreen setActive={navigate} {...back} />,

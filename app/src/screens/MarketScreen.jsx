@@ -38,7 +38,7 @@ function amazonSearchUrl(keywords) {
   return `https://www.amazon.com/s?k=${encodeURIComponent(keywords)}`;
 }
 
-function MarketScreen({ setActive }) {
+function MarketScreen({ setActive, goBack, backLabel }) {
   const slots = SLOTS;
   // { [slotId]: { loading, product, error } }
   const [products, setProducts] = useState({});
@@ -135,6 +135,13 @@ function MarketScreen({ setActive }) {
 
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
+      <button onClick={goBack} style={{
+        background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
+        color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
+      }}>
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
+      </button>
+
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Marketplace</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
         Common staples, not personalized advice. Products and prices are live from
