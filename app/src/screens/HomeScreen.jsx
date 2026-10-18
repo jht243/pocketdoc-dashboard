@@ -12,6 +12,7 @@ import { CheckInCard } from "../components/CheckInCard";
 import { BioAgeCard } from "../components/BioAgeCard";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
+import { summarizeSchedule } from "../lib/screeningLogic";
 import { formatHoursMinutes } from "../lib/wearableShape";
 import { BrandMark } from "../components/BrandMark";
 import { EvidenceBox } from "../components/EvidenceBox";
@@ -75,12 +76,17 @@ function HomeScreen({
   // One contextual action button — the single most time-sensitive thing
   const contextualAction = (() => {
     if (!userProfile) return null;
-    const overdue = userProfile.schedule?.filter(i => i.urgency === "overdue").length || 0;
-    if (overdue > 0) return { label: `${overdue} overdue screening${overdue > 1 ? "s" : ""}`, target: "preventivecare", color: COLORS.danger };
+    // "Overdue" only for a recorded screening past its interval; one we have no record
+    // of is "not on file", which gets a neutral chip and comes after everything else.
+    const counts = summarizeSchedule(userProfile.schedule, userProfile.completedItems);
+    const plural = (n) => (n > 1 ? "s" : "");
+    if (counts.overdue > 0) return { label: `${counts.overdue} overdue screening${plural(counts.overdue)}`, target: "preventivecare", color: COLORS.danger };
+    if (counts.due_soon > 0) return { label: `${counts.due_soon} screening${plural(counts.due_soon)} due soon`, target: "preventivecare", color: COLORS.warning };
     // Read from the saved answers, not from whether the screen was opened this session —
     // the old check nagged every member again after each reload.
     const intake = intakeProgressSummary(healthHistory || userProfile.intake);
     if (!intake.complete && !showChecklist) return { label: `Finish your health history · ${intake.done} of ${intake.total} done`, target: "healthhistory", color: COLORS.tealLight };
+    if (counts.not_on_file > 0) return { label: `${counts.not_on_file} screening${plural(counts.not_on_file)} not on file`, target: "preventivecare", color: COLORS.textSecondary };
     return null;
   })();
 
@@ -130,7 +136,7 @@ function HomeScreen({
         <ThumbprintChecklist checklist={checklist} setActive={setActive} />
       </>}
 
-      {(score.hasData || !showChecklist) && <SectionLabel>Today's signal</SectionLabel>}
+      {(score.hasData || score.hasSchedule || !showChecklist) && <SectionLabel>Today's signal</SectionLabel>}
 
       {/* Element 1: Health score — one number, one sentence. A member who already has
           score data keeps it while finishing the checklist; for a new member the
@@ -139,10 +145,28 @@ function HomeScreen({
         <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
           <Card style={{ marginBottom: 0, textAlign: "center", paddingTop: 20, paddingBottom: 20 }}>
             <ScoreGauge components={score.components} totalScore={score.totalScore} totalMax={score.totalMax}
-              bloodwork={score.bloodwork} onTap={() => setShowBreakdown(true)} />
+              footnote={score.explanation.footnote} onTap={() => setShowBreakdown(true)} />
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Tap to see what's driving your score today</div>
           </Card>
         </button>
+      ) : score.hasSchedule ? (
+        // Nothing scoreable yet. "0 of 50" here would read as a terrible score when
+        // the truth is there's no score: offer the one step that starts it instead.
+        <Card style={{ marginBottom: 14, textAlign: "center", padding: "22px 18px" }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: COLORS.textMuted }}>HEALTH SCORE</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.textPrimary, marginTop: 4 }}>Not scored yet</div>
+          <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.55, margin: "8px 0 14px" }}>
+            Your score starts once there's something real behind it. The quickest way in is telling us
+            which screenings you've already had.
+          </div>
+          <button onClick={() => setActive("preventivecare")} style={{
+            width: "100%", background: COLORS.accent, border: "none", color: COLORS.onAccent,
+            fontSize: 14, fontWeight: 700, padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}>
+            {score.explanation.startHint} <ChevronRight size={15} />
+          </button>
+        </Card>
       ) : !showChecklist && (
         <LockedDataSection
           title="Your health score"

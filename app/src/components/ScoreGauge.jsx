@@ -8,7 +8,7 @@ import { COLORS } from "../theme/tokens";
  * and only components with data behind them are passed in — so the denominator under
  * the dial is what the member could actually have earned today.
  */
-function ScoreGauge({ components = [], totalScore = 0, totalMax = 0, bloodwork, onTap }) {
+function ScoreGauge({ components = [], totalScore = 0, totalMax = 0, footnote, onTap }) {
   // Rings sit close together near the outer edge so the centre stays clear for the
   // score readout — at tighter radii the inner ring cut straight through the label.
   // A third component needs a third ring, so the whole set thins and tightens rather
@@ -68,10 +68,10 @@ function ScoreGauge({ components = [], totalScore = 0, totalMax = 0, bloodwork, 
           <Bar key={component.key} label={component.label} sub={component.sub}
             value={component.points} max={component.max} color={ringColors[i] || COLORS.tealLight} />
         ))}
-        {bloodwork && !bloodwork.available && (
-          <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2 }}>
-            Bloodwork scoring is not live yet — it isn't counted for or against you.
-          </div>
+        {/* The caveat comes from lib/scoreExplain.js (the same wording the breakdown
+            and the Care tab use), so it can't disagree with what's being counted. */}
+        {footnote && (
+          <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2, lineHeight: 1.45 }}>{footnote}</div>
         )}
       </div>
     </button>
