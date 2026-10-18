@@ -24,6 +24,10 @@ const ALLOWED = [
   'Your family history raises your risk of heart disease.',
   'Your average glucose (mean 102) is fine.',
   'You have logged fatigue on four mornings this week.',
+  // From the library: definitions and screening logic, not claims about the member.
+  'A positive screen is followed by a full clinical assessment to confirm a diagnosis and plan care.',
+  'The score is suppressed during pregnancy, active cancer treatment or acute illness.',
+  'The high negative predictive value means advanced fibrosis is unlikely.',
 ];
 
 test('asserted diagnoses are caught', () => {

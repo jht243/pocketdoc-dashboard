@@ -694,7 +694,7 @@ export function availableDomains(healthData, messages = []) {
  * one. Matching on "you have" alone caught "you have logged fatigue twice this
  * month", which is exactly the member-reported cross-reference the rules ask for.
  */
-const CONDITION = "(?:\\w+(?:itis|osis|emia|aemia|opathy|oma|uria|penia|paenia)\\b|(?:syndrome|disease|disorder|cancer|diabetes|prediabetes|hypothyroidism|hyperthyroidism|hypertension|depression|celiac|coeliac|copd|apnoea|apnea|insulin resistance|heart failure|hashimoto|graves)\\b)";
+const CONDITION = "(?:\\b(?!(?:diagnosis|prognosis|diagnoses|prognoses)\\b)\\w+(?:itis|osis|emia|aemia|opathy|oma|uria|penia|paenia)\\b|(?:syndrome|disease|disorder|cancer|diabetes|prediabetes|hypothyroidism|hyperthyroidism|hypertension|depression|celiac|coeliac|copd|apnoea|apnea|insulin resistance|heart failure|hashimoto|graves)\\b)";
 
 const FORBIDDEN = [
   { id: "diagnosis", re: new RegExp(`\\byou (?:have|'ve got|are diagnosed with|are suffering from)\\b[^.]{0,40}?${CONDITION}`, "i"),
@@ -707,11 +707,11 @@ const FORBIDDEN = [
   // "you have" ("your antibodies show active Hashimoto's"). "Consistent with" and
   // "suggests" stay allowed: rule 1 asks for exactly that hedged pattern language.
   // A test that "shows whether" or screens "for" a condition is not a claim.
-  { id: "diagnosis_asserted", re: new RegExp(`\\b(?:shows?|showing|confirms?|confirming|indicates?|indicating|indicative of|means?|proves?|diagnostic of)\\b(?![^.]{0,30}\\b(?:whether|if|rule out|ruled out|risk of|risk for|screen(?:ing)? for|test(?:ing)? for)\\b)[^.]{0,30}?${CONDITION}`, "i"),
+  { id: "diagnosis_asserted", re: new RegExp(`\\b(?:shows?|showing|confirms?|confirming|indicates?|indicating|indicative of|means?|proves?|diagnostic of)\\b(?![^.]{0,30}\\b(?:whether|if|rule out|ruled out|risk of|risk for|screen(?:ing)? for|test(?:ing)? for)\\b)[^.]{0,30}?${CONDITION}(?!\\s+(?:is |are )?(?:unlikely|ruled out|excluded))`, "i"),
     why: "diagnosis language" },
   // Calling a condition active, ongoing or established states it as fact, however
   // the sentence opens ("suggesting ongoing Hashimoto's activity").
-  { id: "diagnosis_state_named", re: new RegExp(`\\b(?:active|ongoing|established|confirmed|full-blown|early-stage)\\s+${CONDITION}`, "i"),
+  { id: "diagnosis_state_named", re: new RegExp(`\\b(?:active|ongoing|established|confirmed|full-blown|early-stage)\\s+${CONDITION}(?!\\s+(?:treatment|therapy|screening|care|risk))`, "i"),
     why: "diagnosis language" },
   { id: "reassurance", re: /\b(?:nothing to worry about|no cause for concern|don'?t worry)\b/i,
     why: "blanket reassurance" },
