@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { AlertCircle, ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import { Card } from "../components/Card";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { searchProducts } from "../lib/amazon";
+import { StoreDisclosure } from "../components/StoreDisclosure";
 
 // ---- BROWSE SUPPLEMENTS (live Amazon catalog by category) ----
 // Each category chip is an Amazon keyword search. Products, images, prices, and
@@ -119,18 +120,7 @@ function BrowseSupplementsScreen({ setActive, goBack, backLabel }) {
         </Card>
       )}
 
-      <div style={{
-        marginTop: 16, padding: 12, background: COLORS.warnDim, border: `1px solid ${COLORS.warning}50`,
-        borderRadius: 10, display: "flex", gap: 8, alignItems: "flex-start"
-      }}>
-        <AlertCircle size={14} color={COLORS.warning} style={{ marginTop: 1, flexShrink: 0 }} />
-        <div style={{ fontSize: 11, color: COLORS.textSecondary, lineHeight: 1.5 }}>
-          <span style={{ color: COLORS.warning, fontWeight: 600 }}>Before you order: </span>
-          supplements can interact with prescription medications and current therapies. This
-          isn't a substitute for review by your prescribing physician or pharmacist. As an
-          Amazon Associate, purchases through these links may earn the app a commission.
-        </div>
-      </div>
+      <StoreDisclosure style={{ marginTop: 16 }} />
     </div>
   );
 }

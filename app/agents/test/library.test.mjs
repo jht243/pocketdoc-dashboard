@@ -98,7 +98,13 @@ test('the escalation matrix is usable as data', () => {
   assert.equal(m.markers.hs_crp.unit, 'mg/L');
   assert.deepEqual(m.markers.hs_crp.provider.map((r) => r.gte), [3, 10]);
   assert.equal(m.markers.lpa.default_lane, 'provider');
-  for (const r of m.emergency.rules) assert.ok(m.markers[r.marker] && bound(r), `emergency rule for ${r.marker}`);
+  // Critical values may name markers that have no lane (potassium, INR…); each needs
+  // a bound and an urgency tier.
+  const CRITICAL_ONLY = ['potassium', 'sodium', 'hemoglobin', 'platelets', 'calcium', 'inr'];
+  for (const r of m.emergency.rules) {
+    assert.ok((m.markers[r.marker] || CRITICAL_ONLY.includes(r.marker)) && bound(r), `emergency rule for ${r.marker}`);
+    assert.ok(['today', 'this_week'].includes(r.tier), `emergency tier for ${r.marker}`);
+  }
 });
 
 // A member's question → the section that should answer it first.
@@ -147,3 +153,17 @@ for (const [id, samples] of Object.entries(SAMPLES)) {
     }
   });
 }
+
+// Adam Locker, Oct 19 2026: the library is reviewed on a quarterly cadence.
+test('the review list sorts passages by when they were last reviewed', async () => {
+  const { reviewList } = await import('../library/review.mjs');
+  const today = new Date('2026-10-19');
+  const due = reviewList([
+    { title: 'a', approved_by: 'pending', as_of: '2024' },
+    { title: 'b', approved_by: 'Dr. X, 2026-01-02', reviewed: '2026-01-02', as_of: '2025' },
+    { title: 'c', approved_by: 'Dr. X, 2026-09-01', reviewed: '2026-09-01', as_of: '2018-05' },
+  ], today);
+  assert.deepEqual(due.never.map((p) => p.title), ['a']);
+  assert.deepEqual(due.overdue.map((p) => p.title), ['b']);
+  assert.deepEqual(due.oldSource.map((p) => p.title), ['c']);
+});

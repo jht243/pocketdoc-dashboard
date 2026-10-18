@@ -6,7 +6,8 @@
   "about": "Every finding routes to one lane. self = 'You can act on this' (Lane 1). provider = 'Bring this to your provider' (Lane 2). A finding is provider-lane when ANY rule in `provider` matches or any escalation condition applies; otherwise it takes `default_lane`. Thresholds are Thumbprint's, written by Dr. Locker's team; they are not guideline cut-offs and need medical-director sign-off before any live use.",
   "comparison": "Each rule names one bound or two. gte/gt/lte/lt are numbers in the marker's unit. A value of \"lab_high\" or \"lab_low\" means the limit printed on the member's own lab report.",
   "corrections": [
-    "hs-CRP: spec #25 Section 4 prints its thresholds as 3.0 and 10.0 mg/dL. hs-CRP is reported in mg/L, and Section 2 (ESC-06), the Lane 1 range and the PhenoAge spec all use mg/L, so this matrix uses 3.0 and 10.0 mg/L. Medical director to confirm."
+    "hs-CRP: spec #25 Section 4 prints its thresholds as 3.0 and 10.0 mg/dL. hs-CRP is reported in mg/L, and Section 2 (ESC-06), the Lane 1 range and the PhenoAge spec all use mg/L, so this matrix uses 3.0 and 10.0 mg/L. Medical director to confirm.",
+    "Self-care ranges are guideline-based (conventional reference ranges), not functional or optimal ranges: Adam Locker's decision, Oct 19 2026. They match the Thumbprint targets table. Provider thresholds are unchanged."
   ],
   "lanes": {
     "self": "You can act on this",
@@ -25,13 +26,93 @@
     "ESC-06": "The marker is never self-managed (provider-only category)."
   },
   "emergency": {
-    "about": "Spec #25 Section 9: any of these bypasses the lane templates and the agents. Show the hard-coded urgent-care / contact-your-provider message only.",
+    "about": "Critical values, decided Oct 19 2026 (Adam Locker). Any of these bypasses the lanes and the agents and shows the hard-coded message. 'today' = contact your provider today; 'this_week' = book a visit this week. Either way, red-flag symptoms (chest pain, trouble breathing, confusion, fainting, persistent vomiting, fever) mean urgent care or the ER now. The potassium, sodium, hemoglobin, platelet and calcium cut-offs are the ones in Dr. Locker's Aug 2026 clinical rules spec, Section 7; INR is new and awaiting medical-director sign-off.",
     "rules": [
-      { "marker": "alt", "gt": 200, "unit": "U/L" },
-      { "marker": "wbc", "gt": 20, "unit": "x10^9/L" },
-      { "marker": "fasting_glucose", "gt": 300, "unit": "mg/dL" },
-      { "marker": "egfr", "lt": 30, "unit": "mL/min/1.73m2" },
-      { "marker": "ferritin", "gt": 1000, "unit": "ng/mL" }
+      {
+        "marker": "alt",
+        "gt": 200,
+        "unit": "U/L",
+        "tier": "today"
+      },
+      {
+        "marker": "wbc",
+        "gt": 20,
+        "unit": "x10^9/L",
+        "tier": "today"
+      },
+      {
+        "marker": "fasting_glucose",
+        "gt": 300,
+        "unit": "mg/dL",
+        "tier": "today"
+      },
+      {
+        "marker": "potassium",
+        "lt": 3.0,
+        "unit": "mmol/L",
+        "tier": "today"
+      },
+      {
+        "marker": "potassium",
+        "gt": 6.0,
+        "unit": "mmol/L",
+        "tier": "today"
+      },
+      {
+        "marker": "sodium",
+        "lt": 125,
+        "unit": "mmol/L",
+        "tier": "today"
+      },
+      {
+        "marker": "sodium",
+        "gt": 155,
+        "unit": "mmol/L",
+        "tier": "today"
+      },
+      {
+        "marker": "hemoglobin",
+        "lt": 7.0,
+        "unit": "g/dL",
+        "tier": "today"
+      },
+      {
+        "marker": "platelets",
+        "lt": 50,
+        "unit": "x10^9/L",
+        "tier": "today"
+      },
+      {
+        "marker": "platelets",
+        "gt": 1000,
+        "unit": "x10^9/L",
+        "tier": "today"
+      },
+      {
+        "marker": "calcium",
+        "gt": 12,
+        "unit": "mg/dL",
+        "tier": "today"
+      },
+      {
+        "marker": "inr",
+        "gt": 4.5,
+        "unit": "",
+        "tier": "today",
+        "pending": true
+      },
+      {
+        "marker": "egfr",
+        "lt": 30,
+        "unit": "mL/min/1.73m2",
+        "tier": "this_week"
+      },
+      {
+        "marker": "ferritin",
+        "gt": 1000,
+        "unit": "ng/mL",
+        "tier": "this_week"
+      }
     ]
   },
   "markers": {
@@ -40,14 +121,32 @@
       "domain": "metabolic",
       "unit": "mg/dL",
       "default_lane": "self",
-      "self_range": { "gte": 70, "lte": 99 },
+      "self_range": {
+        "gte": 70,
+        "lte": 99
+      },
       "provider": [
-        { "level": "flag", "gte": 100, "lt": 126, "why": "Prediabetes-range value: provider discussion." },
-        { "level": "immediate", "gte": 126, "why": "Diabetes-range value: provider evaluation required." }
+        {
+          "level": "flag",
+          "gte": 100,
+          "lt": 126,
+          "why": "Prediabetes-range value: provider discussion."
+        },
+        {
+          "level": "immediate",
+          "gte": 126,
+          "why": "Diabetes-range value: provider evaluation required."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-03", "when": "110 mg/dL or higher and rising across two draws" },
-        { "trigger": "ESC-04", "when": "Genetic report shows a type 2 diabetes risk variant" }
+        {
+          "trigger": "ESC-03",
+          "when": "110 mg/dL or higher and rising across two draws"
+        },
+        {
+          "trigger": "ESC-04",
+          "when": "Genetic report shows a type 2 diabetes risk variant"
+        }
       ]
     },
     "hba1c": {
@@ -55,14 +154,31 @@
       "domain": "metabolic",
       "unit": "%",
       "default_lane": "self",
-      "self_range": { "lt": 5.7 },
+      "self_range": {
+        "lt": 5.7
+      },
       "provider": [
-        { "level": "flag", "gte": 5.7, "lt": 6.5, "why": "Prediabetes-range A1c: provider discussion." },
-        { "level": "immediate", "gte": 6.5, "why": "Diabetes-range A1c: diabetes evaluation." }
+        {
+          "level": "flag",
+          "gte": 5.7,
+          "lt": 6.5,
+          "why": "Prediabetes-range A1c: provider discussion."
+        },
+        {
+          "level": "immediate",
+          "gte": 6.5,
+          "why": "Diabetes-range A1c: diabetes evaluation."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Rising across draws" },
-        { "trigger": "ESC-03", "when": "5.7% or higher and fasting glucose also elevated" }
+        {
+          "trigger": "ESC-02",
+          "when": "Rising across draws"
+        },
+        {
+          "trigger": "ESC-03",
+          "when": "5.7% or higher and fasting glucose also elevated"
+        }
       ]
     },
     "fasting_insulin": {
@@ -70,14 +186,31 @@
       "domain": "metabolic",
       "unit": "uIU/mL",
       "default_lane": "self",
-      "self_range": { "lt": 10 },
+      "self_range": {
+        "lt": 25
+      },
       "provider": [
-        { "level": "flag", "gte": 20, "lt": 30, "why": "Raised fasting insulin." },
-        { "level": "immediate", "gte": 30, "why": "Provider note: clinical evaluation for insulin resistance is indicated." }
+        {
+          "level": "flag",
+          "gte": 20,
+          "lt": 30,
+          "why": "Raised fasting insulin."
+        },
+        {
+          "level": "immediate",
+          "gte": 30,
+          "why": "Provider note: clinical evaluation for insulin resistance is indicated."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Worsening across draws despite lifestyle changes" },
-        { "trigger": "ESC-04", "when": "Intersects with metabolic genetic findings" }
+        {
+          "trigger": "ESC-02",
+          "when": "Worsening across draws despite lifestyle changes"
+        },
+        {
+          "trigger": "ESC-04",
+          "when": "Intersects with metabolic genetic findings"
+        }
       ]
     },
     "triglycerides": {
@@ -85,14 +218,31 @@
       "domain": "metabolic",
       "unit": "mg/dL",
       "default_lane": "self",
-      "self_range": { "lt": 100 },
+      "self_range": {
+        "lt": 150
+      },
       "provider": [
-        { "level": "flag", "gte": 200, "lt": 500, "why": "High triglycerides." },
-        { "level": "immediate", "gte": 500, "why": "Pancreatitis risk: provider evaluation required." }
+        {
+          "level": "flag",
+          "gte": 200,
+          "lt": 500,
+          "why": "High triglycerides."
+        },
+        {
+          "level": "immediate",
+          "gte": 500,
+          "why": "Pancreatitis risk: provider evaluation required."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Worsening across draws" },
-        { "trigger": "ESC-03", "when": "200 mg/dL or higher with glucose or insulin also elevated" }
+        {
+          "trigger": "ESC-02",
+          "when": "Worsening across draws"
+        },
+        {
+          "trigger": "ESC-03",
+          "when": "200 mg/dL or higher with glucose or insulin also elevated"
+        }
       ]
     },
     "hdl": {
@@ -100,12 +250,26 @@
       "domain": "metabolic",
       "unit": "mg/dL",
       "default_lane": "self",
-      "self_range": { "male": { "gt": 50 }, "female": { "gt": 60 } },
+      "self_range": {
+        "male": {
+          "gte": 40
+        },
+        "female": {
+          "gte": 50
+        }
+      },
       "provider": [
-        { "level": "flag", "lt": 35, "why": "Low HDL: cardiovascular risk discussion." }
+        {
+          "level": "flag",
+          "lt": 35,
+          "why": "Low HDL: cardiovascular risk discussion."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-05", "when": "Low HDL with high triglycerides and high glucose" }
+        {
+          "trigger": "ESC-05",
+          "when": "Low HDL with high triglycerides and high glucose"
+        }
       ]
     },
     "hs_crp": {
@@ -113,15 +277,35 @@
       "domain": "inflammatory",
       "unit": "mg/L",
       "default_lane": "self",
-      "self_range": { "lt": 1.0 },
+      "self_range": {
+        "lt": 2.0
+      },
       "provider": [
-        { "level": "flag", "gte": 3.0, "lt": 10.0, "why": "Persistently raised inflammation marker." },
-        { "level": "immediate", "gte": 10.0, "why": "Likely acute inflammation: provider evaluation required." }
+        {
+          "level": "flag",
+          "gte": 3.0,
+          "lt": 10.0,
+          "why": "Persistently raised inflammation marker."
+        },
+        {
+          "level": "immediate",
+          "gte": 10.0,
+          "why": "Likely acute inflammation: provider evaluation required."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Above 1.0 mg/L and not improving after two draw cycles of supplement changes" },
-        { "trigger": "ESC-05", "when": "Raised together with other inflammatory markers" },
-        { "trigger": "ESC-06", "when": "Persistently above 3.0 mg/L despite supplement changes" }
+        {
+          "trigger": "ESC-02",
+          "when": "Above 1.0 mg/L and not improving after two draw cycles of supplement changes"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "Raised together with other inflammatory markers"
+        },
+        {
+          "trigger": "ESC-06",
+          "when": "Persistently above 3.0 mg/L despite supplement changes"
+        }
       ]
     },
     "homocysteine": {
@@ -129,13 +313,25 @@
       "domain": "inflammatory",
       "unit": "umol/L",
       "default_lane": "self",
-      "self_range": { "lt": 8 },
+      "self_range": {
+        "lte": 15
+      },
       "provider": [
-        { "level": "flag", "gte": 20, "why": "Significant elevation: provider to evaluate B12, kidney function and inherited methylation disorders." }
+        {
+          "level": "flag",
+          "gte": 20,
+          "why": "Significant elevation: provider to evaluate B12, kidney function and inherited methylation disorders."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Not normalizing across two draw cycles despite methylated B-vitamin supplementation" },
-        { "trigger": "ESC-04", "when": "MTHFR C677T homozygous and not responding" }
+        {
+          "trigger": "ESC-02",
+          "when": "Not normalizing across two draw cycles despite methylated B-vitamin supplementation"
+        },
+        {
+          "trigger": "ESC-04",
+          "when": "MTHFR C677T homozygous and not responding"
+        }
       ]
     },
     "egfr": {
@@ -144,14 +340,31 @@
       "unit": "mL/min/1.73m2",
       "default_lane": "self",
       "default_lane_note": "Provider lane by default whenever a declining trend is detected, even above 60. Self lane gives supportive guidance only (hydration, protein intake, blood pressure).",
-      "self_range": { "gt": 90 },
+      "self_range": {
+        "gte": 60
+      },
       "provider": [
-        { "level": "immediate", "lt": 60, "why": "Reduced kidney filtration." },
-        { "level": "flag", "lt": 90, "needs_trend": "declining across two draws", "why": "Declining kidney filtration." }
+        {
+          "level": "immediate",
+          "lt": 60,
+          "why": "Reduced kidney filtration."
+        },
+        {
+          "level": "flag",
+          "lt": 90,
+          "needs_trend": "declining across two draws",
+          "why": "Declining kidney filtration."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Any declining trend" },
-        { "trigger": "ESC-05", "when": "eGFR declining with creatinine rising: nephrology consideration" }
+        {
+          "trigger": "ESC-02",
+          "when": "Any declining trend"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "eGFR declining with creatinine rising: nephrology consideration"
+        }
       ]
     },
     "creatinine": {
@@ -159,13 +372,32 @@
       "domain": "organ",
       "unit": "mg/dL",
       "default_lane": "self",
-      "self_range": { "female": { "gte": 0.6, "lte": 1.0 }, "male": { "gte": 0.7, "lte": 1.1 } },
+      "self_range": {
+        "female": {
+          "gte": 0.5,
+          "lte": 1.0
+        },
+        "male": {
+          "gte": 0.7,
+          "lte": 1.2
+        }
+      },
       "provider": [
-        { "level": "flag", "gt": "lab_high", "why": "Above the lab's standard range." }
+        {
+          "level": "flag",
+          "gt": "lab_high",
+          "why": "Above the lab's standard range."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Rising across draws" },
-        { "trigger": "ESC-05", "when": "Creatinine raised with eGFR declining" }
+        {
+          "trigger": "ESC-02",
+          "when": "Rising across draws"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "Creatinine raised with eGFR declining"
+        }
       ]
     },
     "albumin": {
@@ -173,14 +405,32 @@
       "domain": "organ",
       "unit": "g/dL",
       "default_lane": "self",
-      "self_range": { "gte": 4.0, "lte": 5.0 },
+      "self_range": {
+        "gte": 3.5,
+        "lte": 5.0
+      },
       "provider": [
-        { "level": "immediate", "lt": 3.5, "why": "Low albumin." },
-        { "level": "flag", "gte": 3.5, "lt": 4.0, "why": "Albumin below 4.0 g/dL." }
+        {
+          "level": "immediate",
+          "lt": 3.5,
+          "why": "Low albumin."
+        },
+        {
+          "level": "flag",
+          "gte": 3.5,
+          "lt": 4.0,
+          "why": "Albumin below 4.0 g/dL."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Declining across draws" },
-        { "trigger": "ESC-05", "when": "Albumin declining with ALT raised" }
+        {
+          "trigger": "ESC-02",
+          "when": "Declining across draws"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "Albumin declining with ALT raised"
+        }
       ]
     },
     "alt": {
@@ -188,15 +438,40 @@
       "domain": "organ",
       "unit": "U/L",
       "default_lane": "self",
-      "self_range": { "lt": 40, "optimal_lt": 25 },
+      "self_range": {
+        "male": {
+          "lte": 33
+        },
+        "female": {
+          "lte": 25
+        }
+      },
       "provider": [
-        { "level": "flag", "gt": 40, "lte": 80, "why": "Raised liver enzyme: provider discussion." },
-        { "level": "immediate", "gt": 80, "why": "Markedly raised liver enzyme." }
+        {
+          "level": "flag",
+          "gt": 40,
+          "lte": 80,
+          "why": "Raised liver enzyme: provider discussion."
+        },
+        {
+          "level": "immediate",
+          "gt": 80,
+          "why": "Markedly raised liver enzyme."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Worsening across draws" },
-        { "trigger": "ESC-04", "when": "On any supplement protocol that can injure the liver" },
-        { "trigger": "ESC-05", "when": "ALT and AST both raised" }
+        {
+          "trigger": "ESC-02",
+          "when": "Worsening across draws"
+        },
+        {
+          "trigger": "ESC-04",
+          "when": "On any supplement protocol that can injure the liver"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "ALT and AST both raised"
+        }
       ]
     },
     "rdw": {
@@ -204,13 +479,25 @@
       "domain": "hematologic",
       "unit": "%",
       "default_lane": "self",
-      "self_range": { "lt": 13.0 },
+      "self_range": {
+        "lte": 14.5
+      },
       "provider": [
-        { "level": "flag", "gt": 15.0, "why": "Marked variation in red cell size warrants evaluation." }
+        {
+          "level": "flag",
+          "gt": 15.0,
+          "why": "Marked variation in red cell size warrants evaluation."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Worsening across draws" },
-        { "trigger": "ESC-05", "when": "RDW raised with abnormal WBC and low ferritin" }
+        {
+          "trigger": "ESC-02",
+          "when": "Worsening across draws"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "RDW raised with abnormal WBC and low ferritin"
+        }
       ]
     },
     "wbc": {
@@ -218,13 +505,27 @@
       "domain": "hematologic",
       "unit": "x10^9/L",
       "default_lane": "self",
-      "self_range": { "gte": 4.0, "lte": 6.0 },
+      "self_range": {
+        "gte": 4.0,
+        "lte": 11.0
+      },
       "provider": [
-        { "level": "immediate", "lt": 3.0, "why": "Low white cell count." },
-        { "level": "flag", "gt": 11.0, "why": "High white cell count." }
+        {
+          "level": "immediate",
+          "lt": 3.0,
+          "why": "Low white cell count."
+        },
+        {
+          "level": "flag",
+          "gt": 11.0,
+          "why": "High white cell count."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-05", "when": "WBC and hs-CRP both raised" }
+        {
+          "trigger": "ESC-05",
+          "when": "WBC and hs-CRP both raised"
+        }
       ],
       "notes": "6.0-8.0 during an infection or stress is a self-lane note, not an escalation."
     },
@@ -233,15 +534,32 @@
       "domain": "nutritional",
       "unit": "ng/mL",
       "default_lane": "self",
-      "self_range": { "gte": 50, "lte": 80 },
+      "self_range": {
+        "gte": 20,
+        "lte": 50
+      },
       "self_range_evidence": "Emerging. The 2024 Endocrine Society guideline advises against routine 25-OH-D testing and against targeting a specific level in healthy adults under 75; show that position next to this range.",
       "provider": [
-        { "level": "flag", "lt": 20, "why": "Severe deficiency: provider may recommend prescription repletion." },
-        { "level": "flag", "gt": 100, "why": "Toxicity risk if supplementing." }
+        {
+          "level": "flag",
+          "lt": 20,
+          "why": "Severe deficiency: provider may recommend prescription repletion."
+        },
+        {
+          "level": "flag",
+          "gt": 100,
+          "why": "Toxicity risk if supplementing."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-03", "when": "Below 20 ng/mL, where prescription repletion is the indicated step" },
-        { "trigger": "ESC-04", "when": "Genetic report shows a VDR variant affecting vitamin D metabolism" }
+        {
+          "trigger": "ESC-03",
+          "when": "Below 20 ng/mL, where prescription repletion is the indicated step"
+        },
+        {
+          "trigger": "ESC-04",
+          "when": "Genetic report shows a VDR variant affecting vitamin D metabolism"
+        }
       ]
     },
     "ferritin": {
@@ -249,15 +567,44 @@
       "domain": "nutritional",
       "unit": "ng/mL",
       "default_lane": "self",
-      "self_range": { "female": { "gte": 50, "lte": 150 }, "male": { "gte": 50, "lte": 200 } },
+      "self_range": {
+        "female": {
+          "gte": 30,
+          "lte": 150
+        },
+        "male": {
+          "gte": 30,
+          "lte": 200
+        }
+      },
       "provider": [
-        { "level": "flag", "lt": 20, "why": "Severe iron deficiency: provider to investigate the cause." },
-        { "level": "flag", "sex": "female", "gt": 300, "why": "High ferritin: hemochromatosis screening indicated." },
-        { "level": "flag", "sex": "male", "gt": 400, "why": "High ferritin: hemochromatosis screening indicated." }
+        {
+          "level": "flag",
+          "lt": 20,
+          "why": "Severe iron deficiency: provider to investigate the cause."
+        },
+        {
+          "level": "flag",
+          "sex": "female",
+          "gt": 300,
+          "why": "High ferritin: hemochromatosis screening indicated."
+        },
+        {
+          "level": "flag",
+          "sex": "male",
+          "gt": 400,
+          "why": "High ferritin: hemochromatosis screening indicated."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-03", "when": "High ferritin: provider to evaluate the cause" },
-        { "trigger": "ESC-05", "when": "Very low ferritin with low RDW and low WBC" }
+        {
+          "trigger": "ESC-03",
+          "when": "High ferritin: provider to evaluate the cause"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "Very low ferritin with low RDW and low WBC"
+        }
       ]
     },
     "apob": {
@@ -265,14 +612,29 @@
       "domain": "cardiovascular",
       "unit": "mg/dL",
       "default_lane": "self",
-      "self_range": { "lt": 80 },
+      "self_range": {
+        "lt": 90
+      },
       "provider": [
-        { "level": "flag", "gt": 120, "why": "Clinical cardiovascular risk management discussion." }
+        {
+          "level": "flag",
+          "gt": 120,
+          "why": "Clinical cardiovascular risk management discussion."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-02", "when": "Worsening across draws" },
-        { "trigger": "ESC-03", "when": "At a level where statin therapy is clinically considered" },
-        { "trigger": "ESC-05", "when": "ApoB and Lp(a) raised with a family history of heart disease" }
+        {
+          "trigger": "ESC-02",
+          "when": "Worsening across draws"
+        },
+        {
+          "trigger": "ESC-03",
+          "when": "At a level where statin therapy is clinically considered"
+        },
+        {
+          "trigger": "ESC-05",
+          "when": "ApoB and Lp(a) raised with a family history of heart disease"
+        }
       ]
     },
     "lpa": {
@@ -282,10 +644,17 @@
       "default_lane": "provider",
       "self_range": null,
       "provider": [
-        { "level": "immediate", "gt": 50, "why": "Raised Lp(a): cardiovascular risk discussion." }
+        {
+          "level": "immediate",
+          "gt": 50,
+          "why": "Raised Lp(a): cardiovascular risk discussion."
+        }
       ],
       "conditions": [
-        { "trigger": "ESC-06", "when": "Always: genetically fixed, lifelong, and its management needs a provider" }
+        {
+          "trigger": "ESC-06",
+          "when": "Always: genetically fixed, lifelong, and its management needs a provider"
+        }
       ],
       "notes": "Any detectable elevation warrants provider awareness. Many labs report Lp(a) in nmol/L, which does not convert reliably to mg/dL; match on the unit the lab printed."
     }

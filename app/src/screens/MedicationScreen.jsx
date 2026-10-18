@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { ChevronRight, ExternalLink, Pencil, Pill, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, Pencil, Pill, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Card } from "../components/Card";
 import { OrderComingSoon } from "../components/OrderComingSoon";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { loadMedications, saveMedications } from "../lib/profileStore";
-import { suggestSupplements } from "../lib/aiInsights";
-import { searchProducts } from "../lib/amazon";
 
 // ---- MEDICATION SCREEN ----
 // The user's real medication + supplement list (entered by them, persisted to
-// ghai.medications). Nothing here is pre-filled or invented. Plus an AI "Suggested
-// for you" section that pulls live Amazon supplement cards from their profile.
-function MedicationScreen({ setActive, goBack, backLabel, userProfile, healthData, goToMarket, onMedsChange }) {
+// ghai.medications). Nothing here is pre-filled or invented. No product suggestions:
+// what the member's results point at is a conversation with their provider, and the
+// store stays a separate place (Adam Locker, Oct 19 2026).
+function MedicationScreen({ setActive, goBack, backLabel, userProfile, healthData, onMedsChange }) {
   const { user } = useAuth();
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +20,6 @@ function MedicationScreen({ setActive, goBack, backLabel, userProfile, healthDat
   const [editId, setEditId] = useState(null); // id of the med being edited, or null for a new one
   const [newMed, setNewMed] = useState({ name: "", dose: "", frequency: "", prescriber: "", type: "rx" });
   const [showReport, setShowReport] = useState(false);
-  const [suggestions, setSuggestions] = useState(null); // null = loading; [] = none
 
   // Map a DB row to the display shape; anything not a supplement lists as a prescription.
   const fromRow = (r) => ({
@@ -38,23 +36,6 @@ function MedicationScreen({ setActive, goBack, backLabel, userProfile, healthDat
     })();
     return () => { cancelled = true; };
   }, [user]);
-
-  // AI-suggested supplements → live Amazon product cards.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!userProfile) { setSuggestions([]); return; }
-      const ideas = await suggestSupplements(userProfile, healthData);
-      if (cancelled) return;
-      if (!ideas.length) { setSuggestions([]); return; }
-      const withProducts = await Promise.all(ideas.map(async (idea) => {
-        const { items } = await searchProducts(idea.keywords, { itemCount: 1 });
-        return { ...idea, product: items && items[0] ? items[0] : null };
-      }));
-      if (!cancelled) setSuggestions(withProducts);
-    })();
-    return () => { cancelled = true; };
-  }, [userProfile]);
 
   // Persist the full list (delete + re-insert keeps meds table in sync with the UI).
   const persist = async (list) => {
@@ -280,55 +261,6 @@ function MedicationScreen({ setActive, goBack, backLabel, userProfile, healthDat
         </Card>
       )}
 
-      {/* AI-suggested supplements → live Amazon cards. */}
-      {suggestions && suggestions.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <SectionLabel>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Sparkles size={16} color={COLORS.accent} /> Suggested for you
-            </span>
-          </SectionLabel>
-          <Card>
-            {suggestions.map((s, i) => (
-              <div key={i} style={{
-                padding: "11px 0", borderBottom: i < suggestions.length - 1 ? `1px solid ${COLORS.border}` : "none"
-              }}>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <div style={{
-                    width: 46, height: 46, borderRadius: 8, flexShrink: 0, overflow: "hidden", background: "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${COLORS.border}`
-                  }}>
-                    {s.product?.image
-                      ? <img src={s.product.image} alt={s.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-                      : <Plus size={16} color={COLORS.textMuted} />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
-                    <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 1,
-                      overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                      {s.product?.title ? [s.product.brand, s.product.price].filter(Boolean).join(" · ") || s.product.title : s.reason}
-                    </div>
-                  </div>
-                  <a href={s.product?.url || `https://www.amazon.com/s?k=${encodeURIComponent(s.keywords)}`}
-                    target="_blank" rel="noopener noreferrer sponsored" style={{
-                      background: COLORS.teal, color: COLORS.onAccent, textDecoration: "none",
-                      fontSize: 11, fontWeight: 700, padding: "7px 10px", borderRadius: 7,
-                      display: "flex", alignItems: "center", gap: 4, flexShrink: 0
-                    }}>View <ExternalLink size={11} /></a>
-                </div>
-                {s.reason && s.product?.title && (
-                  <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 6, lineHeight: 1.4 }}>{s.reason}</div>
-                )}
-              </div>
-            ))}
-            <div style={{ fontSize: 10, color: COLORS.textMuted, lineHeight: 1.5, marginTop: 12 }}>
-              Suggestions are based on your profile and are not medical advice. Supplements can interact
-              with medications — check with your pharmacist or physician first. As an Amazon Associate,
-              purchases through these links may earn the app a commission.
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

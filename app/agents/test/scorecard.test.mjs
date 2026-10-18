@@ -98,12 +98,15 @@ test('the scorecard is six named systems in words only: no score, percentage or 
 
 /* ---------------- the target seed ---------------- */
 
-test('the seed covers the 25 common markers, every row pending approval', () => {
+test('the seed covers the guideline-backed markers, every row pending approval', () => {
   const ids = new Set(MARKER_TARGETS.map((r) => r.marker_id));
-  assert.equal(ids.size, 25);
+  assert.equal(ids.size, 21);
   for (const id of ['LDL_C', 'HDL_C', 'TRIGLYCERIDES', 'APOB', 'LPA', 'TOTAL_CHOLESTEROL', 'FASTING_GLUCOSE', 'HBA1C',
-    'FASTING_INSULIN', 'HS_CRP', 'ALT', 'AST', 'ALP', 'ALBUMIN', 'CREATININE', 'EGFR', 'FERRITIN', 'VITAMIN_D_25OH',
-    'B12', 'TSH', 'FREE_T4', 'HEMOGLOBIN', 'RDW', 'MCV', 'WBC']) assert.ok(ids.has(id), id);
+    'HS_CRP', 'ALT', 'AST', 'ALP', 'CREATININE', 'EGFR', 'FERRITIN', 'VITAMIN_D_25OH',
+    'B12', 'TSH', 'FREE_T4', 'HEMOGLOBIN', 'MCV']) assert.ok(ids.has(id), id);
+  // Guideline-based only (Oct 19 2026): these had no guideline target, so the lab
+  // range on the report stands alone.
+  for (const id of ['FASTING_INSULIN', 'WBC', 'RDW', 'ALBUMIN']) assert.ok(!ids.has(id), id);
   for (const r of MARKER_TARGETS) {
     assert.equal(r.approved_by, 'pending', r.marker_id);
     assert.ok(['Strong', 'Moderate', 'Emerging'].includes(r.evidence_level), r.marker_id);
@@ -128,8 +131,13 @@ test('the bundled seed and the migration agree row for row', () => {
   const sql = readFileSync(new URL('../../supabase/migrations/20261018_marker_targets.sql', import.meta.url), 'utf8');
   const q = (s) => (s == null ? 'null' : `'${String(s).replace(/'/g, "''")}'`);
   const n = (x) => (x == null ? 'null' : String(x));
-  const rowsInSql = sql.match(/^ {2}\('[A-Z0-9_]+', /gm) || [];
+  // The seed migration still holds the four rows a later migration removed
+  // (20261019_guideline_targets_only.sql); every bundled row must be in it.
+  const removed = ['FASTING_INSULIN', 'WBC', 'RDW', 'ALBUMIN'];
+  const rowsInSql = (sql.match(/^ {2}\('([A-Z0-9_]+)', /gm) || []).filter((r) => !removed.some((id) => r.includes(`'${id}'`)));
   assert.equal(rowsInSql.length, MARKER_TARGETS.length);
+  const later = readFileSync(new URL('../../supabase/migrations/20261019_guideline_targets_only.sql', import.meta.url), 'utf8');
+  for (const id of removed) assert.match(later, new RegExp(`'${id}'`));
   for (const r of MARKER_TARGETS) {
     const head = `(${q(r.marker_id)}, ${q(r.unit)}, ${q(JSON.stringify(r.applies_to))}::jsonb, ${n(r.target_low)}, ${n(r.target_high)}, ${q(r.direction)},`;
     assert.ok(sql.includes(head), `missing in migration: ${head}`);
@@ -186,7 +194,7 @@ test('targets personalise by sex and age, and never apply in a different unit', 
   assert.equal(t('LPA', 'nmol/L', 'male', 50).target_high, 125);
   assert.equal(t('LPA', 'mg/dL', 'male', 50).target_high, 50);
   assert.equal(t('LDL_C', 'mmol/L', 'male', 50), null);
-  assert.equal(t('WBC', 'K/uL', 'male', 50).target_high, 8.0);
+  assert.equal(t('WBC', 'K/uL', 'male', 50), null); // no guideline target: lab range only
   assert.equal(canonUnit('x10E3/uL'), canonUnit('x10^9/L'));
 });
 

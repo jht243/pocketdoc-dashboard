@@ -12,8 +12,8 @@ function getDailyRecommendation(healthData) {
     candidates.push({
       priority: 100, type: "illness_onset", icon: "alert",
       title: "Possible onset detected",
-      body: `Your device shows elevated overnight temperature and a ${today.restingHR - today.restingHRBaseline} bpm resting heart rate increase, alongside what you've reported feeling. This pattern has preceded a cold for you before. Consider rest, hydration, and extra vitamin C and zinc today.`,
-      action: { label: "See immune support options", target: "iv" },
+      body: `Your device shows elevated overnight temperature and a ${today.restingHR - today.restingHRBaseline} bpm resting heart rate increase, alongside what you've reported feeling. This pattern has preceded a cold for you before. Rest and fluids today, and if it turns into a fever or you feel worse, check in with your provider.`,
+      action: null,
     });
   }
 
@@ -52,8 +52,10 @@ function getDailyRecommendation(healthData) {
     candidates.push({
       priority: 40, type: "vitamin_d_link", icon: "sparkles",
       title: "Low Vitamin D may be contributing to today's fatigue",
-      body: `Your last result was ${today.vitaminD} ng/mL, below the recommended range. Consistent daily supplementation is the main lever here, and it can take several weeks to show up in energy levels.`,
-      action: { label: "Shop Vitamin D3 in Marketplace", target: "vitd3" },
+      // A finding and next steps, not a treatment conclusion, and no store link
+      // (Adam Locker, Oct 19 2026).
+      body: `Your last result was ${today.vitaminD} ng/mL, below the reference range. Ask your provider whether it could be adding to your fatigue, what they suggest, and when to retest.`,
+      action: { label: "Prepare for your visit", target: "discussion" },
     });
   }
 

@@ -24,7 +24,7 @@ import { logSafetyEvent, logAgentRun } from "./careTeamLog";
 
 // Routing, consults and the huddle are short, structured calls, so a fast model
 // keeps the whole round inside the time a member will watch it. The Advocate's
-// reply still goes to the main chat model with live research.
+// reply still goes to the main chat model (no web search).
 const TEAM_MODEL = import.meta.env.VITE_AI_TEAM_MODEL || "gpt-4.1-mini";
 
 export const ADVOCATE = {
@@ -428,7 +428,9 @@ export async function runCareTeam({
     messages: apiMessages,
     model: chatModel,
     maxTokens: 1200,
-    webSearch: true,
+    // No live web search for health answers (Adam Locker, Oct 19 2026): the record
+    // and established guidelines only, the same as the agents service.
+    webSearch: false,
   });
   let reply = cleanReply(firstText(data, "I couldn't generate a response."));
   const citations = firstCitations(data);

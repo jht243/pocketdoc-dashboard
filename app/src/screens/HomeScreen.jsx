@@ -11,7 +11,7 @@ import { ThumbprintChecklist } from "../components/ThumbprintChecklist";
 import { CheckInCard } from "../components/CheckInCard";
 import { BioAgeCard } from "../components/BioAgeCard";
 import { getDailyRecommendation } from "../lib/recommendations";
-import { insightActionLabel, runInsightAction } from "../lib/insightActions";
+import { insightActionLabel, liveInsightAction, runInsightAction } from "../lib/insightActions";
 import { useScoreModel } from "../lib/scoring";
 import { summarizeSchedule } from "../lib/screeningLogic";
 import { formatHoursMinutes } from "../lib/wearableShape";
@@ -21,7 +21,7 @@ import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
 
 function HomeScreen({
-  setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
+  setActive, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const score = useScoreModel(nutritionEnabled, healthData, userProfile);
@@ -196,9 +196,9 @@ function HomeScreen({
                 {/* Which reference point this was judged against, and where the numbers
                     came from — Rule 1.3 says the comparison must be stated, not implied. */}
                 {rec.basis && <EvidenceBox>{rec.basis}</EvidenceBox>}
-                {rec.action && (
+                {liveInsightAction(rec.action) && (
                   <button style={{ marginTop: 10, background: "none", border: `1px solid ${color}`, color, fontSize: 11, fontWeight: 600, padding: "6px 11px", borderRadius: 8, cursor: "pointer" }}
-                    onClick={() => runInsightAction(rec.action, { setActive, goToMarket })}>
+                    onClick={() => runInsightAction(rec.action, { setActive })}>
                     {insightActionLabel(rec.action)} <ChevronRight size={11} style={{ display: "inline", verticalAlign: -1 }} />
                   </button>
                 )}

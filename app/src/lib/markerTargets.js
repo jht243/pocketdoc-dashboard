@@ -63,22 +63,13 @@ const MARKER_TARGETS = [
   { marker_id: "HBA1C", unit: "%", applies_to: ANY, target_low: null, target_high: 5.7, direction: "lower_better",
     rationale: "A1c reflects average blood sugar over about three months. 5.7% or above is the prediabetes range.",
     evidence_level: "Strong", source: "ADA Standards of Care in Diabetes 2025", ...PENDING },
-  { marker_id: "FASTING_INSULIN", unit: "uIU/mL", applies_to: ANY, target_low: null, target_high: 10, direction: "lower_better",
-    rationale: "Fasting insulin can rise years before glucose does. No guideline sets a target; under 10 uIU/mL is a cut-off used in research on insulin resistance.",
-    evidence_level: "Emerging", source: "No guideline target; research cut-offs for insulin resistance (HOMA-IR studies)", ...PENDING },
 
   // ---------------- Inflammation ----------------
   { marker_id: "HS_CRP", unit: "mg/L", applies_to: ANY, target_low: null, target_high: 2.0, direction: "lower_better",
     rationale: "hs-CRP measures low-grade inflammation that is linked to heart risk. 2.0 mg/L or above is a recognised risk-enhancing level; a recent cold or injury can raise it for a few weeks.",
     evidence_level: "Moderate", source: "2018 AHA/ACC Cholesterol Guideline; AHA/CDC 2003 scientific statement", ...PENDING },
-  { marker_id: "WBC", unit: "x10^9/L", applies_to: ANY, target_low: 4.0, target_high: 8.0, direction: "range",
-    rationale: "White cells fight infection, so a recent illness moves this number. Large studies link counts toward the top of the lab range to higher heart risk; no guideline sets this narrower target.",
-    evidence_level: "Emerging", source: "No guideline target; cohort studies of WBC and cardiovascular risk", ...PENDING },
 
   // ---------------- Organ function ----------------
-  { marker_id: "ALBUMIN", unit: "g/dL", applies_to: ANY, target_low: 4.0, target_high: 5.0, direction: "range",
-    rationale: "Albumin is made by the liver and reflects nutrition and liver health. Values in the low end of the lab range are linked to poorer outcomes in large studies.",
-    evidence_level: "Moderate", source: "Adult reference intervals; cohort studies of serum albumin", ...PENDING },
   { marker_id: "CREATININE", unit: "mg/dL", applies_to: { sex: "male" }, target_low: 0.7, target_high: 1.2, direction: "range",
     rationale: "Creatinine is a muscle by-product the kidneys clear, so read it alongside eGFR. More muscle means a higher number without any kidney problem.",
     evidence_level: "Moderate", source: "Adult reference intervals; KDIGO 2024 CKD Guideline", ...PENDING },
@@ -108,9 +99,6 @@ const MARKER_TARGETS = [
   { marker_id: "HEMOGLOBIN", unit: "g/dL", applies_to: { sex: "female" }, target_low: 12.0, target_high: 15.5, direction: "range",
     rationale: "Hemoglobin carries oxygen in the blood. Below 12 g/dL in non-pregnant women is the WHO definition of anemia.",
     evidence_level: "Strong", source: "WHO 2024 guideline on haemoglobin cut-offs for anaemia", ...PENDING },
-  { marker_id: "RDW", unit: "%", applies_to: ANY, target_low: null, target_high: 13.5, direction: "lower_better",
-    rationale: "RDW measures how much your red cells vary in size; it widens early in iron or B12 shortage. Large studies link higher RDW, even inside the lab range, to higher overall risk; no guideline sets this target.",
-    evidence_level: "Emerging", source: "No guideline target; cohort studies of RDW and mortality", ...PENDING },
   { marker_id: "MCV", unit: "fL", applies_to: ANY, target_low: 80, target_high: 100, direction: "range",
     rationale: "MCV is the average size of your red cells. Small cells point toward iron shortage and large cells toward B12 or folate shortage.",
     evidence_level: "Strong", source: "Standard haematology definitions of microcytosis and macrocytosis", ...PENDING },

@@ -12,6 +12,16 @@ const FIXED_LABELS = {
   discussion: "Prepare for your visit",
 };
 
+const LIVE_TARGETS = new Set(["discussion", "bodyfat_history"]);
+
+/**
+ * The card's action when it still leads somewhere, else null. Cards cached before
+ * Oct 19 2026 can carry a store target ("iv", "vitd3"); those lose their button.
+ */
+export function liveInsightAction(action) {
+  return action && LIVE_TARGETS.has(action.target) ? action : null;
+}
+
 /** The label to show on an insight card's action button. */
 export function insightActionLabel(action) {
   if (!action) return "";
@@ -19,12 +29,12 @@ export function insightActionLabel(action) {
 }
 
 /**
- * Follow an insight card's action. Discussion and body-fat targets are screens;
- * every other target is a Marketplace highlight.
+ * Follow an insight card's action. Only the Discussion page and the body-fat trend:
+ * a health finding never opens the store (Adam Locker, Oct 19 2026), so an older
+ * cached card that still names a store target does nothing.
  */
-export function runInsightAction(action, { setActive, goToMarket }) {
-  if (!action) return;
+export function runInsightAction(action, { setActive }) {
+  if (!liveInsightAction(action)) return;
   if (action.target === "discussion") setActive("discussion");
   else if (action.target === "bodyfat_history") setActive("body");
-  else goToMarket(action.target);
 }

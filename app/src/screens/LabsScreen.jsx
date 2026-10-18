@@ -13,9 +13,9 @@ import { shortLabSource } from "../lib/labSource";
 import { MARKER_TARGETS, ageFromDob, fetchMarkerTargets } from "../lib/markerTargets";
 import { assessMarker } from "../lib/markerResults";
 import { supabase } from "../lib/supabase";
-import { insightActionLabel, runInsightAction } from "../lib/insightActions";
+import { insightActionLabel, liveInsightAction, runInsightAction } from "../lib/insightActions";
 
-function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile }) {
+function LabsScreen({ setActive, healthData, aiInsights, userProfile }) {
   // Thumbprint targets: the table when it loads (so a medical-director revision
   // reaches members without a release), the bundled copy of the same seed until then
   // or whenever it can't be read.
@@ -211,7 +211,8 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
         {aiLabs.map((c, i) => {
           const color = c.severity === "danger" ? COLORS.danger : c.severity === "info" ? COLORS.tealLight : COLORS.warning;
           const bg = c.severity === "danger" ? COLORS.badDim : c.severity === "info" ? COLORS.bgCard : COLORS.warnDim;
-          const onAction = () => runInsightAction(c.action, { setActive, goToMarket });
+          const action = liveInsightAction(c.action);
+          const onAction = () => runInsightAction(action, { setActive });
           return (
             <Card key={i} style={{ border: `1px solid ${color}40`, background: bg }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -219,12 +220,12 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
                 <Sparkles size={18} color={color} style={{ marginTop: 2, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{c.title}</div>
-                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.basis ? 0 : (c.action ? 10 : 0) }}>{c.body}</div>
+                  <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: c.basis ? 0 : (action ? 10 : 0) }}>{c.body}</div>
                   {/* Rule 1.3 — which of the three reference points made this a finding. */}
-                  {c.basis && <EvidenceBox style={{ marginBottom: c.action ? 10 : 0 }}>{c.basis}</EvidenceBox>}
-                  {c.action && (
+                  {c.basis && <EvidenceBox style={{ marginBottom: action ? 10 : 0 }}>{c.basis}</EvidenceBox>}
+                  {action && (
                     <button onClick={onAction} style={{ background: "none", border: `1px solid ${color}`, color, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>
-                      {insightActionLabel(c.action)} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
+                      {insightActionLabel(action)} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
                     </button>
                   )}
                 </div>

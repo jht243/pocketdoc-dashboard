@@ -116,6 +116,7 @@ export const FORBIDDEN_OUTPUT_RULES = `NEVER WRITE ANY OF THESE, however the dat
 - Any interpretation built on data more than 12 months old presented as current.
 - A supplement or medication DOSE ("take 5,000 IU of D3"). You may describe what a class of supplement is for; you never prescribe an amount.
 - Any instruction to start, stop or change a medication.
+- A treatment conclusion: "supplementation is necessary", "you need to take iron", "start taking vitamin D". Describe the finding ("your level is below the reference range") and the next steps (what to raise with the provider, what to retest); whether to treat is the provider's call.
 - A genetic variant leading directly to a product recommendation with no biomarker behind it.
 - A number of years an action would change biological age by ("lowering LDL takes 0.5 years off your biological age"). Describe the effect in plain words; only the app's own calculator shows year figures.
 - "This is not medical advice" bolted onto a thin answer. The disclaimer does not make a lazy card acceptable.`;
@@ -308,7 +309,8 @@ const URGENT_RULES = [
     aliases: ["glucose", "fasting glucose", "blood glucose", "fasting blood glucose", "fbg"],
     excludes: ["urine", "tolerance", "csf"],
     units: ["mg/dl"],
-    test: (v) => (v > 400 && v < 2000 ? `Your fasting glucose is ${v} mg/dL` : null),
+    // 300, matching the critical-value list Adam Locker approved on Oct 19 2026.
+    test: (v) => (v > 300 && v < 2000 ? `Your fasting glucose is ${v} mg/dL` : null),
   },
   {
     id: "hba1c",
@@ -780,6 +782,16 @@ const FORBIDDEN = [
   // AI never states one; everything else is described in plain words.
   { id: "bioage_years", re: /\b(?:improv|lower|reduc|cut|shav|take|knock|subtract|add|drop|turn(?:s|ed|ing)? back|revers)\w*[^.]{0,50}\bbiological age\b[^.]{0,40}?\b\d+(?:\.\d+)?(?:\s*(?:-|–|to)\s*\d+(?:\.\d+)?)?\s*years?\b|\b\d+(?:\.\d+)?(?:\s*(?:-|–|to)\s*\d+(?:\.\d+)?)?\s*years?\s+(?:off|from|younger on)\b[^.]{0,30}\bbiological age\b/i,
     why: "a biological-age year claim" },
+  // Adam Locker, Oct 19 2026: describe the finding and the next steps, never the
+  // treatment conclusion ("supplementation is necessary"). Whether to treat is the
+  // provider's call. "Whether supplementation is necessary" stays allowed: that is
+  // the question to bring, not the answer.
+  { id: "treatment_conclusion", re: /(?<!\b(?:whether|if|unless)\b[^.]{0,40})\b(?:supplementation|supplements?|treatment|medication|therapy|replacement|an? (?:iron|vitamin [a-z0-9]+|magnesium|b12|zinc|omega-3) (?:supplement|infusion|injection))\s+(?:is|are|would be|will be)\s+(?:necessary|needed|required|essential|warranted|indicated)\b/i,
+    why: "a treatment conclusion" },
+  { id: "treatment_instruction", re: /\byou (?:need to|must|should|have to|ought to) (?:take|start|begin|be on|go on|add)\b(?![^.]{0,60}\bto (?:your|the|an?) (?:provider|doctor|clinician|appointment|visit))[^.]{0,40}\b(?:supplement|vitamin|iron|ferrous|magnesium|zinc|omega|fish oil|d3|b12|folate|methylfolate|statin|metformin|testosterone|trt|hormone|estradiol|progesterone|thyroid|levothyroxine|peptide|medication)/i,
+    why: "a treatment conclusion" },
+  { id: "treatment_imperative", re: /(?:^|[.!?]\s+|\n)\s*(?:(?:[-*•]|\d+\.)\s*)?(?:start|begin) (?:taking|on|supplementing)\b[^.]{0,40}\b(?:supplement|vitamin|iron|magnesium|zinc|omega|fish oil|d3|b12|folate|statin|metformin|testosterone|hormone|peptide|medication)/i,
+    why: "a treatment conclusion" },
   { id: "boilerplate", re: /\bthis is not medical advice\b/i,
     why: "boilerplate disclaimer" },
 ];

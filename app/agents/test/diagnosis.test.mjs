@@ -51,3 +51,26 @@ test('a biological-age year claim from the AI is caught', () => {
   for (const t of caught) assert.equal(violatesForbiddenOutput(t), 'a biological-age year claim', t);
   for (const t of allowed) assert.equal(violatesForbiddenOutput(t), null, t);
 });
+
+// Adam Locker, Oct 19 2026: findings and next steps, never a treatment conclusion.
+test('a treatment conclusion is caught', () => {
+  const caught = [
+    'Supplementation is necessary to bring your vitamin D up.',
+    'Given your ferritin of 12, an iron supplement is needed.',
+    'You need to take vitamin D3 through the winter.',
+    'You should start a magnesium supplement at night.',
+    'Start taking fish oil with dinner.',
+    '- Begin taking a B12 supplement.',
+    'Testosterone replacement is warranted at this level.',
+  ];
+  const allowed = [
+    'Your vitamin D is 18 ng/mL, below the reference range of 30–100.',
+    'Ask your provider whether supplementation is necessary.',
+    'Bring up whether an iron supplement is needed, and ask about retesting ferritin in 8–12 weeks.',
+    'Vitamin D3 is the form most often discussed for low levels; your provider can tell you if it fits.',
+    'You should take your supplement list to your provider so they can check interactions.',
+    'You need to retest ferritin in about three months.',
+  ];
+  for (const t of caught) assert.equal(violatesForbiddenOutput(t), 'a treatment conclusion', t);
+  for (const t of allowed) assert.equal(violatesForbiddenOutput(t), null, t);
+});

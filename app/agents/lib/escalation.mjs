@@ -39,7 +39,18 @@ const NAMES = {
   ferritin: { aliases: ['ferritin', 'serum ferritin'], excludes: [] },
   apob: { aliases: ['apob', 'apolipoprotein b', 'apo b', 'apolipoprotein b-100'], excludes: ['ratio', 'apoa', 'apo a'] },
   lpa: { aliases: ['lp(a)', 'lpa', 'lipoprotein a', 'lipoprotein(a)', 'lipoprotein (a)', 'lp a', 'lp (a)'], excludes: [] },
+  // Critical-value markers only (no lane): the same names and neighbours as
+  // clinicalRules.js's urgent rules.
+  potassium: { aliases: ['potassium', 'potassium serum', 'serum potassium'], excludes: ['urine'] },
+  sodium: { aliases: ['sodium', 'sodium serum', 'serum sodium'], excludes: ['urine'] },
+  hemoglobin: { aliases: ['hemoglobin', 'haemoglobin', 'hgb', 'hb'], excludes: ['a1c', 'hba1c', 'glycated', 'glycohemoglobin', 'glycohaemoglobin', 'corpuscular', 'mch', 'electrophoresis', 'urine', 'free'] },
+  platelets: { aliases: ['platelets', 'platelet count', 'plt'], excludes: ['mpv', 'volume', 'distribution'] },
+  calcium: { aliases: ['calcium', 'calcium serum', 'serum calcium', 'calcium total'], excludes: ['ionized', 'ionised', 'urine', 'score', 'cac'] },
+  inr: { aliases: ['inr', 'pt/inr', 'pt inr', 'international normalized ratio', 'international normalised ratio', 'prothrombin time inr'], excludes: [] },
 };
+
+// Display names for markers that have no lane (they appear only in critical values).
+const CRITICAL_NAMES = { potassium: 'Potassium', sodium: 'Sodium', hemoglobin: 'Hemoglobin', platelets: 'Platelets', calcium: 'Calcium', inr: 'INR' };
 
 // Same normalisation as clinicalRules.js and the scorer (whole tokens, so "non-HDL
 // cholesterol" never answers to "hdl"), with the comma kept for "vitamin d, 25-oh".
@@ -81,6 +92,7 @@ const SAME_UNIT = {
   'ng/ml': ['ug/l'],
   'mg/l': ['ug/ml'],
   'umol/l': [],
+  'mmol/l': ['meq/l'],
   'mg/dl': [],
   'g/dl': [],
   '%': [],
@@ -98,6 +110,26 @@ export function canonUnit(unit) {
 }
 
 export const sameUnit = (a, b) => Boolean(canonUnit(a)) && canonUnit(a) === canonUnit(b);
+
+// The few conversions that are exact and unambiguous, by marker. Everything else is
+// never converted (see SAME_UNIT). CRP is the one that matters: labs print standard
+// CRP in mg/dL and hs-CRP in mg/L, and the matrix is in mg/L (the AHA/CDC tiers are
+// defined in mg/L). Without this a CRP of 1.2 mg/dL (12 mg/L) went unrouted, so the
+// escalation never fired on it.
+const CONVERT = { hs_crp: { 'mg/dl': { to: 'mg/l', factor: 10 } } };
+
+/**
+ * A reading in the unit a rule is written in: the value as printed when the units
+ * already agree, a converted value for a listed exact conversion, otherwise null.
+ * A unitless rule (INR is a ratio) accepts a reading printed with no unit or "ratio".
+ */
+export function inRuleUnit(marker, value, unit, ruleUnit) {
+  if (ruleUnit === '' ) return ['', 'ratio', 'inr'].includes(canonUnit(unit)) ? value : null;
+  if (sameUnit(unit, ruleUnit)) return value;
+  const c = CONVERT[marker]?.[canonUnit(unit)];
+  if (c && canonUnit(ruleUnit) === c.to) return Math.round(value * c.factor * 100) / 100;
+  return null;
+}
 
 /* ---------------- values, ranges, sex ---------------- */
 
@@ -192,8 +224,11 @@ const fmtValue = (v, unit) => `${v}${unit ? (unit === '%' ? '%' : ` ${unit}`) : 
 export function laneFor({ marker, value, unit, sex, labRange, previous } = {}) {
   const def = MATRIX.markers[marker];
   if (!def) return null;
-  const v = toNumber(value);
-  if (v == null) return null;
+  const raw = toNumber(value);
+  if (raw == null) return null;
+  // Compared in the matrix's unit: as printed, or by an exact listed conversion.
+  const converted = inRuleUnit(marker, raw, unit, def.unit);
+  const v = converted ?? raw;
   const who = canonSex(sex);
   const card = {
     marker,
@@ -212,7 +247,10 @@ export function laneFor({ marker, value, unit, sex, labRange, previous } = {}) {
     watch: (def.conditions || []).map((c) => `${c.trigger}: ${c.when}`),
   };
 
-  if (!sameUnit(unit, def.unit)) {
+  if (converted != null && !sameUnit(unit, def.unit)) {
+    card.note = `Reported as ${card.shown}; compared as ${v} ${def.unit}.`;
+  }
+  if (converted == null) {
     // The thresholds are written in the matrix's unit and are never converted. A
     // marker that is provider-only whatever its value (Lp(a), ESC-06) still routes
     // to the provider; everything else is left unrouted.
@@ -313,13 +351,14 @@ export function emergencyFor(labs, { now = Date.now() } = {}) {
   const hits = [];
   for (const rule of MATRIX.emergency.rules) {
     const latest = groups.get(rule.marker)?.[0];
-    if (!latest || !sameUnit(latest.unit, rule.unit)) continue;
-    const v = toNumber(latest.value);
-    if (!withinBounds(rule, v, { low: null, high: null })) continue;
+    if (!latest) continue;
+    const v = inRuleUnit(rule.marker, toNumber(latest.value), latest.unit, rule.unit);
+    if (v == null || !withinBounds(rule, v, { low: null, high: null })) continue;
     const age = describeLabAge(latest, now);
     hits.push({
       marker: rule.marker,
-      name: MATRIX.markers[rule.marker]?.name || rule.marker,
+      name: MATRIX.markers[rule.marker]?.name || CRITICAL_NAMES[rule.marker] || rule.marker,
+      tier: rule.tier === 'this_week' ? 'this_week' : 'today',
       value: v,
       shown: fmtValue(String(latest.value).trim(), latest.unit),
       unit: latest.unit,
@@ -337,14 +376,22 @@ export function emergencyFor(labs, { now = Date.now() } = {}) {
  * dates and says what to do, and nothing else (no diagnosis, no medication).
  */
 export function emergencyMessage(hits) {
-  const list = hits.map((h) => `- **${h.name} ${h.shown}**${h.date ? ` (drawn ${h.date})` : ''}`).join('\n');
-  return `**Some of your results need prompt medical attention.**
-
-${list}
-
-${hits.length > 1 ? 'These values are' : 'This value is'} outside the range where we can guide you here. Please contact your provider's office today, or go to urgent care. If you feel very unwell, call 911 or go to the nearest emergency room.
-
-Take this result with you, and ask for it to be reviewed and repeated.`;
+  const list = (rows) => rows.map((h) => `- **${h.name} ${h.shown}**${h.date ? ` (drawn ${h.date})` : ''}`).join('\n');
+  const today = hits.filter((h) => h.tier !== 'this_week');
+  const week = hits.filter((h) => h.tier === 'this_week');
+  // Red-flag symptoms split "call your provider" from "go now" (Adam Locker, Oct 19
+  // 2026): the values alone say how soon; how the member feels says where.
+  const redFlags = '**If you have chest pain, trouble breathing, confusion, fainting, vomiting you can\'t keep down, or a fever, go to urgent care or the emergency room now, or call 911.**';
+  const parts = [];
+  if (today.length) {
+    parts.push(`**${today.length > 1 ? 'Some of your results need' : 'One of your results needs'} prompt medical attention.**\n\n${list(today)}\n\nPlease contact your provider's office today about ${today.length > 1 ? 'these results' : 'this result'}.`);
+  }
+  if (week.length) {
+    parts.push(`${today.length ? '**Also worth a visit this week:**' : `**${week.length > 1 ? 'Some of your results need' : 'One of your results needs'} a provider visit this week.**`}\n\n${list(week)}\n\nPlease book a visit with your provider this week to have ${week.length > 1 ? 'them' : 'it'} reviewed.`);
+  }
+  parts.push(redFlags);
+  parts.push('Take these results with you, and ask for them to be reviewed and repeated.');
+  return parts.join('\n\n');
 }
 
 /* ---------------- what compose is handed ---------------- */

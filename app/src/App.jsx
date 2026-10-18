@@ -146,7 +146,6 @@ function App() {
   // Screens visited since the last tab tap, newest last. Back links read it so they
   // return to where the member came from (lib/navigation.js has the rules).
   const [history, setHistory] = useState([]);
-  const [marketHighlight, setMarketHighlight] = useState(null);
   const [nutritionEnabled, setNutritionEnabled] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [healthHistory, setHealthHistory] = useState(null);
@@ -352,11 +351,6 @@ function App() {
   };
   const back = { goBack, backLabel: backLabel(backTarget(history, active)) };
 
-  const goToMarket = (highlight) => {
-    setMarketHighlight(highlight);
-    navigate("market");
-  };
-
   // Persist after each step (and on screening/med toggles) so a drop-off keeps
   // profile fields, mark-done screenings, and medications — not just the step number.
   const handleStepComplete = (data, nextStep) => {
@@ -412,12 +406,12 @@ function App() {
         initial={resumeData}
       />
     ),
-    home: <HomeScreen setActive={navigate} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} />,
+    home: <HomeScreen setActive={navigate} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} />,
     checkin: <CheckInScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
     aichat: <AIChatScreen setActive={navigate} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
     records: <RecordsScreen setActive={navigate} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
-    labs: <LabsScreen setActive={navigate} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} userProfile={userProfile} />,
-    market: <MarketScreen highlight={marketHighlight} setActive={navigate} healthData={healthData} />,
+    labs: <LabsScreen setActive={navigate} healthData={healthData} aiInsights={aiInsights} userProfile={userProfile} />,
+    market: <MarketScreen setActive={navigate} />,
     discussion: <DiscussionPageScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} />,
     browsesupplements: <BrowseSupplementsScreen setActive={navigate} {...back} />,
@@ -426,7 +420,7 @@ function App() {
     body: <BodyScreen setActive={navigate} {...back} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={navigate} {...back} onImported={refreshRecords} />,
     geneticprofile: <GeneticProfileScreen setActive={navigate} {...back} healthData={healthData} />,
-    medications: <MedicationScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} goToMarket={goToMarket} onMedsChange={refreshProfile} />,
+    medications: <MedicationScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} onMedsChange={refreshProfile} />,
     preventivecare: <PreventiveCareScreen setActive={navigate} {...back} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => {
       setHealthHistory(data);

@@ -68,8 +68,9 @@ test('triglycerides: 199 self, 200 and 499 flag, 500 immediate', () => {
 test('HDL: 35 self, 34.9 flag; the self range is sex-specific', () => {
   assert.deepEqual(at('hdl', 35), SELF);
   assert.deepEqual(at('hdl', 34.9), FLAG);
-  assert.equal(laneFor({ marker: 'hdl', value: 55, unit: 'mg/dL', sex: 'male' }).inSelfRange, true);
-  assert.equal(laneFor({ marker: 'hdl', value: 55, unit: 'mg/dL', sex: 'female' }).inSelfRange, false);
+  // Guideline cut-offs (Oct 19 2026): 40+ for men, 50+ for women.
+  assert.equal(laneFor({ marker: 'hdl', value: 45, unit: 'mg/dL', sex: 'male' }).inSelfRange, true);
+  assert.equal(laneFor({ marker: 'hdl', value: 45, unit: 'mg/dL', sex: 'female' }).inSelfRange, false);
   assert.equal(laneFor({ marker: 'hdl', value: 55, unit: 'mg/dL' }).inSelfRange, null);
 });
 
@@ -79,10 +80,14 @@ test('hs-CRP in mg/L: 2.9 self, 3.0 and 9.9 flag, 10.0 immediate', () => {
   assert.deepEqual(at('hs_crp', 9.9), FLAG);
   assert.deepEqual(at('hs_crp', 10.0), NOW);
   assert.equal(laneFor({ marker: 'hs_crp', value: '<0.3', unit: 'mg/L' }).inSelfRange, true);
-  // The spec's misprinted mg/dL is not the matrix's unit: no lane, not a 10x error.
+  // A CRP printed in mg/dL is converted exactly (x10) and routed, never left
+  // unrouted and never compared 10x off: 0.5 mg/dL is 5 mg/L, a provider flag.
   const dl = laneFor({ marker: 'hs_crp', value: 0.5, unit: 'mg/dL' });
-  assert.equal(dl.lane, null);
-  assert.equal(dl.unmatched, 'unit');
+  assert.equal(dl.value, 5);
+  assert.equal(dl.lane, 'provider');
+  assert.equal(dl.level, 'flag');
+  assert.equal(laneFor({ marker: 'hs_crp', value: 1.2, unit: 'mg/dL' }).level, 'immediate');
+  assert.equal(laneFor({ marker: 'hs_crp', value: 0.1, unit: 'mg/dL' }).lane, 'self');
 });
 
 test('homocysteine: 19.9 self, 20 flag', () => {
@@ -157,7 +162,9 @@ test('vitamin D: 20 and 100 self, 19.9 and 100.1 flag', () => {
   assert.deepEqual(at('vitamin_d_25oh', 19.9), FLAG);
   assert.deepEqual(at('vitamin_d_25oh', 100), SELF);
   assert.deepEqual(at('vitamin_d_25oh', 100.1), FLAG);
-  assert.equal(laneFor({ marker: 'vitamin_d_25oh', value: 74, unit: 'ng/mL' }).inSelfRange, true);
+  // Guideline range 20–50 (Oct 19 2026): 74 is self-lane but outside it.
+  assert.equal(laneFor({ marker: 'vitamin_d_25oh', value: 74, unit: 'ng/mL' }).inSelfRange, false);
+  assert.equal(laneFor({ marker: 'vitamin_d_25oh', value: 35, unit: 'ng/mL' }).inSelfRange, true);
   assert.equal(laneFor({ marker: 'vitamin_d_25oh', value: 50, unit: 'nmol/L' }).lane, null, 'nmol/L is not converted');
 });
 
@@ -388,4 +395,31 @@ test('a fresh Section 9 value bypasses the agents with the hard-coded message', 
   assert.deepEqual(events.map((e) => e.type), ['safety_start', 'safety_done', 'answer']);
   assert.match(out.reply, /ALT 260 U\/L/);
   assert.equal(out.emergency[0].marker, 'alt');
+});
+
+// Critical values, Oct 19 2026: two tiers, red flags for "go now", and the markers the
+// Access panel runs that were missing.
+test('critical values split by urgency and cover potassium, sodium, hemoglobin, platelets, calcium and INR', async () => {
+  const { emergencyFor, emergencyMessage } = await import('../lib/escalation.mjs');
+  const now = Date.parse('2026-10-19');
+  const lab = (name, value, unit) => ({ name, value: String(value), unit, date: '2026-10-15', drawnOn: '2026-10-15' });
+  const hits = emergencyFor([
+    lab('Potassium', 6.4, 'mEq/L'), lab('Sodium', 150, 'mmol/L'), lab('Hemoglobin', 6.8, 'g/dL'),
+    lab('Platelet Count', 40, 'K/uL'), lab('INR', 5.1, ''), lab('eGFR', 25, 'mL/min/1.73m2'),
+  ], { now });
+  const by = Object.fromEntries(hits.map((h) => [h.name, h.tier]));
+  assert.equal(by.Potassium, 'today');
+  assert.equal(by.Hemoglobin, 'today');
+  assert.equal(by.Platelets, 'today');
+  assert.equal(by.INR, 'today');
+  assert.ok(!('Sodium' in by), 'sodium 150 is not critical');
+  const egfr = hits.find((h) => h.marker === 'egfr');
+  assert.equal(egfr.tier, 'this_week');
+  const msg = emergencyMessage(hits);
+  assert.match(msg, /contact your provider's office today/);
+  assert.match(msg, /visit this week/);
+  assert.match(msg, /chest pain, trouble breathing, confusion, fainting/);
+  const weekOnly = emergencyMessage(hits.filter((h) => h.tier === 'this_week'));
+  assert.doesNotMatch(weekOnly, /today/);
+  assert.match(weekOnly, /this week/);
 });

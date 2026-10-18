@@ -62,8 +62,10 @@ function targetLines(labs = [], profile = {}) {
   return lines.join("\n");
 }
 
-// Only these navigation targets exist, so the model can't invent a dead link.
-const ALLOWED_TARGETS = new Set(["iv", "vitd3", "discussion", "bodyfat_history"]);
+// Only these navigation targets exist, so the model can't invent a dead link. No
+// store target: a health finding never links to something for sale (Adam Locker,
+// Oct 19 2026: the recommendation and the sale are separate moments).
+const ALLOWED_TARGETS = new Set(["discussion", "bodyfat_history"]);
 const ALLOWED_ICONS = new Set(["alert", "moon", "activity", "sparkles"]);
 const ALLOWED_SEVERITY = new Set(["danger", "warn", "info"]);
 
@@ -269,9 +271,9 @@ ${recheck.length ? `\nOUT-OF-RANGE RESULTS THAT ARE TOO OLD TO BE URGENT (the me
 
 Produce insight cards as a JSON object with EXACTLY this shape:
 {
-  "daily":  { "title": string, "body": string, "basis": string, "icon": "alert"|"moon"|"activity"|"sparkles", "priority": 0-100, "action"?: { "label": string, "target": "iv"|"vitd3"|"discussion"|"bodyfat_history" } } | null,
+  "daily":  { "title": string, "body": string, "basis": string, "icon": "alert"|"moon"|"activity"|"sparkles", "priority": 0-100, "action"?: { "label": string, "target": "discussion"|"bodyfat_history" } } | null,
   "record": { "title": string, "system": string, "body": string, "basis": string, "doctorPath": string, "selfPayPath": string } | null,
-  "labs":   [ { "title": string, "body": string, "basis": string, "severity": "danger"|"warn"|"info", "action"?: { "label": string, "target": "iv"|"vitd3"|"discussion"|"bodyfat_history" } } ]
+  "labs":   [ { "title": string, "body": string, "basis": string, "severity": "danger"|"warn"|"info", "action"?: { "label": string, "target": "discussion"|"bodyfat_history" } } ]
 }
 
 What each card is for:
@@ -307,83 +309,5 @@ Only write a card the data actually supports. Every number must trace to the dat
     // the deterministic check fired, the escalation still reaches the member and the
     // other three slots fall back to the deterministic templates.
     return findings.length ? { urgent, recheck, daily: null, record: null, labs: [] } : null;
-  }
-}
-
-/**
- * Suggest over-the-counter supplements based on the member's own measured data.
- *
- * Rule 4.1 and Section 9 bar the genetic-variant-to-supplement pipeline outright: a
- * variant may explain a biomarker, but it can never on its own justify a product.
- * So genetics is supplied here as interpretive context for a marker, and a
- * suggestion that rests on a variant with no biomarker behind it is rejected.
- *
- * Returns [{name, keywords, reason}] — `keywords` is an Amazon search string the
- * caller uses to pull real product cards. OTC supplements only, never prescription
- * drugs, and never a dose. [] on any failure.
- */
-export async function suggestSupplements(profile, healthData = null) {
-  const p = buildProfileSummary(profile);
-  const meds = profile?.medicationsDetail?.length
-    ? profile.medicationsDetail.map((m) => [m.name, m.dose, m.frequency, m.type].filter(Boolean).join(" "))
-    : profile?.intake?.medications || [];
-
-  // The member's measured data, compacted: suggesting supplements while blind to
-  // their labs recommends nothing for a measured deficiency — the one case where a
-  // supplement suggestion is actually grounded. A full in-range panel is summarized
-  // as such so the model doesn't treat "no data" and "all normal" alike.
-  const flagged = (healthData?.labs || []).filter((l) => l.status && l.status !== "normal" && l.status !== "unknown");
-  const labSummary = flagged.length
-    ? flagged.map((l) => `${l.name} ${l.value}${l.unit ? " " + l.unit : ""} (${l.status}${l.range ? ", ref " + l.range : ""}${l.date ? ", " + l.date : ""})`).join("; ")
-    : healthData?.labs?.length
-      ? "all markers on file within range"
-      : "no lab results on file";
-  const genetics = (healthData?.genetics || []).map(geneticLine).join("\n");
-  const freshness = dataFreshness(healthData);
-  const breadth = availableDomains(healthData);
-
-  const system = `You suggest OVER-THE-COUNTER supplements for one member, grounded in their own measured results.
-
-Rules, in force regardless of how the data looks:
-- OTC supplements only. Never prescription medications, hormones, peptides, or controlled substances.
-- NEVER give a dose or an amount. Not "2,000 IU", not "a high-dose form", not a range. You say what a supplement is for and which of this member's results points at it; the amount is their clinician's decision.
-- A genetic variant is CONTEXT, never a reason on its own. You may cite a variant only to explain a measured biomarker that already justifies the suggestion. A suggestion whose only support is a variant is forbidden — omit it.
-- Ground every suggestion in a specific measured result and name that result in the reason. A goal-based suggestion is acceptable only when no measured result speaks to it, and must say that it is goal-based rather than measured.
-- If the member's bloodwork is more than 12 months old, do not treat it as current: say the marker needs re-testing instead of suggesting a product against a stale value.
-- Never duplicate a supplement or medication they already take.
-- Check their medications before suggesting anything that interacts with one. If there is a plausible interaction, say so in the reason rather than dropping the suggestion silently.
-- Never diagnose. Never tell them to change a medication.
-- Output STRICT JSON only.`;
-
-  const user = `Member profile: ${JSON.stringify({ ...p, currentMeds: meds })}
-
-Out-of-range / notable lab results: ${labSummary}
-What this member has on file: ${breadth.summary}
-Data age: ${freshness.notes}
-${genetics ? `\nGenetics on file (CONTEXT ONLY — never the sole basis for a suggestion):\n${genetics}\n` : ""}
-Return JSON: { "suggestions": [ { "name": string, "keywords": string, "reason": string } ] }
-- 0 to 4 suggestions, best-grounded first. Return an empty array rather than padding with generic ones.
-- "keywords": a concise Amazon search query (e.g. "vitamin d3 k2 supplement"). No dose in the query.
-- "reason": one sentence naming the specific result it rests on. No dose.
-Return JSON only.`;
-
-  try {
-    const data = await callAI({ system, messages: [{ role: "user", content: [{ type: "text", text: user }] }], maxTokens: 600 });
-    const parsed = JSON.parse(stripFences(firstText(data)));
-    if (!Array.isArray(parsed.suggestions)) return [];
-    return parsed.suggestions
-      .filter((s) => s && s.name && s.keywords)
-      // A dose that slipped through the prompt is caught here. Section 9 treats
-      // dosing as prohibited output, so the suggestion is dropped, not trimmed.
-      .filter((s) => {
-        const why = violatesForbiddenOutput([s.name, s.reason, s.keywords].filter(Boolean).join(" "));
-        if (why) console.warn(`Supplement suggestion suppressed — ${why}:`, s.name);
-        return !why;
-      })
-      .slice(0, 4)
-      .map((s) => ({ name: String(s.name), keywords: String(s.keywords), reason: s.reason ? String(s.reason) : "" }));
-  } catch (err) {
-    console.warn("suggestSupplements failed:", err?.message || err);
-    return [];
   }
 }

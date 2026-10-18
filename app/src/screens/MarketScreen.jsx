@@ -1,70 +1,45 @@
 import React, { useState, useEffect } from "react";
-import { Activity, AlertCircle, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
+import { Activity, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { IVTherapyCard } from "../components/IVTherapyCard";
 import { SectionLabel } from "../components/SectionLabel";
+import { StoreDisclosure } from "../components/StoreDisclosure";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { searchProducts } from "../lib/amazon";
 
-// The app's own reasoning still decides WHICH supplement categories to surface and
-// WHY (from the user's labs/profile). Amazon PA-API supplies the real product for
-// each "slot" — image, title, brand, price, and an affiliate buy link. If the API
-// is unavailable, each card falls back to a plain Amazon search link so the page
-// still works.
-
-// Derive the supplement slots from real health data only. The "urgent, from your
-// bloodwork" slot appears ONLY when a real lab actually supports it — never as a
-// demo fallback, which would show a fabricated reading to a real user. The
-// general suggestions below carry no personalized claims about data we don't have.
-function buildSlots(healthData) {
-  const labs = healthData?.labs || [];
-  const vitD = labs.find((l) => /vitamin d/i.test(l.name || ""));
-
-  const slots = [];
-
-  if (vitD && Number(vitD.value) < 30) {
-    slots.push({
-      id: "vitd3",
-      tier: "urgent",
-      keywords: "vitamin d3 k2 5000 iu",
-      fallbackName: "Vitamin D3 + K2",
-      why: `Your Vitamin D result is low (${vitD.value} ${vitD.unit || "ng/mL"}).`,
-    });
-  }
-
-  slots.push(
-    {
-      id: "multi",
-      tier: "suggested",
-      keywords: "daily multivitamin third party tested",
-      fallbackName: "Daily Multivitamin",
-      why: "A daily foundation many people use to cover common gaps.",
-    },
-    {
-      id: "omega3",
-      tier: "suggested",
-      keywords: "omega 3 fish oil epa dha",
-      fallbackName: "Omega-3 Fish Oil",
-      why: "Commonly used to support cardiovascular and joint health.",
-    },
-    {
-      id: "magnesium",
-      tier: "suggested",
-      keywords: "magnesium glycinate",
-      fallbackName: "Magnesium Glycinate",
-      why: "Commonly used to support sleep and muscle recovery.",
-    },
-  );
-
-  return slots;
-}
+// The store is kept apart from the member's health guidance (Adam Locker, Oct 19
+// 2026): no slot here is chosen from their labs, and nothing the Advocate or an
+// insight card says links here. A recommendation comes from the provider; buying
+// is a separate step, with the commission disclosed above the products. Amazon
+// PA-API supplies the real product for each slot (image, title, brand, price and
+// an affiliate link); without it each card falls back to a plain Amazon search.
+const SLOTS = [
+  {
+    id: "multi",
+    keywords: "daily multivitamin third party tested",
+    fallbackName: "Daily Multivitamin",
+    why: "A daily foundation many people use to cover common gaps.",
+  },
+  {
+    id: "omega3",
+    keywords: "omega 3 fish oil epa dha",
+    fallbackName: "Omega-3 Fish Oil",
+    why: "Commonly used to support cardiovascular and joint health.",
+  },
+  {
+    id: "magnesium",
+    keywords: "magnesium glycinate",
+    fallbackName: "Magnesium Glycinate",
+    why: "Commonly used to support sleep and muscle recovery.",
+  },
+];
 
 function amazonSearchUrl(keywords) {
   return `https://www.amazon.com/s?k=${encodeURIComponent(keywords)}`;
 }
 
-function MarketScreen({ highlight, setActive, healthData }) {
-  const slots = React.useMemo(() => buildSlots(healthData), [healthData]);
+function MarketScreen({ setActive }) {
+  const slots = SLOTS;
   // { [slotId]: { loading, product, error } }
   const [products, setProducts] = useState({});
 
@@ -89,18 +64,16 @@ function MarketScreen({ highlight, setActive, healthData }) {
   const SupplementCard = ({ slot }) => {
     const state = products[slot.id] || { loading: true };
     const product = state.product;
-    const isHighlighted = highlight === slot.id;
-    const tier = slot.tier;
-    const tierColor = tier === "urgent" ? COLORS.danger : COLORS.tealLight;
-    const tierBg = tier === "urgent" ? COLORS.badDim : COLORS.bgCard;
-    const tierLabel = tier === "urgent" ? "NECESSARY · FROM YOUR BLOODWORK" : "GENERAL SUGGESTION";
+    const tierColor = COLORS.tealLight;
+    const tierBg = COLORS.bgCard;
+    const tierLabel = "GENERAL PRODUCT";
 
     const title = product?.title || slot.fallbackName;
     const buyUrl = product?.url || amazonSearchUrl(slot.keywords);
 
     return (
       <Card style={{
-        border: isHighlighted ? `1.5px solid ${COLORS.tealLight}` : `1px solid ${tierColor}50`,
+        border: `1px solid ${tierColor}50`,
         background: tierBg
       }}>
         <div style={{
@@ -108,7 +81,7 @@ function MarketScreen({ highlight, setActive, healthData }) {
           background: `${tierColor}20`, color: tierColor, fontSize: 9,
           fontWeight: 700, padding: "3px 8px", borderRadius: 6, letterSpacing: 0.5
         }}>
-          {tier === "urgent" ? <AlertCircle size={9} /> : <Sparkles size={9} />} {tierLabel}
+          <Sparkles size={9} /> {tierLabel}
         </div>
 
         <div style={{ display: "flex", gap: 12 }}>
@@ -160,25 +133,18 @@ function MarketScreen({ highlight, setActive, healthData }) {
     );
   };
 
-  const urgentSlots = slots.filter((s) => s.tier === "urgent");
-  const suggestedSlots = slots.filter((s) => s.tier === "suggested");
-
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Marketplace</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>
-        Bloodwork-based picks appear when your own labs support them. General
-        suggestions are common staples, not personalized advice. Products and prices
-        are live from Amazon. Local services open as they become available in your area.
+        Common staples, not personalized advice. Products and prices are live from
+        Amazon. Local services open as they become available in your area.
       </div>
 
-      {urgentSlots.length > 0 && (<>
-        <SectionLabel>Necessary, based on your bloodwork</SectionLabel>
-        {urgentSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
-      </>)}
+      <StoreDisclosure style={{ marginBottom: 18 }} />
 
-      <SectionLabel>General suggestions</SectionLabel>
-      {suggestedSlots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
+      <SectionLabel>General products</SectionLabel>
+      {slots.map((slot) => <SupplementCard key={slot.id} slot={slot} />)}
 
       <button onClick={() => setActive && setActive("browsesupplements")} style={{
         width: "100%", background: COLORS.bgCardAlt, border: `1px dashed ${COLORS.textMuted}60`,
@@ -189,21 +155,8 @@ function MarketScreen({ highlight, setActive, healthData }) {
         Browse all supplements <ChevronRight size={14} />
       </button>
 
-      <div style={{
-        padding: 12, background: COLORS.warnDim, border: `1px solid ${COLORS.warning}50`,
-        borderRadius: 10, display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 18
-      }}>
-        <AlertCircle size={14} color={COLORS.warning} style={{ marginTop: 1, flexShrink: 0 }} />
-        <div style={{ fontSize: 11, color: COLORS.textSecondary, lineHeight: 1.5 }}>
-          <span style={{ color: COLORS.warning, fontWeight: 600 }}>Before starting anything new: </span>
-          review supplements against your current medications and therapies with your
-          prescribing physician or pharmacist. As an Amazon Associate, purchases made
-          through these links may earn the app a commission.
-        </div>
-      </div>
-
       <SectionLabel>Local services</SectionLabel>
-      <IVTherapyCard highlighted={highlight === "iv"} />
+      <IVTherapyCard />
 
       <Card>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
