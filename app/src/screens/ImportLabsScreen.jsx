@@ -862,7 +862,7 @@ Rules:
             width: "100%", background: "none", border: "none", color: COLORS.textMuted,
             fontSize: 12, padding: "10px", cursor: "pointer"
           }}>
-            {savedMarkerCount > 0 ? "Done — see my labs" : "Back to records"}
+            {savedMarkerCount > 0 ? "Done — see them in Biology" : "Back to Records"}
           </button>
         </>
       )}
