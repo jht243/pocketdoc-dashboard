@@ -586,7 +586,7 @@ Rules:
               { name: "Full-body MRI", note: "Whole-body scan, no radiation", price: "$2,500" },
               { name: "DEXA scan", note: "Bone density + precise body composition", price: "$150" },
               { name: "Multi-cancer early detection", note: "Screens 50+ cancer types from a blood draw", price: "$649" },
-              { name: "Comprehensive baseline panel", note: "150+ biomarkers including hormones, metabolic, thyroid", price: "$399" },
+              { name: "Extended biomarker panel", note: "150+ biomarkers including hormones, metabolic, thyroid", price: "$399" },
             ].map((item, i, arr) => (
               <div key={item.name} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
