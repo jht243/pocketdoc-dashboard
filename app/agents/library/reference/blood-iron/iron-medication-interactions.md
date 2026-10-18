@@ -1,17 +1,16 @@
 ---
 title: Iron interactions with levothyroxine, levodopa and acid reducers
-source: NIH Office of Dietary Supplements, Iron Fact Sheet for Health Professionals
+source: NIH Office of Dietary Supplements, Iron Fact Sheet for Health Professionals, Sep 2025; FDA levothyroxine and carbidopa-levodopa prescribing information
 evidence: Strong
 approved_by: pending
 as_of: 2025-09
 url: https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/
 ---
 
-The NIH Office of Dietary Supplements iron fact sheet lists these medication interactions with iron:
+The NIH Office of Dietary Supplements iron fact sheet (updated September 2025) names three medication interactions with iron: iron supplements may interact with levodopa and levothyroxine, and proton pump inhibitors can reduce iron absorption.
 
-- Levothyroxine (Synthroid, Levoxyl, Tirosint, Unithroid, thyroid hormone): taking iron at the same time can significantly reduce levothyroxine absorption and effectiveness in some patients. Product labels advise against taking levothyroxine within 4 hours of iron supplements.
-- Levodopa (Sinemet, Stalevo), used for Parkinson disease and restless legs syndrome: iron supplements can reduce levodopa absorption, possibly through chelation, and US labels warn this may reduce its clinical effect.
-- Proton pump inhibitors (PPIs such as omeprazole and lansoprazole, acid reducers, heartburn medicines): stomach acid is important for absorbing nonheme iron, so long-term acid suppression can reduce iron absorption from food.
-- Calcium, from food or supplements, can reduce iron absorption.
+- Levothyroxine (Synthroid, Levoxyl, Tirosint, Unithroid, thyroid hormone): iron taken at the same time binds levothyroxine in the gut and lowers how much is absorbed. The FDA-approved levothyroxine labels advise taking levothyroxine at least 4 hours apart from iron supplements and other products that interfere with its absorption. The American Thyroid Association notes that this spacing is traditional rather than formally tested.
+- Levodopa (Sinemet, Stalevo), used for Parkinson disease and restless legs syndrome: the FDA labels state that iron salts may reduce the bioavailability of levodopa and carbidopa.
+- Proton pump inhibitors (PPIs such as omeprazole and lansoprazole, acid reducers, heartburn medicines): stomach acid helps absorb nonheme iron, so acid suppression can reduce iron absorption from food and supplements.
 
-The ODS advises that people who take these medications regularly discuss their iron status with their clinician. Timing and the amount of any iron supplement are set by the prescriber or clinician; the NIH also sets a tolerable upper intake level for iron.
+Anyone taking these medicines who has low iron or takes an iron supplement should raise timing with their prescriber, who also sets the amount of any iron supplement.

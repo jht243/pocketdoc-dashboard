@@ -7,12 +7,13 @@ as_of: 2025-09
 url: https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/
 ---
 
-Dietary iron comes in two forms, according to the NIH Office of Dietary Supplements iron fact sheet. Heme iron is found in meat, seafood and poultry; nonheme iron is found in plants such as beans, nuts and vegetables, and in iron-fortified foods like bread and cereal. Animal foods contain both forms; plant foods contain only nonheme iron.
+Dietary iron comes in two forms, according to the NIH Office of Dietary Supplements iron fact sheet (updated September 2025). Plants and iron-fortified foods such as bread, cereal and other grain products contain only nonheme iron. Meat, seafood and poultry contain both heme and nonheme iron. In Western diets, heme iron makes up only about 10% to 15% of total iron intake.
 
-Heme iron is absorbed better than nonheme iron and is less affected by the rest of the meal. Nonheme iron absorption depends heavily on what it is eaten with:
+Key points from the fact sheet:
 
-- Enhancers: vitamin C (ascorbic acid), and meat, poultry and seafood eaten in the same meal.
-- Inhibitors: phytate in grains and beans, and certain polyphenols in some plant foods.
-- Calcium may reduce absorption of both heme and nonheme iron.
+- Heme iron has better bioavailability than nonheme iron, meaning more of it is absorbed.
+- What a meal contains can significantly change how much nonheme iron is absorbed. Vitamin C (ascorbic acid) and phytate, found in whole grains and beans, are two dietary components that affect it; vitamin C improves absorption, while phytate reduces it.
+- People who follow vegetarian diets need more iron than people who eat animal products, because nonheme iron from plants is less bioavailable.
+- Hepcidin, a hormone made by the liver, is the key regulator of how much iron the body absorbs and releases.
 
-The ODS estimates iron bioavailability at about 14% to 18% from mixed diets that include meat, seafood and vitamin C, versus 5% to 12% from vegetarian diets, which is why vegetarians are considered at higher risk of low iron. The ODS adds that these enhancer and inhibitor effects are smaller in a typical Western diet than in single-meal studies. Hepcidin, a liver hormone, is the main regulator of how much iron the body absorbs.
+This is why food choices matter most for people who rely on plant sources of iron (iron absorption, iron-rich foods, vegetarian iron, vitamin C with iron).

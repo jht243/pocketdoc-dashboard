@@ -117,7 +117,7 @@ const SAMPLES = {
   hormones: [
     ['My TSH came back high, is my thyroid underactive?', 'thyroid'],
     ['Is menopause hormone therapy safe for my hot flashes?', 'hormones-female'],
-    ['What testosterone level counts as low?', 'hormones-male'],
+    ['What total testosterone level counts as low T in men?', 'hormones-male'],
     ['Is BPC-157 legal? What is the FDA status of peptides?', 'peptides'],
   ],
   medications: [
