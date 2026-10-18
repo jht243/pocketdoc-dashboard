@@ -188,7 +188,7 @@ async function consensusOf({ notes, run }) {
 
 /* ---------------- 5–6. compose and check ---------------- */
 
-const NAMES = { bloodwork: 'Bloodwork', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', lifestyle: 'Lifestyle' };
+const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', lifestyle: 'Lifestyle' };
 
 function findingsText(reads, notes, consensus) {
   const consulted = Object.keys(reads).map((id) => NAMES[id] || id);
@@ -336,7 +336,22 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   });
 
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
-  return { reply: enforced.reply, sources: dedupeSources(sources) };
+  return { reply: tidyBottomLine(enforced.reply), sources: dedupeSources(sources) };
+}
+
+/**
+ * The bottom line is at most two bolded sentences. The brief asks for that, and the
+ * model still writes three-sentence bold openers, which read as a block on a phone.
+ * Anything past the second sentence stays, unbolded, on its own line.
+ */
+export function tidyBottomLine(text) {
+  const t = String(text || '').trim();
+  const m = /^\*\*([\s\S]+?)\*\*(\s*\n|$)/.exec(t);
+  if (!m) return t;
+  const sentences = m[1].trim().split(/(?<=[.!?])\s+(?=[A-Z])/);
+  if (sentences.length <= 2) return t;
+  const rest = t.slice(m[0].length).replace(/^\s+/, '');
+  return `**${sentences.slice(0, 2).join(' ')}**\n\n${sentences.slice(2).join(' ')}${rest ? `\n\n${rest}` : ''}`;
 }
 
 function dedupeSources(sources) {

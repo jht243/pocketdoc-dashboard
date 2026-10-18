@@ -139,3 +139,11 @@ test('specialists report in the order they finish, not the order they were calle
   // The draft says what it really used: no web research.
   assert.equal(events.find((e) => e.type === 'draft_start').research, false);
 });
+
+test('the bottom line keeps two bold sentences and moves the rest to plain text', async () => {
+  const { tidyBottomLine } = await import('../lib/team.mjs');
+  const live = "**Your vitamin D is still low at 28 ng/mL (Jun 2026). You take D3 daily. It is time to check with your provider.**\n\n## What we found\n- Vitamin D **28 ng/mL**";
+  assert.equal(tidyBottomLine(live), "**Your vitamin D is still low at 28 ng/mL (Jun 2026). You take D3 daily.**\n\nIt is time to check with your provider.\n\n## What we found\n- Vitamin D **28 ng/mL**");
+  const short = "**Your vitamin D is 74 ng/mL (Sep 2026), in range.**\n\n## What we found";
+  assert.equal(tidyBottomLine(short), short);
+});

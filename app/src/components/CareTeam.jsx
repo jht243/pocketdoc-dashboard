@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain, Check, ChevronDown, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse,
-  Moon, Pill, Salad, ShieldAlert, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound, Users,
+  Moon, Pill, Salad, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound, Users,
 } from "lucide-react";
 import { COLORS } from "../theme/tokens";
 import { member, readTeam, photoUrl, ADVOCATE, SAFETY } from "../lib/careTeam";
@@ -207,10 +207,8 @@ function statusLine(view) {
       : `${member(c.id).label} reported back`;
   }
   if (view.stage === "huddle") return view.huddle?.done ? "The team agreed on what matters most" : "The specialists are comparing notes";
-  if (view.stage === "draft") return view.draft?.done ? "Answer drafted"
-    : view.draft?.research ? "My Advocate is writing your answer with live research" : "My Advocate is writing your answer from your team's findings";
-  if (view.stage === "safety") return view.safety?.done ? "Safety review complete"
-    : view.safety?.revising ? "Safety Review sent the answer back. My Advocate is fixing it" : "Checking the answer against clinical safety rules";
+  if (view.stage === "draft") return view.draft?.done ? "Answer drafted" : "My Advocate is writing your answer";
+  if (view.stage === "safety") return view.safety?.done ? "Double-checked" : "Double-checking the answer";
   if (view.done) return "Your answer is ready";
   return "";
 }
@@ -243,7 +241,9 @@ function FlagPill({ flag }) {
 
 function ConsultRow({ c, open, onToggle, animate, onGrow, last }) {
   const working = c.state === "working";
-  const expanded = working || open;
+  // Collapsed by default, working or not: the member sees the team at work, and the
+  // detail is a tap away for anyone who wants it.
+  const expanded = !working && open;
   return (
     <Row id={c.id} state={c.state} last={last}>
       <button onClick={working ? undefined : onToggle} style={{
@@ -260,9 +260,7 @@ function ConsultRow({ c, open, onToggle, animate, onGrow, last }) {
                 }} />
               </>}
         </div>
-        {working && (
-          <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 1 }}>{member(c.id).tagline}</div>
-        )}
+
         {!working && c.headline && (
           <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.textPrimary, marginTop: 2, lineHeight: 1.35 }}>
             {c.headline}
@@ -271,20 +269,6 @@ function ConsultRow({ c, open, onToggle, animate, onGrow, last }) {
       </button>
       {expanded && (
         <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
-          {/* The hand-off itself: who asked whom. */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10.5, color: COLORS.textMuted }}>
-            <TeamAvatar id="advocate" size={16} ring={false} />
-            <span style={{ position: "relative", width: 28, height: 2, overflow: "hidden", background: COLORS.border, borderRadius: 2 }}>
-              {working && !REDUCED && (
-                <i style={{
-                  position: "absolute", top: 0, left: 0, width: 10, height: 2, borderRadius: 2,
-                  background: member(c.id).color, animation: "ct-handoff 1s ease-in-out infinite",
-                }} />
-              )}
-            </span>
-            <TeamAvatar id={c.id} size={16} ring={false} />
-            <span>{working ? "handed off" : "reported back"}</span>
-          </div>
           <div style={{
             fontSize: 11.5, lineHeight: 1.45, color: COLORS.textSecondary, background: COLORS.accentDim,
             borderLeft: `3px solid ${ADVOCATE.color}`, borderRadius: "4px 8px 8px 4px", padding: "6px 9px",
@@ -308,26 +292,26 @@ function ConsultRow({ c, open, onToggle, animate, onGrow, last }) {
 function HuddleRow({ huddle, last, folded, onToggle }) {
   return (
     <Row id="advocate" state={huddle.done ? "done" : "working"} last={last}>
-      <div onClick={huddle.done ? onToggle : undefined} style={{
+      <div onClick={onToggle} style={{
         cursor: huddle.done ? "pointer" : "default",
         border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "8px 10px",
         background: `linear-gradient(180deg, ${COLORS.accentDim}, ${COLORS.bgCard})`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: COLORS.textPrimary }}>
-          <Users size={13} color={COLORS.teal} /> Team huddle
+          <Users size={13} color={COLORS.teal} /> {huddle.done ? "Compared notes" : "Comparing notes"}
           <span style={{ display: "inline-flex", marginLeft: 4 }}>
             {huddle.ids.map((id, i) => (
               <span key={id} style={{ marginLeft: i ? -6 : 0 }}><TeamAvatar id={id} size={18} /></span>
             ))}
           </span>
           {!huddle.done && <span style={{ marginLeft: "auto" }}><Dots /></span>}
-          {huddle.done && (
+          {huddle.done && huddle.notes.length > 0 && (
             <ChevronDown size={13} color={COLORS.textMuted} style={{
               marginLeft: "auto", transform: folded ? "none" : "rotate(180deg)", transition: "transform .2s",
             }} />
           )}
         </div>
-        <div style={{ display: "grid", gap: 7, marginTop: 8 }}>
+        <div style={{ display: "grid", gap: 7, marginTop: folded ? 0 : 8 }}>
           {!folded && huddle.notes.map((n, i) => (
             <div key={i} style={{ animation: REDUCED ? "none" : "ct-in .3s ease-out" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: COLORS.textMuted, marginBottom: 3 }}>
@@ -343,7 +327,7 @@ function HuddleRow({ huddle, last, folded, onToggle }) {
               }}>{n.note}</div>
             </div>
           ))}
-          {huddle.done && huddle.consensus && (
+          {!folded && huddle.done && huddle.consensus && (
             <div style={{ display: "flex", gap: 6, fontSize: 11.5, lineHeight: 1.45, color: COLORS.good, fontWeight: 600 }}>
               <Check size={13} style={{ flexShrink: 0, marginTop: 2 }} /> {huddle.consensus}
             </div>
@@ -358,9 +342,9 @@ function Timeline({ view, animate, onGrow }) {
   // The newest consult stays open; earlier ones fold to their headline so the
   // phone shows one voice at a time. Tapping a folded one reopens it.
   const [open, setOpen] = useState({});
-  // The huddle folds to its consensus once the Advocate moves on to writing.
-  const [huddleOpen, setHuddleOpen] = useState(null);
-  const huddleFolded = huddleOpen === null ? !!view.draft : !huddleOpen;
+  // The huddle shows as one line ("compared notes"); its notes open on a tap.
+  const [huddleOpen, setHuddleOpen] = useState(false);
+  const huddleFolded = !huddleOpen;
   const rows = [];
 
   rows.push(
@@ -381,7 +365,7 @@ function Timeline({ view, animate, onGrow }) {
                   }}>{member(p.id).label}</span>
                 </React.Fragment>
               ))}
-              {view.reason && <span style={{ color: COLORS.textSecondary }}>. {view.reason}</span>}
+
             </div>
           )}
       </div>
@@ -389,13 +373,11 @@ function Timeline({ view, animate, onGrow }) {
   );
 
   view.consults.forEach((c, i) => {
-    const newest = view.parallel ? c.id === view.lastReported : i === view.consults.length - 1;
-    const latest = newest && !view.huddle && !view.draft;
     rows.push(
       <ConsultRow
         key={`c${i}`} c={c} animate={animate} onGrow={onGrow}
-        open={open[i] ?? (latest && !view.done)}
-        onToggle={() => setOpen((o) => ({ ...o, [i]: !(o[i] ?? (latest && !view.done)) }))}
+        open={Boolean(open[i])}
+        onToggle={() => setOpen((o) => ({ ...o, [i]: !o[i] }))}
       />
     );
   });
@@ -415,42 +397,21 @@ function Timeline({ view, animate, onGrow }) {
         <div style={{ fontSize: 12, lineHeight: 1.45, color: COLORS.textSecondary }}>
           <Name id="advocate" />
           <div style={{ marginTop: 2, color: COLORS.textPrimary }}>
-            {view.draft.done
-              ? view.draft.research
-                ? `Wrote your answer${view.draft.sources ? `, checking ${view.draft.sources} live source${view.draft.sources === 1 ? "" : "s"}` : ""}`
-                : `Wrote your answer from your record and your team's findings${view.draft.passages ? `, citing ${view.draft.passages} library passage${view.draft.passages === 1 ? "" : "s"}` : ""}`
-              : view.draft.research
-                ? <>Writing your answer with live research <Dots /></>
-                : <>Writing your answer from your team's findings <Dots /></>}
+            {view.draft.done ? "Wrote your answer" : <>Writing your answer <Dots /></>}
           </div>
         </div>
       </Row>
     );
   }
 
-  if (view.safety) {
-    const s = view.safety;
+  // The safety review is not drawn as a row: the rail lights its node and the status
+  // line says it is double-checking. Only an urgent finding is shown, since that is
+  // something the member must act on.
+  if (view.safety?.done && view.safety.urgent?.length > 0) {
     rows.push(
-      <Row key="safety" id="safety" state={s.done ? "done" : "working"}>
-        <div style={{ fontSize: 12, lineHeight: 1.45, color: COLORS.textSecondary }}>
-          <Name id="safety" />
-          <div style={{ marginTop: 2, color: COLORS.textPrimary, display: "flex", gap: 5, alignItems: "flex-start" }}>
-            {!s.done && !s.revising && <>Checking every line against clinical safety rules <Dots /></>}
-            {!s.done && s.revising && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} /><span>Sent the answer back to My Advocate to fix <Dots /></span></>}
-            {/* Says who fixed it: the Advocate (the fact-checker sent it back) or the rules in code. Older stored turns have no sentBack flag and keep the original wording. */}
-            {s.done && s.revised && (s.sentBack || s.sentBack === undefined && !view.parallel) && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Caught wording that crossed a safety rule and sent it back to My Advocate to fix.</>}
-            {s.done && s.revised && !s.sentBack && view.parallel && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Caught wording that crossed a safety rule and rewrote it before you saw it.</>}
-            {s.done && !s.revised && s.clean && <><ShieldCheck size={14} color={COLORS.good} style={{ flexShrink: 0, marginTop: 1 }} />Passed: no diagnoses, no prescriptions, grounded in your data.</>}
-            {s.done && !s.revised && !s.clean && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Flagged for caution. Confirm with your clinician.</>}
-          </div>
-          {s.problem && (s.revising || s.revised) && (
-            <div style={{ marginTop: 3, fontSize: 11, color: COLORS.textMuted, lineHeight: 1.4 }}>Caught: {s.problem}</div>
-          )}
-          {s.done && s.urgent?.length > 0 && (
-            <div style={{ marginTop: 4, fontSize: 11.5, color: COLORS.danger, fontWeight: 600 }}>
-              Needs prompt attention: {s.urgent.join("; ")}
-            </div>
-          )}
+      <Row key="safety" id="safety" state="done">
+        <div style={{ fontSize: 11.5, color: COLORS.danger, fontWeight: 600, lineHeight: 1.45 }}>
+          Needs prompt attention: {view.safety.urgent.join("; ")}
         </div>
       </Row>
     );
@@ -578,7 +539,6 @@ export const CARE_TEAM_CSS = `
 @keyframes ct-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 @keyframes ct-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes ct-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
-@keyframes ct-handoff { from { transform: translateX(-10px); } to { transform: translateX(28px); } }
 @keyframes ct-sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .ct-shimmer {
   color: ${COLORS.textPrimary};
