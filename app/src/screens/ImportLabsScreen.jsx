@@ -8,7 +8,20 @@ import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
 import { fileBlock, ingestLabResults, toIsoDate } from "../lib/labIngest";
 import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
-import { labToneColor } from "../lib/labTone";
+import { labToneColor, statusFromRange } from "../lib/labTone";
+import { OrderComingSoon } from "../components/OrderComingSoon";
+
+// What the chip beside a marker says. Only a value read against a range the member
+// can see earns one; "unknown" on an empty row read as a verdict on nothing.
+const STATUS_LABEL = { normal: "In range", high: "Above range", low: "Below range" };
+
+// Marker inputs share one look; each row sets only its own width.
+const markerInput = {
+  minWidth: 0, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 7,
+  padding: "6px 9px", color: COLORS.textPrimary, fontSize: 12, outline: "none",
+};
+
+const blankMarker = () => ({ name: "", value: "", unit: "", range: "", status: "unknown" });
 
 /**
  * Turn the model's raw reply into a genome array — tolerantly.
@@ -85,9 +98,10 @@ function normalizeGenome(g) {
 // The review step before saving is intentional: silently storing a misread value into a
 // health record is worse than not storing it at all.
 /**
- * The user types the draw date free-form ("Jun 21, 2026", "6/21/26"). Store it only
- * when it parses to a real date — a `drawn_on` that's actually a typo is worse than
- * an absent one, because every trend downstream would believe it.
+ * The draw date is picked from a date input, so it arrives as "YYYY-MM-DD", the same
+ * shape the extractor stores and labDay sorts by. It still goes through toIsoDate on
+ * save: a `drawn_on` that isn't a real date is worse than an absent one, because
+ * every trend downstream would believe it.
  */
 function ImportLabsScreen({ setActive, onImported }) {
   const { user } = useAuth();
@@ -119,6 +133,9 @@ function ImportLabsScreen({ setActive, onImported }) {
   const [savedGenomeCount, setSavedGenomeCount] = useState(0);
   const [labDate, setLabDate] = useState("");
   const [labSource, setLabSource] = useState("");
+  // Typed in by hand rather than read off a file. Nothing was "read", so the screen
+  // mustn't talk about values that were read wrong.
+  const [manualEntry, setManualEntry] = useState(false);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   // The stored document row, mirrored in a ref: the extraction runs inside a
@@ -136,6 +153,7 @@ function ImportLabsScreen({ setActive, onImported }) {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name || "Photo capture");
+    setManualEntry(false);
     setStoreError(null);
     rememberDoc(null);
 
@@ -352,6 +370,27 @@ Rules:
   };
 
   /**
+   * Change one field of one marker row.
+   *
+   * A new value or range re-judges the status against the range on screen, so the
+   * stored word (and the chip) agree with the numbers the member typed. Where the
+   * range can't be read as numbers ("Negative"), an extracted row keeps the status
+   * the report gave it; a hand-typed one has no such source and stays "unknown".
+   */
+  const editMarker = (index, field, value) => {
+    setExtractedMarkers((prev) => prev.map((x, j) => {
+      if (j !== index) return x;
+      const next = { ...x, [field]: value };
+      if (field === "value" || field === "range") {
+        next.status = !String(next.value ?? "").trim()
+          ? "unknown"
+          : statusFromRange(next) || (manualEntry ? "unknown" : x.status);
+      }
+      return next;
+    }));
+  };
+
+  /**
    * Save the member's corrections over what was filed automatically.
    *
    * Results land in the record when the document is read; this is the edit path, so
@@ -364,8 +403,10 @@ Rules:
     if (user && kept.length) {
       setSavingLabs(true);
       const { error } = await saveLabMarkers(user.id, kept, {
-        documentId: storedDoc?.id || null,
-        source: labSource || storedDoc?.file_name || null,
+        // Hand-typed results belong to no file. Tying them to a document left over from
+        // an earlier upload would REPLACE that document's panel with these markers.
+        documentId: manualEntry ? null : storedDoc?.id || null,
+        source: labSource || (manualEntry ? null : storedDoc?.file_name) || null,
         drawnOn: toIsoDate(labDate),
       });
       setSavingLabs(false);
@@ -491,7 +532,7 @@ Rules:
             </div>
           </button>
 
-          <button onClick={() => { setImportType("labs"); setExtractedMarkers([{ name: "", value: "", unit: "", range: "", status: "unknown" }]); setStage("review"); }} style={{
+          <button onClick={() => { setImportType("labs"); setManualEntry(true); rememberDoc(null); setImagePreview(null); setExtractionError(null); setExtractionNotice(null); setSavedMarkerCount(0); setExtractedMarkers([blankMarker()]); setStage("review"); }} style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
             borderRadius: 14, padding: "18px 16px", display: "flex", alignItems: "center",
             gap: 14, cursor: "pointer", marginBottom: 12, textAlign: "left"
@@ -525,16 +566,14 @@ Rules:
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Genetic health panel</div>
             <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
               A clinical-grade consumer genetic test (whole genome sequencing or expanded SNP panel)
-              ordered through our lab partner. Results import directly into your health profile and
-              inform AI recommendations around supplements, medication metabolism, and hereditary risk.
+              ordered through our lab partner. When your report arrives, upload it here and it files
+              itself into your genetic profile, informing AI recommendations around supplements,
+              medication metabolism, and hereditary risk.
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.tealLight }}>$299</span>
-              <button style={{
-                background: COLORS.teal, border: "none", color: COLORS.onAccent,
-                fontSize: 12, fontWeight: 700, padding: "7px 16px", borderRadius: 8, cursor: "pointer"
-              }}>Order kit</button>
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.tealLight, marginBottom: 8 }}>$299</div>
+            {/* Ordering isn't live. This button used to do nothing at all, which reads as
+                broken or, worse, as an order that went through silently. */}
+            <OrderComingSoon testName="genetic health panel" label="Order kit" />
           </Card>
 
           <Card>
@@ -743,52 +782,68 @@ Rules:
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+            <label style={{ flex: "1 1 140px", minWidth: 0 }}>
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>Lab date</div>
-              <input value={labDate} onChange={e => setLabDate(e.target.value)} placeholder="e.g. Jun 21, 2026" style={{
-                width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
-                borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none"
+              {/* A picker rather than free text: the day the blood was drawn dates every
+                  marker in the trend, and a typed "6/21" can't be trusted to parse. */}
+              <input type="date" value={labDate} max={new Date().toLocaleDateString("en-CA")} onChange={e => setLabDate(e.target.value)} style={{
+                width: "100%", minWidth: 0, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
+                borderRadius: 8, padding: "7px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none",
+                fontFamily: "inherit",
               }} />
-            </div>
-            <div style={{ flex: 1 }}>
+            </label>
+            <label style={{ flex: "1 1 140px", minWidth: 0 }}>
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>Lab source</div>
               <input value={labSource} onChange={e => setLabSource(e.target.value)} placeholder="e.g. Quest Diagnostics" style={{
                 width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`,
                 borderRadius: 8, padding: "8px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none"
               }} />
-            </div>
+            </label>
           </div>
 
           <SectionLabel>
-            {extractedMarkers.length > 0 && !extractionError
-              ? `${extractedMarkers.length} markers — edit anything that was read wrong`
-              : "Add markers manually"}
+            {manualEntry
+              ? "Your markers"
+              : extractedMarkers.length > 0 && !extractionError
+                ? `${extractedMarkers.length} marker${extractedMarkers.length === 1 ? "" : "s"} — edit anything that was read wrong`
+                : "Add markers manually"}
           </SectionLabel>
 
           <Card>
-            {extractedMarkers.map((m, i) => (
-              <div key={i} style={{
-                padding: "10px 0", borderBottom: i < extractedMarkers.length - 1 ? `1px solid ${COLORS.border}` : "none"
-              }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                  <input value={m.name} onChange={e => setExtractedMarkers(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                    placeholder="Marker name" style={{ flex: 2, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "6px 9px", color: COLORS.textPrimary, fontSize: 12, outline: "none" }} />
-                  <input value={m.value} onChange={e => setExtractedMarkers(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
-                    placeholder="Value" style={{ flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "6px 9px", color: COLORS.textPrimary, fontSize: 12, outline: "none" }} />
-                  <input value={m.unit} onChange={e => setExtractedMarkers(prev => prev.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))}
-                    placeholder="Unit" style={{ flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "6px 9px", color: COLORS.textPrimary, fontSize: 12, outline: "none" }} />
-                  <button onClick={() => setExtractedMarkers(prev => prev.filter((_, j) => j !== i))} style={{
-                    background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, flexShrink: 0
-                  }}><X size={14} /></button>
+            {extractedMarkers.map((m, i) => {
+              const label = String(m.value ?? "").trim() && String(m.range ?? "").trim() ? STATUS_LABEL[m.status] : null;
+              return (
+                <div key={i} style={{
+                  padding: "10px 0", borderBottom: i < extractedMarkers.length - 1 ? `1px solid ${COLORS.border}` : "none"
+                }}>
+                  {/* Name on its own line, then value / unit / lab range on a row that
+                      wraps: three fixed columns beside the name ran the unit off the
+                      card's edge at phone width. */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                    <input value={m.name} onChange={e => editMarker(i, "name", e.target.value)} aria-label="Marker name"
+                      placeholder="Marker name, e.g. Glucose" style={{ ...markerInput, flex: 1, fontWeight: 600 }} />
+                    <button onClick={() => setExtractedMarkers(prev => prev.filter((_, j) => j !== i))} aria-label="Remove marker" style={{
+                      background: "none", border: "none", cursor: "pointer", color: COLORS.textMuted, flexShrink: 0, padding: 4
+                    }}><X size={14} /></button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <input value={m.value} onChange={e => editMarker(i, "value", e.target.value)} aria-label="Value"
+                      inputMode="decimal" placeholder="Value" style={{ ...markerInput, flex: "1 1 64px" }} />
+                    <input value={m.unit} onChange={e => editMarker(i, "unit", e.target.value)} aria-label="Unit"
+                      placeholder="Unit" style={{ ...markerInput, flex: "1 1 64px" }} />
+                    <input value={m.range || ""} onChange={e => editMarker(i, "range", e.target.value)} aria-label="Lab range"
+                      placeholder="Lab range, e.g. 70–99" style={{ ...markerInput, flex: "2 1 130px" }} />
+                  </div>
+                  {label && (
+                    <div style={{ marginTop: 6 }}>
+                      <span style={{ fontSize: 10, color: labToneColor(m), background: COLORS.bgCardAlt, padding: "2px 8px", borderRadius: 6 }}>{label}</span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 10, color: labToneColor(m), background: COLORS.bgCardAlt, padding: "2px 8px", borderRadius: 6 }}>{m.status}</span>
-                  {m.range && <span style={{ fontSize: 10, color: COLORS.textMuted }}>Range: {m.range}</span>}
-                </div>
-              </div>
-            ))}
-            <button onClick={() => setExtractedMarkers(prev => [...prev, { name: "", value: "", unit: "", range: "", status: "unknown" }])} style={{
+              );
+            })}
+            <button onClick={() => setExtractedMarkers(prev => [...prev, blankMarker()])} style={{
               width: "100%", background: "none", border: `1px dashed ${COLORS.border}`, borderRadius: 8,
               padding: "8px", color: COLORS.textMuted, fontSize: 12, cursor: "pointer", marginTop: 10
             }}>
@@ -821,14 +876,14 @@ Rules:
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
             {importType === "genetic"
               ? <>{extractedGenetics.filter(g => g.gene).length} genome{extractedGenetics.filter(g => g.gene).length === 1 ? "" : "s"} added from {labSource || "your genetic report"}. These now inform your Genetic Profile, supplement and pharmacogenomic guidance, and your AI conversations.</>
-              : <>{extractedMarkers.filter(m => m.name).length} markers added from {labSource || "this lab report"}. These are now part of your longitudinal record and will inform your AI conversations, pattern review, and Discussion Page.</>}
+              : <>{extractedMarkers.filter(m => m.name).length} marker{extractedMarkers.filter(m => m.name).length === 1 ? "" : "s"} added from {labSource || "this lab report"}. These are now part of your longitudinal record and will inform your AI conversations, pattern review, and Discussion Page.</>}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setActive(importType === "genetic" ? "geneticprofile" : "aichat")} style={{
               flex: 1, background: COLORS.teal, border: "none", color: COLORS.onAccent,
               fontSize: 13, fontWeight: 700, padding: "11px", borderRadius: 10, cursor: "pointer"
             }}>{importType === "genetic" ? "View genetic profile" : "Ask AI about results"}</button>
-            <button onClick={() => { setStage("idle"); setImportType("labs"); setExtractedMarkers([]); setExtractedGenetics([]); setImagePreview(null); setLabDate(""); setLabSource(""); }} style={{
+            <button onClick={() => { setStage("idle"); setImportType("labs"); setExtractedMarkers([]); setExtractedGenetics([]); setImagePreview(null); setLabDate(""); setLabSource(""); setManualEntry(false); }} style={{
               flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, color: COLORS.textSecondary,
               fontSize: 13, padding: "11px", borderRadius: 10, cursor: "pointer"
             }}>Import another</button>
