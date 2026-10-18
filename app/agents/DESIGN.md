@@ -51,6 +51,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 
    If anything fails: one revision, then a deterministic scrub. Blocked outputs are logged for weekly medical director review: every fact-check flag, rule rewrite, rule scrub, crisis and Section 9 bypass is a row in `ghai.safety_events`, and `ghai.safety_review_last_week` is the list Adam reads (migration `20261018_care_team_logs.sql`).
 8. **Finish.** Sources list, routing log, cost ledger, answer.
+   - App buttons: an action bullet may end with `[[app:<screen>|<label>]]` (briefs/advocate-answer). Code keeps only `orderlabs`, `importlabs`, `preventivecare`, `discussion` and `healthhistory` (`src/lib/appLinks.js`), once after compose and again on the final reply; any other id becomes its plain label. The chat's `RichReply` runs the same whitelist and draws the survivors as buttons.
    - The routing log is `ghai.agent_runs`: which specialists ran, whether General took the question, and whether it fell back to the clinician, with General's one-line topic. `ghai.fallback_topics_last_30_days` counts the fallbacks by topic: the most common decides which agent is built next.
    - Both logs are written after the reply, as the member (their JWT through PostgREST; the service has no service-role key), and never fail the round (`lib/logs.mjs`).
    - Each provider-lane marker in the reply's lanes opens a follow-up (`ghai.follow_ups`, written by the app from the `reply` event). The morning check-in asks about it at 30 days and again at 60 (`src/lib/followUps.js`).

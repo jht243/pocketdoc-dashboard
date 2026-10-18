@@ -10,6 +10,8 @@
 //   6. compose   the Advocate writes the one answer the member reads (smart)
 //   7. safety    the fact-checker brief audits it against the record; one revision if
 //                flagged; then the forbidden-output rules run as code (rewrite, then cut)
+//   8. links     code: only whitelisted [[app:screen|Label]] buttons survive
+//                (src/lib/appLinks.js), whatever the model wrote
 //
 // Along the way the round notes, on `run`, what the safety layer blocked
 // (`run.safety`) and who answered (`run.routing`); server.mjs writes both to the
@@ -24,6 +26,7 @@ import { searchReference, knowledgeBlock, scrubInventedCitations } from './knowl
 import { precheck, enforce } from './safety.mjs';
 import { lanesFor, laneBlock, emergencyFor, emergencyMessage } from './escalation.mjs';
 import { URGENCY_RULES } from '../../src/lib/clinicalRules.js';
+import { sanitizeAppLinks } from '../../src/lib/appLinks.js';
 
 /**
  * The roster. Routing metadata lives here, in code, as in Monitus's BUILTIN registry;
@@ -285,7 +288,7 @@ async function factCheck({ answer, facts, reads, sources, run }) {
 async function revise({ answer, flags, facts, reads, run }) {
   return complete({
     system: systemFor('advocate-answer'),
-    user: `${factsFor(facts, ['profile', 'medications', 'labs', 'labTrends'])}\n\n${findingsText(reads, [], '')}\n\n## Your draft\n${answer}\n\n## The Safety Review flagged\n${flags}\n\nFix every flag and change nothing else. Return the full corrected answer only.`,
+    user: `${factsFor(facts, ['profile', 'medications', 'labs', 'labTrends'])}\n\n${findingsText(reads, [], '')}\n\n## Your draft\n${answer}\n\n## The Safety Review flagged\n${flags}\n\nFix every flag and change nothing else. Keep every [[app:...|...]] button token exactly as written. Return the full corrected answer only.`,
     tier: 'smart', maxTokens: 1400, temperature: 0.2, label: 'revise', run,
   });
 }
@@ -395,7 +398,9 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   const realTitles = [...new Set(sources.map((s) => s.title))];
   emit({ type: 'draft_start', research: false });
   let reply = await compose({ question, recent, facts, reads: ordered, notes, consensus, pre, lanes, outOfScope: routing.fallback ? { topic: routing.topic } : null, run });
-  reply = scrubInventedCitations(reply, realTitles);
+  // App links are whitelisted the moment the draft exists, so the fact-checker and
+  // the rules read the answer with only real buttons in it.
+  reply = sanitizeAppLinks(scrubInventedCitations(reply, realTitles));
   emit({ type: 'draft_done', sources: 0, passages: realTitles.length });
 
   // 7. Safety: the fact-checker, one revision by the Advocate if it flags, then the
@@ -432,7 +437,9 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   });
 
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
-  const final = tidyBottomLine(enforced.reply);
+  // And again on the way out: a safety rewrite is model output too, and could have
+  // mangled a token or written a new one.
+  const final = sanitizeAppLinks(tidyBottomLine(enforced.reply));
   return { reply: routing.fallback ? ensureClinicianLine(final) : final, sources: dedupeSources(sources), lanes, routing, safety: run?.safety || [] };
 }
 

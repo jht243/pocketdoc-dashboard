@@ -82,6 +82,12 @@ WHAT TO RAISE, NOT WHAT MIGHT CHANGE
 - Instead, tell the member exactly what to raise: the result, its value and date, and the question. Correct: "Bring your vitamin D of 28 ng/mL from Jun 2026 to your next visit and ask what is keeping it below 30 and when it should be rechecked." Incorrect, always: "Consider discussing your vitamin D with your doctor to explore treatment options or dosage adjustments."
 - What happens to a medication or a supplement amount is the clinician's decision, made with them. The card's job is to make sure the right result reaches that conversation.
 
+SYMPTOMS, SCREENINGS AND MISSING DATA
+- A preventive screening explains a symptom only when that screening actually investigates it: a colonoscopy for rectal bleeding or a change in bowel habit, a depression screen for low mood. Colonoscopy, mammogram, Pap or HPV test, HIV or hepatitis testing, alcohol or tobacco screening, bone density, an aortic ultrasound or a lung CT does not explain fatigue, low energy, poor sleep, brain fog, weight change or low mood. Never write that being up to date on screenings "can help address", "could help explain" or "may be related to" a symptom.
+- A symptom with no measured data behind it gets the honest next step: say that nothing on file explains it yet, then name the specific tests that would investigate it. Fatigue or low energy: CBC, ferritin with an iron panel, TSH with free T4, a comprehensive metabolic panel, B12 and vitamin D. Brain fog: CBC, B12, TSH, A1c. Hair thinning: ferritin, TSH. Unexplained weight gain: TSH, A1c, fasting insulin. Feeling cold: TSH, CBC, ferritin. Low libido: total and free testosterone, plus estradiol for women. Never answer a symptom with a list of screenings.
+- Screenings are their own subject. If a screening card is the most useful thing, write it as a screening card, not as the answer to a symptom.
+- Call a screening "overdue" only when the schedule above says "overdue" for it. "Not on file", "due", or no record at all means we have no record of it, not that the member is behind: say "no record of your last colonoscopy", never "overdue", "behind" or "missed".
+
 HOUSE STYLE
 - Use only the data provided. Never invent a value, a date, or a fact.
 - Quote the actual numbers, with their units and their dates.
@@ -227,6 +233,13 @@ export async function generateAIInsights(healthData, profile, healthHistory = nu
   // assumes a second panel exists.
   const breadth = availableDomains(healthData, messages);
   const guard = { hasFunctionalConcern: hasFunctionalConcern(healthData) };
+  // No bloodwork, no wearable and no readable report: there is nothing measured for a
+  // card to read, so every card is about getting the first data in. Without this the
+  // model filled the space from intake answers and the screening schedule, and a
+  // member with no labs was told their overdue screenings "could help explain" their
+  // fatigue. A readable uploaded document counts as measured data (a DEXA, a report
+  // whose markers were not itemised), so it lifts the member out of this stance.
+  const firstData = !["bloodwork", "wearable", "uploaded documents"].some((d) => breadth.present.includes(d));
 
   // The SAME full context the chat and the Discussion Page get — intake answers,
   // labs with ranges and trends, both scores, every wearable metric, genetics,
@@ -246,7 +259,9 @@ ${conversation || "(no conversation on file yet)"}
 
 WHAT THIS MEMBER HAS — these are facts, not estimates. Honour them.
 ${breadth.summary}
-
+${firstData ? `
+FIRST DATA ONLY. This member has no bloodwork, no wearable and no readable report on file. Write no card about a condition, a risk, a pattern or a likely cause — intake answers and the screening schedule are not measurements. Every card is about getting their first data: uploading a lab report they already have, ordering a baseline panel through the app, or connecting a wearable. A symptom they reported may appear only as the reason a specific first test is worth getting ("You mentioned fatigue; a CBC, ferritin and TSH are the tests that look into it"). "record" is that ask with "doctorPath" naming the tests to request and "selfPayPath" the panel they can order; "labs" is an empty array.
+` : ""}
 DATA AGE (Rule 0 — the newest reading is the fact; anything over 12 months old is context you may recommend repeating, never grounds for a current finding or for acting today)
 ${freshness.notes}
 ${urgent.length ? `\nURGENT PATTERNS ALREADY DETECTED IN THIS DATA (a deterministic check found these; they are being shown to the member above your cards — do not repeat them, do not soften them, and do not write a calm card that contradicts them):\n${urgent.map((u) => `- ${u.label}: ${u.message}`).join("\n")}` : ""}

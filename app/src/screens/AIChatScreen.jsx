@@ -518,7 +518,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
               fontSize: 13, lineHeight: 1.6,
             }}>
               {m.role === "assistant"
-                ? (m.error ? <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div> : <RichReply text={m.text} />)
+                ? (m.error ? <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div> : <RichReply text={m.text} onNavigate={setActive} />)
                 : m.text}
             </div>
             {/* Web-research citations */}
