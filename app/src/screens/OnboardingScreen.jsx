@@ -141,8 +141,8 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
         extractDocumentText(base64, mediaType)
           .then(async ({ text, error }) => {
             await saveDocumentText(uploaded.id, text, error);
-            const name = await nameStoredDocument(uploaded, text);
-            if (name) setUploadedFileName(name);
+            const named = await nameStoredDocument(uploaded, text);
+            if (named) setUploadedFileName(named.name);
           })
           .catch((err) => console.error("onboarding transcription", err));
       }

@@ -9,6 +9,7 @@
 import { supabase, isConfigured } from "./supabase";
 import { buildPreventiveCareSchedule } from "./preventiveCare";
 import { fromCompletedAt, isScreeningDone, toCompletedAt } from "./screeningDates";
+import { compareLabsNewestFirst } from "./clinicalRules";
 
 function ageFromDob(dob) {
   if (!dob) return null;
@@ -356,12 +357,24 @@ export async function saveDocumentText(documentId, text, error = null) {
 }
 
 /**
- * Give a document the name its contents earned.
+ * Give a document the name its contents earned, and the day its test was done.
  *
  * The original file name is still recoverable from `storage_path`, which embeds it.
+ *
+ * The name never waits on the date: if the `collected_on` column isn't there yet (its
+ * migration lands separately from the code) the combined write fails, and the name is
+ * saved on its own rather than lost with it.
  */
-export async function renameDocument(documentId, name) {
+export async function renameDocument(documentId, name, { collectedOn = null } = {}) {
   if (!isConfigured || !documentId || !name) return { error: null };
+  if (collectedOn) {
+    const { error: datedErr } = await supabase
+      .from("documents")
+      .update({ file_name: name, collected_on: collectedOn })
+      .eq("id", documentId);
+    if (!datedErr) return { error: null };
+    console.warn("renameDocument/collected_on", datedErr);
+  }
   const { error } = await supabase
     .from("documents")
     .update({ file_name: name })
@@ -542,18 +555,49 @@ export async function deleteDocument(document) {
   return { error };
 }
 
+const DOCUMENT_COLUMNS = "id, kind, file_name, status, created_at, extracted_text, extracted_at, extract_error";
+
 export async function loadDocuments(userId) {
   if (!isConfigured || !userId) return [];
   const { data, error } = await supabase
     .from("documents")
-    .select("id, kind, file_name, status, created_at, extracted_text, extracted_at, extract_error")
+    .select(`${DOCUMENT_COLUMNS}, collected_on`)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
-  if (error) {
-    console.error("loadDocuments", error);
+  if (!error) return data || [];
+  // Asking for a column the database doesn't have yet fails the whole query. Losing
+  // the test date costs a label; losing the list would hide every document — and its
+  // text — from the AI, so retry without it.
+  console.warn("loadDocuments/collected_on", error);
+  const { data: plain, error: plainError } = await supabase
+    .from("documents")
+    .select(DOCUMENT_COLUMNS)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (plainError) {
+    console.error("loadDocuments", plainError);
     return [];
   }
-  return data || [];
+  return plain || [];
+}
+
+/**
+ * The test date of every document that has one, keyed by document id.
+ *
+ * Its own query, and allowed to fail quietly, so that a missing `collected_on` column
+ * can never take the lab results down with it.
+ */
+async function loadDocumentTestDates(userId) {
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, collected_on")
+    .eq("user_id", userId)
+    .not("collected_on", "is", null);
+  if (error) {
+    console.warn("loadDocumentTestDates", error);
+    return new Map();
+  }
+  return new Map((data || []).map((row) => [row.id, row.collected_on]));
 }
 
 export async function loadLabMarkers(userId) {
@@ -562,11 +606,14 @@ export async function loadLabMarkers(userId) {
   // it every marker is dated by when the user happened to upload the file, which
   // turns a three-year lab history into "all imported last Tuesday" and destroys
   // the trend the AI is supposed to reason about.
-  const { data, error } = await supabase
-    .from("lab_markers")
-    .select("name, value, unit, status, ref_range, created_at, lab_panels(drawn_on, source)")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, testDates] = await Promise.all([
+    supabase
+      .from("lab_markers")
+      .select("name, value, unit, status, ref_range, created_at, lab_panels(drawn_on, source, document_id)")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    loadDocumentTestDates(userId),
+  ]);
   if (error) {
     console.error("loadLabMarkers", error);
     // Losing the panel join must not lose the labs themselves: fall back to the flat
@@ -586,16 +633,19 @@ export async function loadLabMarkers(userId) {
   const rows = (data || []).map(({ lab_panels: panel, ...marker }) => ({
     ...marker,
     range: marker.ref_range || null,
-    drawnOn: panel?.drawn_on || null,
+    // The panel's own draw date first; failing that, the test date read off the
+    // document it came from. Either is the day the blood was drawn. Folded into
+    // `drawnOn` so every reader — the Labs screen, the score, the AI context, the
+    // agents — dates the reading by the draw rather than by the upload.
+    drawnOn: panel?.drawn_on || testDates.get(panel?.document_id) || null,
     source: panel?.source || null,
   }));
   // Newest DRAW first, not newest upload first. Uploading a 2024 panel today gives
   // it the freshest created_at, and every consumer that takes the first match
   // (Labs screen, insight pickers, AI context) would then report a two-year-old
-  // value as current. Compare at day granularity so a panel without a drawn_on
+  // value as current. Compared at day granularity so a panel without a draw date
   // falls back to its import day without outranking dated panels on timestamp.
-  const measuredOn = (m) => m.drawnOn || String(m.created_at || "").slice(0, 10);
-  rows.sort((a, b) => measuredOn(b).localeCompare(measuredOn(a)));
+  rows.sort(compareLabsNewestFirst);
   return rows;
 }
 

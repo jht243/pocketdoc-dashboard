@@ -164,8 +164,54 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Sortable draw date. `date` is a display string ("Jun 2026") and sorts wrongly as text. */
-const measuredOn = (lab) => String(lab?.drawnOn || lab?.created_at || lab?.date || "");
+const pad2 = (n) => String(n).padStart(2, "0");
+
+/** Any date-ish value as a calendar day, "YYYY-MM-DD", or "" when it isn't one. */
+function toDay(raw) {
+  if (raw == null || raw === "") return "";
+  const s = String(raw).trim();
+  // ISO dates and timestamps carry their day up front; reading it off directly keeps
+  // a bare "2026-06-14" from sliding to the 13th west of Greenwich.
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return Number(iso[2]) >= 1 && Number(iso[2]) <= 12 ? iso[0].slice(0, 10) : "";
+  // Display strings: "Jun 2026", "Sep 17, 2026".
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * The day a lab reading was taken, as a sortable "YYYY-MM-DD" ("" when undated).
+ *
+ * In order of how much it can be trusted to be the DRAW date: the panel's own draw
+ * date, the test date read off the document the reading came from, the display date
+ * the reading was shown with, and only then the upload time. The upload time used to
+ * come second, so a two-year-old panel uploaded this morning read as the newest one
+ * on file. Everything is reduced to one format before it is compared — a raw
+ * "2026-06-14" against "Jun 2026" against an ISO timestamp is a text comparison that
+ * gets the order wrong.
+ */
+export function labDay(lab) {
+  for (const raw of [lab?.drawnOn, lab?.collectedOn, lab?.date, lab?.created_at]) {
+    const day = toDay(raw);
+    if (day) return day;
+  }
+  return "";
+}
+
+/**
+ * Sort comparator: newest reading first by the day it was taken; on the same day,
+ * the later upload first. Undated readings go last, where they can't pose as current.
+ */
+export function compareLabsNewestFirst(a, b) {
+  const byDay = labDay(b).localeCompare(labDay(a));
+  if (byDay) return byDay;
+  return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
+}
+
+/** Sortable draw date — see labDay. */
+const measuredOn = (lab) => labDay(lab);
 
 /** Most recent row for a marker, with its numeric value. */
 function latestLab(labs, aliases, excludes = []) {
@@ -174,7 +220,7 @@ function latestLab(labs, aliases, excludes = []) {
       const name = normalizeName(l.name);
       return matchesAlias(name, aliases) && !isExcluded(name, excludes);
     })
-    .sort((a, b) => measuredOn(b).localeCompare(measuredOn(a)));
+    .sort(compareLabsNewestFirst);
   for (const lab of rows) {
     const value = toNumber(lab.value);
     if (value != null) return { lab, value };
@@ -514,11 +560,11 @@ export function detectUrgentPatterns({ healthData, messages = [], now = Date.now
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** A draw date we can do arithmetic on. Display strings like "Jun 2026" parse fine. */
+/** A draw date we can do arithmetic on: UTC midnight of the day the reading was taken. */
 function parseDate(lab) {
-  const raw = lab?.drawnOn || lab?.created_at || lab?.date;
-  if (!raw) return null;
-  const t = Date.parse(raw);
+  const day = labDay(lab);
+  if (!day) return null;
+  const t = Date.parse(`${day}T00:00:00Z`);
   return Number.isFinite(t) ? t : null;
 }
 
