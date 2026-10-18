@@ -1,6 +1,6 @@
 // The agents service: My Advocate and the four specialist advocates behind the chat.
 //
-//   POST /chat    { question, history, facts, healthData }  → text/event-stream
+//   POST /chat    { question, history, facts, healthData, messageId? }  → text/event-stream
 //   GET  /health  → { ok, model, cheap, via }
 //
 // WHY A SERVER. One question is about a dozen model calls (route, four reads in
@@ -17,10 +17,15 @@
 // THE MODEL KEY. With OPENAI_API_KEY set here, calls go straight to OpenAI.
 // Without it they go through the app's ghai-ai edge function with the member's JWT,
 // so the key never leaves Supabase (lib/llm.mjs).
+//
+// THE LOGS. What the safety layer blocked and who answered are written after each
+// round to ghai.safety_events and ghai.agent_runs, as the member, with their JWT
+// (lib/logs.mjs). Fire-and-forget: a failed write never fails the round.
 import http from 'node:http';
 import { env } from './lib/env.mjs';
 import { providerInfo, costOf } from './lib/llm.mjs';
 import { runQuestion } from './lib/team.mjs';
+import { writeRoundLogs } from './lib/logs.mjs';
 
 const PORT = process.env.PORT || env('AGENTS_PORT', 5190);
 const SUPABASE_URL = env('SUPABASE_URL') || env('VITE_SUPABASE_URL');
@@ -81,7 +86,11 @@ const server = http.createServer(async (req, res) => {
     };
     // A comment line every 15s keeps proxies from closing a quiet stream mid-round.
     const beat = setInterval(() => res.write(': keep-alive\n\n'), 15000);
-    const run = { auth: who.auth, ledger: [] };
+    const run = { auth: who.auth, ledger: [], safety: [] };
+    // The member's stored question, when the app had saved it before asking.
+    const messageId = /^[0-9a-f-]{36}$/i.test(String(body.messageId || '')) ? body.messageId : null;
+    const started = Date.now();
+    let answered = false;
     try {
       const { reply, sources, lanes } = await runQuestion({
         question,
@@ -91,6 +100,7 @@ const server = http.createServer(async (req, res) => {
         run,
       }, send);
       send({ type: 'reply', text: reply, sources, lanes });
+      answered = true;
       const usd = costOf(run.ledger);
       send({ type: 'cost', calls: run.ledger.length, tokensIn: run.ledger.reduce((a, r) => a + r.in, 0), tokensOut: run.ledger.reduce((a, r) => a + r.out, 0), usd: +usd.toFixed(4) });
       console.log(`[$${usd.toFixed(3)}] ${who.user.id.slice(0, 8)} ${run.ledger.length} calls: ${question.slice(0, 80)}`);
@@ -101,6 +111,12 @@ const server = http.createServer(async (req, res) => {
       clearInterval(beat);
       send({ type: 'done' });
       res.end();
+      // After the member has the answer, never before it.
+      writeRoundLogs(run, {
+        question, messageId, answered,
+        seconds: Math.round((Date.now() - started) / 1000),
+        usd: costOf(run.ledger),
+      }).catch(() => {});
     }
     return;
   }

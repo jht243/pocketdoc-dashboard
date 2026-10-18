@@ -9,7 +9,11 @@
  *     Adam's docs want an AI agent to choose them; that is a later phase, and every
  *     clinical question added here still needs Medical Director sign-off.
  *   - Window 5:00–11:00 local time; 2 skips per rolling 14 days keep the streak alive.
+ *   - One provider follow-up question, only on a morning one is due (followUps.js):
+ *     a marker the care team put in "Bring this to your provider" 30+ days ago and
+ *     still open. Never more than one, so a due morning is four taps, not five.
  */
+import { dueFollowUp, followUpQuestion, FOLLOW_UP_QUESTION_ID } from "./followUps";
 
 export const WINDOW_OPEN_HOUR = 5;
 export const WINDOW_CLOSE_HOUR = 11;
@@ -58,11 +62,21 @@ export function medicationNames(userProfile, healthData) {
   return rows.map((m) => (typeof m === "string" ? m : m?.name)).filter(Boolean);
 }
 
-/** The full question list for this member today, in the order asked. */
-export function checkInQuestions(userProfile, healthData) {
+/**
+ * The full question list for this member today, in the order asked. A due provider
+ * follow-up goes last before the note, so the three everyday taps come first.
+ */
+export function checkInQuestions(userProfile, healthData, followUps = [], today = localDay()) {
   const ctx = { medNames: medicationNames(userProfile, healthData) };
   const personal = PERSONAL_RULES.filter((r) => r.applies(ctx)).map((r) => r.question);
-  return [...BASE_QUESTIONS, ...personal, NOTE_QUESTION];
+  const due = dueFollowUp(followUps, today);
+  return [...BASE_QUESTIONS, ...personal, ...(due ? [followUpQuestion(due)] : []), NOTE_QUESTION];
+}
+
+/** The day's answers without the follow-up tap, which is saved to the follow-up instead. */
+export function withoutFollowUp(answers = {}) {
+  const { [FOLLOW_UP_QUESTION_ID]: _followUp, ...rest } = answers;
+  return rest;
 }
 
 /* ---------------- dates, window, streak ---------------- */

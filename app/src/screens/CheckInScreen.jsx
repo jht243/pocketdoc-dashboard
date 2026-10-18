@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronLeft, Flame, Sparkles, Sun } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { callAI, firstText } from "../lib/api";
 import { saveCheckIn } from "../lib/checkInStore";
+import { answerFollowUp, loadFollowUps } from "../lib/followUpStore";
+import { FOLLOW_UP_QUESTION_ID } from "../lib/followUps";
 import { buildHealthContext } from "../lib/healthContext";
 import { detectUrgentPatterns, violatesForbiddenOutput } from "../lib/clinicalRules";
 import {
   NOTE_MAX, SKIPS_PER_14_DAYS, WINDOW_CLOSE_HOUR, WINDOW_OPEN_HOUR,
   answerSummary, checkInContextLines, checkInQuestions, computeStreak, fallbackReply,
-  localDay, skipsUsed, windowState,
+  localDay, skipsUsed, windowState, withoutFollowUp,
 } from "../lib/checkInContent";
 import { COLORS, DISPLAY, RADIUS } from "../theme/tokens";
 
@@ -73,7 +75,14 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
   const { user } = useAuth();
   const today = localDay();
   const todays = checkIns.find((c) => c.day === today);
-  const questions = useMemo(() => checkInQuestions(userProfile, healthData), [userProfile, healthData]);
+  // Provider follow-ups: one extra question, only on a morning one is due.
+  const [followUps, setFollowUps] = useState([]);
+  useEffect(() => {
+    let live = true;
+    if (user) loadFollowUps(user.id).then((rows) => { if (live) setFollowUps(rows); });
+    return () => { live = false; };
+  }, [user]);
+  const questions = useMemo(() => checkInQuestions(userProfile, healthData, followUps, today), [userProfile, healthData, followUps, today]);
   const windowNow = testModeEnabled ? "open" : windowState();
   const streak = computeStreak(checkIns, today);
   const skipsLeft = Math.max(0, SKIPS_PER_14_DAYS - skipsUsed(checkIns, today));
@@ -108,9 +117,16 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
     const urgent = safetyCheck(note);
     if (urgent) setEmergency(urgent);
     setStage("thinking");
-    const text = urgent ? null : await generateReply({ answers, note, checkIns, userProfile, healthData, healthHistory });
+    // The follow-up tap is saved to its follow-up, not to the day's check-in: it is
+    // an answer about an open loop, not a reading of how the member feels.
+    const followUp = questions.find((x) => x.id === FOLLOW_UP_QUESTION_ID);
+    if (user && followUp && answers[FOLLOW_UP_QUESTION_ID]) {
+      answerFollowUp(user.id, followUp.followUpId, answers[FOLLOW_UP_QUESTION_ID], today);
+    }
+    const daily = withoutFollowUp(answers);
+    const text = urgent ? null : await generateReply({ answers: daily, note, checkIns, userProfile, healthData, healthHistory });
     setReply(text || "");
-    await persist({ day: today, answers, note: note.trim() || null, response: text });
+    await persist({ day: today, answers: daily, note: note.trim() || null, response: text });
     setStage("done");
   };
 

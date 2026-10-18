@@ -130,6 +130,10 @@ const SAMPLES = {
     ['How many hours of sleep do I need?', 'sleep'],
     ['How many steps a day should I walk?', 'activity'],
   ],
+  general: [
+    ['When should I start colon cancer screening?', 'preventive'],
+    ['Am I due for a mammogram?', 'preventive'],
+  ],
 };
 
 for (const [id, samples] of Object.entries(SAMPLES)) {

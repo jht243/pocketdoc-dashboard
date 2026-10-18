@@ -11,6 +11,10 @@
 //   7. safety    the fact-checker brief audits it against the record; one revision if
 //                flagged; then the forbidden-output rules run as code (rewrite, then cut)
 //
+// Along the way the round notes, on `run`, what the safety layer blocked
+// (`run.safety`) and who answered (`run.routing`); server.mjs writes both to the
+// logs (lib/logs.mjs) once the reply is out.
+//
 // Every step is reported as an event the moment it happens. The event names and
 // fields are the ones the browser care team already emits (src/lib/careTeam.js
 // readTeam), so CareTeam.jsx animates a server round with no changes.
@@ -49,6 +53,15 @@ export const TEAM = {
     desc: 'nutrition, sleep, activity, wearable trends (HRV, resting HR, readiness), stress, check-in follow-up',
     facts: ['profile', 'intake', 'labs', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'body'],
     library: ['nutrition', 'sleep', 'activity'],
+  },
+  // Scope-limited on purpose (briefs/general): answers a short approved list and
+  // hands everything else to the clinician. `scoped` makes it report whether the
+  // question was in scope and what it was about, which is how fallbacks are counted.
+  general: {
+    desc: 'ONLY: preventive screening schedule from the record, how the app works, preparing for an appointment, wellness questions the record already answers. Anything outside every other specialist (a rash, an injury, pain, a new symptom, a diagnosis question) goes here, and it hands it to the clinician',
+    facts: ['profile', 'intake', 'medications', 'preventive', 'checkIns', 'documents'],
+    library: ['preventive'],
+    scoped: true,
   },
 };
 
@@ -126,12 +139,24 @@ Headline: <your key point, max 9 words>
 Finding: <2-3 sentences, max 70 words, your answer to the Advocate with the values and dates that matter>
 Flag: <ok | watch | urgent>`;
 
+// The General agent's two extra lines (briefs/general): whether it answered or
+// handed the question to the clinician, and what the question was about.
+const SCOPE_ASK = `
+Scope: <in | out>
+Topic: <2 to 4 words>`;
+
+// The words a hand-off to the clinician always carries (briefs/general,
+// briefs/advocate-answer). Also the fallback test when General forgets its Scope line.
+const CLINICIAN_LINE = "Let's bring this to your clinician.";
+const CLINICIAN_RE = /bring this to your clinician/i;
+
 function splitScreen(text) {
   const i = text.search(/^##\s*For the member'?s screen\s*$/mi);
   const body = i < 0 ? text : text.slice(0, i).trim();
   const tail = i < 0 ? '' : text.slice(i);
   const field = (name) => (new RegExp(`^${name}:\\s*(.+)$`, 'mi').exec(tail)?.[1] || '').trim();
   const flag = field('Flag').toLowerCase();
+  const scope = field('Scope').toLowerCase().replace(/[^a-z]/g, '');
   // A reply that is only the screen block is still a report: its finding is the read.
   // Treating it as empty is what showed "Couldn't report this time" on a live round.
   return {
@@ -139,6 +164,8 @@ function splitScreen(text) {
     headline: clip(field('Headline'), 70),
     finding: clip(field('Finding') || body, 480),
     flag: ['ok', 'watch', 'urgent'].includes(flag) ? flag : 'ok',
+    scope: ['in', 'out'].includes(scope) ? scope : null,
+    topic: clip(field('Topic'), 60) || null,
   };
 }
 
@@ -150,7 +177,7 @@ async function research({ id, ask, question, facts, run }) {
     knowledgeBlock(passages),
     `## The member's question\n"${question}"`,
     `## The Advocate asks you\n${ask}`,
-    `Answer the Advocate, not the member. Quote values with their draw dates, newest first. If your area has nothing on record, say so plainly and name the test or data that would answer it. Put every action in a lane (shared rule 6). Be tight; no padding.${SCREEN_ASK}`,
+    `Answer the Advocate, not the member. Quote values with their draw dates, newest first. If your area has nothing on record, say so plainly and name the test or data that would answer it. Put every action in a lane (shared rule 6). Be tight; no padding.${SCREEN_ASK}${spec.scoped ? SCOPE_ASK : ''}`,
   ].join('\n\n');
   const raw = await complete({ system: systemFor(id), user: input, tier: 'smart', maxTokens: 1000, label: `research:${id}`, run });
   return { ...splitScreen(scrubInventedCitations(raw, passages.map((p) => p.title))), sources: passages.map((p) => ({ kind: 'library', title: p.title, cite: p.cite, evidence: p.evidence })) };
@@ -191,7 +218,36 @@ async function consensusOf({ notes, run }) {
 
 /* ---------------- 6–7. compose and check ---------------- */
 
-const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', lifestyle: 'Lifestyle' };
+const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', lifestyle: 'Lifestyle', general: 'General' };
+
+/**
+ * Who answered, for the routing log: the specialists consulted, whether General was
+ * one of them, and whether General handed the question to the clinician (the
+ * fallback the spec counts to decide which agent to build next).
+ *
+ * @param {Array}  consult  the plan, [{id, ask}]
+ * @param {object} general  General's report, { scope, topic, read }, if it reported
+ */
+export function routingOf(consult = [], general = null) {
+  const specialists = consult.map((c) => c.id);
+  const asked = specialists.includes('general');
+  const fallback = asked && Boolean(general) && (general.scope === 'out' || (!general.scope && CLINICIAN_RE.test(general.read || '')));
+  return { path: 'team', specialists, general: asked, fallback, topic: asked ? general?.topic || null : null };
+}
+
+/** A clinician hand-off always says so in words, even if compose dropped them. */
+export function ensureClinicianLine(reply) {
+  const t = String(reply || '').trim();
+  return CLINICIAN_RE.test(t) ? t : `**${CLINICIAN_LINE}**\n\n${t}`;
+}
+
+/** What the safety log records, noted on the run as it happens. */
+function noteSafety(run, e) {
+  if (run) (run.safety ||= []).push(e);
+}
+
+// The first quoted passage in the fact-checker's flags is the offending text.
+const quoted = (flags) => /"([^"]{4,})"/.exec(flags || '')?.[1] || '';
 
 function findingsText(reads, notes, consensus) {
   const consulted = Object.keys(reads).map((id) => NAMES[id] || id);
@@ -201,14 +257,15 @@ ${Object.entries(reads).map(([id, r]) => `### ${NAMES[id] || id}\n${r}`).join('\
 ${notes.length ? `\n## Huddle notes\n${notes.map((n) => `- ${n.from} → ${n.to}: ${n.note}`).join('\n')}` : ''}${consensus ? `\nConsensus: ${consensus}` : ''}`;
 }
 
-async function compose({ question, recent, facts, reads, notes, consensus, pre, lanes, run }) {
+async function compose({ question, recent, facts, reads, notes, consensus, pre, lanes, outOfScope, run }) {
   const routed = laneBlock(lanes);
+  const scope = outOfScope ? `\n\n## Out of scope\nThe General advocate found this question${outOfScope.topic ? ` (${outOfScope.topic})` : ''} is outside what this team answers. Open the bottom line with "${CLINICIAN_LINE}" and list what to raise from General's read. Do not answer that part.` : '';
   const urgent = pre.lines.length ? `\n\n## Safety pre-check: URGENT\n${pre.lines.join('\n')}\n\n${URGENCY_RULES}` : '';
   return complete({
     system: systemFor('advocate-answer'),
     messages: [
       ...recent,
-      { role: 'user', content: `${factsFor(facts, ['profile', 'medications', 'labs'])}\n\n${findingsText(reads, notes, consensus)}${routed ? `\n\n${routed}` : ''}${urgent}\n\n## The member's question\n"${question}"\n\nWrite your answer to the member now.` },
+      { role: 'user', content: `${factsFor(facts, ['profile', 'medications', 'labs'])}\n\n${findingsText(reads, notes, consensus)}${routed ? `\n\n${routed}` : ''}${scope}${urgent}\n\n## The member's question\n"${question}"\n\nWrite your answer to the member now.` },
     ],
     tier: 'smart', maxTokens: 1400, temperature: 0.3, label: 'compose', run,
   });
@@ -255,6 +312,8 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   // gets the 988 line now, not after a minute of specialists.
   const pre = precheck({ healthData, question });
   if (pre.crisis) {
+    noteSafety(run, { kind: 'crisis', rule: 'Crisis language in the question: the team was skipped and the 988 line sent.', excerpt: question });
+    if (run) run.routing = { path: 'crisis', specialists: [], general: false, fallback: false, topic: null };
     emit({ type: 'safety_start' });
     emit({ type: 'safety_done', clean: true, revised: false, scrubbed: false, urgent: pre.urgent });
     emit({ type: 'answer', seconds: 0 });
@@ -266,6 +325,12 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   const emergency = emergencyFor(healthData?.labs);
   const act = emergency.filter((h) => h.fresh);
   if (act.length) {
+    noteSafety(run, {
+      kind: 'emergency',
+      rule: `Section 9 emergency override (${act.map((h) => h.rule).join('; ')}): the team was skipped and the hard-coded message sent.`,
+      excerpt: act.map((h) => `${h.name} ${h.shown}${h.date ? ` (${h.date})` : ''}`).join('; '),
+    });
+    if (run) run.routing = { path: 'emergency', specialists: [], general: false, fallback: false, topic: null };
     emit({ type: 'safety_start' });
     emit({ type: 'safety_done', clean: true, revised: false, scrubbed: false, urgent: act.map((h) => `${h.name} ${h.shown}`), emergency: act });
     emit({ type: 'answer', seconds: 0 });
@@ -286,12 +351,14 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   // in whatever order that is. The card draws exactly this, nothing staged.
   const reads = {};
   const sources = [];
+  let general = null;
   for (const { id, ask } of plan.consult) emit({ type: 'specialist_start', id, ask });
   await Promise.all(plan.consult.map(async ({ id, ask }) => {
     try {
       const r = await research({ id, ask, question, facts, run });
       if (!r.read) throw new Error('empty report');
       reads[id] = r.read;
+      if (id === 'general') general = { scope: r.scope, topic: r.topic, read: r.read };
       sources.push(...r.sources.map((s) => ({ ...s, readBy: id })));
       emit({ type: 'specialist_done', id, headline: r.headline, finding: r.finding, flag: r.flag, passages: r.sources.length });
     } catch (err) {
@@ -302,6 +369,8 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   // Reads keep the Advocate's order, whatever order they finished in.
   const ordered = Object.fromEntries(plan.consult.filter((c) => reads[c.id]).map((c) => [c.id, reads[c.id]]));
   if (!Object.keys(ordered).length) throw new Error('No specialist could report. Please try again.');
+  const routing = routingOf(plan.consult, general);
+  if (run) run.routing = routing;
 
   // 4. Huddle: with two or more voices, each sends one note, shown as it arrives.
   let notes = [];
@@ -325,7 +394,7 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   // (no web research).
   const realTitles = [...new Set(sources.map((s) => s.title))];
   emit({ type: 'draft_start', research: false });
-  let reply = await compose({ question, recent, facts, reads: ordered, notes, consensus, pre, lanes, run });
+  let reply = await compose({ question, recent, facts, reads: ordered, notes, consensus, pre, lanes, outOfScope: routing.fallback ? { topic: routing.topic } : null, run });
   reply = scrubInventedCitations(reply, realTitles);
   emit({ type: 'draft_done', sources: 0, passages: realTitles.length });
 
@@ -339,6 +408,7 @@ export async function runQuestion({ question, history = [], facts, healthData, r
     return { clean: true, flags: '' };
   });
   if (!check.clean) {
+    noteSafety(run, { kind: 'fact_check', rule: check.flags, excerpt: quoted(check.flags) || reply });
     emit({ type: 'safety_flag', problem: clip((check.flags.split('\n').find((l) => l.trim()) || check.flags).replace(/^[-*\s]*[A-Z]+(?:-\d+)?:\s*/, ''), 160), by: 'fact-check' });
     emit({ type: 'revise_start' });
     const fixed = await revise({ answer: reply, flags: check.flags, facts, reads: ordered, run }).catch(() => '');
@@ -346,6 +416,13 @@ export async function runQuestion({ question, history = [], facts, healthData, r
     emit({ type: 'revise_done', revised: Boolean(fixed) });
   }
   const enforced = await enforce({ reply, healthData, run, onFlag: (problem) => emit({ type: 'safety_flag', problem, by: 'rules' }) });
+  if (enforced.found) {
+    noteSafety(run, {
+      kind: enforced.scrubbed || !enforced.clean ? 'rule_scrub' : 'rule_rewrite',
+      rule: `${enforced.found.problem}${enforced.clean ? '' : ' (NOT cleared: still present in the reply sent)'}`,
+      excerpt: enforced.found.excerpt,
+    });
+  }
   emit({
     type: 'safety_done',
     clean: enforced.clean,
@@ -355,7 +432,8 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   });
 
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
-  return { reply: tidyBottomLine(enforced.reply), sources: dedupeSources(sources), lanes };
+  const final = tidyBottomLine(enforced.reply);
+  return { reply: routing.fallback ? ensureClinicianLine(final) : final, sources: dedupeSources(sources), lanes, routing, safety: run?.safety || [] };
 }
 
 /**
