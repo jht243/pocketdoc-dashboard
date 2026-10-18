@@ -5,12 +5,13 @@ import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { EvidenceBox } from "../components/EvidenceBox";
+import { BioAgeCard } from "../components/BioAgeCard";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { labTone, labToneColor } from "../lib/labTone";
 import { groupMarkers } from "../lib/labGroups";
 import { shortLabSource } from "../lib/labSource";
 
-function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled }) {
+function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled, userProfile }) {
   // One row per marker, always the most recent draw. The full list holds every
   // panel ever imported (five panels ≈ 300 rows, five "CHOLESTEROL, TOTAL"s), and
   // which duplicate the member saw first was decided by upload order — a March 2024
@@ -97,6 +98,9 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
       </button>
 
       <UrgentBanner items={urgent} />
+
+      {/* Biological age — renders nothing unless the bio-age flag is on. */}
+      <BioAgeCard healthData={healthData} userProfile={userProfile} setActive={setActive} />
 
       <SectionLabel>Latest results</SectionLabel>
       {markers.length > 0 ? <div>
