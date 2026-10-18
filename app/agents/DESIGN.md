@@ -90,7 +90,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 
 ## Running it (step 1, built)
 
-- `npm test` runs the pipeline with the model stubbed: the event contract, routing, record slices, the dose net and the crisis path.
+- `npm test` runs the pipeline with the model stubbed: the event contract, routing, record slices, the dose net and the crisis path. It also checks the library: frontmatter, length, no passage the safety net would block, the escalation matrix shape, and sample questions per specialist.
 - `npm start` starts the service on :5190, or `AGENTS_PORT`. It reads the Supabase URL and anon key from `app/.env.local`.
   - With no `OPENAI_API_KEY`, model calls go through the `ghai-ai` edge function with the member's JWT.
 - For the app against it locally, run the `app-with-agents` launch config. It is the dev server with `VITE_AGENTS_URL=http://localhost:5190`.
@@ -101,6 +101,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 | `briefs/` | Who each agent is: `shared/rules.md`, `advocate`, `advocate-answer`, `bloodwork`, `hormones`, `medications`, `lifestyle`, `safety` |
 | `lib/team.mjs` | The roster (facts slice + library sections per agent) and the pipeline |
 | `lib/safety.mjs` | Code checks before and after the model, from `src/lib/clinicalRules.js` |
-| `lib/knowledge.mjs` | Library search. `library/reference/` is empty until step 2 |
+| `lib/knowledge.mjs` | Library search: keyword overlap weighted by rarity, title words count double |
+| `library/` | Step 2: 294 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All awaiting medical-director approval. `npm run library:readme` rebuilds the README |
 | `lib/llm.mjs` | Model calls and the per-question cost ledger |
 | `server.mjs` | `POST /chat` (SSE), `GET /health` |

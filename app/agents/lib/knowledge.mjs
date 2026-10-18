@@ -56,12 +56,32 @@ function chunk(text, words = 300) {
   return chunks;
 }
 
-const tokenize = (s) => [...new Set(String(s).toLowerCase().match(/[a-z0-9-]{3,}/g) || [])];
+// Words a member's question is full of that say nothing about the topic. Without
+// this, "how many steps a day should I walk" ranked a passage on alcohol first
+// because it shared "how", "many", "day" and "should".
+const STOP = new Set(('the and for are but not you your yours our out has have had was were will would should could can may might '
+  + 'what when where which who whom why how many much more most some any all each every this that these those there their them they '
+  + 'its into from with about than then also just only very really does did doing done get got getting give make made over under '
+  + 'per too off own same such both between after before during again once here being been is am mine one two day days week weeks '
+  + 'year years time times good bad need needs want know tell said say says like use used using way ways thing things lot lots '
+  + 'member members question ask asked answer please help okay ok yes no sure mean means meaning').split(/\s+/));
+// Marker names that would otherwise vanish or blur: "Lp(a)" → lpa, "vitamin D" →
+// vitamin-d (so it no longer matches every vitamin), "vitamin B12" → vitamin-b12.
+// Bare numbers are dropped: a member's "180" matching a passage's threshold of 180
+// is coincidence, not relevance.
+const normalize = (s) => String(s).toLowerCase()
+  .replace(/\b([a-z]{2})\(([a-z])\)/g, '$1$2')
+  .replace(/\bvitamin\s+([a-z])(\d{0,2})\b/g, 'vitamin-$1$2');
+const tokenize = (s) => [...new Set((normalize(s).match(/[a-z0-9-]{3,}/g) || []).filter((t) => !STOP.has(t) && !/^[\d-]+$/.test(t)))];
 
-/** Every passage in the given sections that shares words with the query, best first, one per document first. */
+/**
+ * Every passage in the given sections that shares words with the query, best first,
+ * one per document first. A shared word scores by how rare it is across the
+ * passages searched (IDF), and counts double when it is in the passage's title.
+ */
 export function searchReference(sections, query, k = 5) {
   const q = new Set(tokenize(query));
-  const scored = [];
+  const docs = [];
   for (const section of sections) {
     for (const file of listMd(join(REF, section))) {
       const raw = readFileSync(file, 'utf8');
@@ -69,12 +89,19 @@ export function searchReference(sections, query, k = 5) {
       const rel = file.slice(REF.length + 1);
       const title = fm.title || rel.replace(/\.md$/, '');
       const cite = [title, fm.source].filter(Boolean).join(' — ');
+      const titleTokens = new Set(tokenize(title));
       for (const text of chunk(stripFrontmatter(raw))) {
-        let score = 0;
-        for (const t of tokenize(text)) if (q.has(t)) score++;
-        if (score > 0) scored.push({ path: rel, section: rel.split('/')[0], title, cite, evidence: fm.evidence || 'unrated', approved: fm.approved_by && fm.approved_by !== 'pending', score, text });
+        docs.push({ path: rel, section: rel.split('/')[0], title, cite, evidence: fm.evidence || 'unrated', approved: Boolean(fm.approved_by && fm.approved_by !== 'pending'), text, titleTokens, tokens: new Set([...tokenize(text), ...titleTokens]) });
       }
     }
+  }
+  const df = new Map();
+  for (const d of docs) for (const t of d.tokens) if (q.has(t)) df.set(t, (df.get(t) || 0) + 1);
+  const scored = [];
+  for (const { tokens, titleTokens, ...d } of docs) {
+    let score = 0;
+    for (const t of q) if (tokens.has(t)) score += Math.log(1 + docs.length / df.get(t)) * (titleTokens.has(t) ? 2 : 1);
+    if (score > 0) scored.push({ ...d, score });
   }
   scored.sort((a, b) => b.score - a.score);
   const picked = [];
