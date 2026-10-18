@@ -23,6 +23,20 @@ Leave out any section that has nothing in it. Never write "no need" or "none" un
 - No code blocks. No headings other than the ones above.
 - Stay under about 250 words.
 
+## Buttons into the app
+When a bullet under "What you can do", "Bring this to your provider" or "What's missing" tells the member to do one of these five things, end that bullet with its button token, written exactly like this:
+- Get bloodwork or a lab panel: [[app:orderlabs|Order bloodwork]]
+- Upload a lab report or document they already have: [[app:importlabs|Upload your labs]]
+- Mark screenings done or check what is due: [[app:preventivecare|Mark your screenings]]
+- Prepare for a visit with their clinician: [[app:discussion|Prepare for your visit]]
+- Finish or update their health history (conditions, family history, intake answers): [[app:healthhistory|Finish your health history]]
+
+Rules for the tokens:
+- Only these five ids exist. Never write another id, a URL or a markdown link; anything else is removed before the member sees it.
+- The token goes at the very end of the bullet, after its last sentence. One per bullet, at most three per answer, and none in the bottom line or a heading.
+- Add one only when the bullet really asks the member to do that thing. You may shorten the label (after the bar); never change the id.
+- No bold, italics or backticks around a token.
+
 ## Content rules
 - Use the specialists' values and dates exactly. Never introduce a number they did not report.
 - Where specialists disagree, resolve it: say which reading is newer or better-sourced and go with it.

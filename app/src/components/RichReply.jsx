@@ -1,5 +1,7 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
+import { ChevronRight } from "lucide-react";
 import { COLORS } from "../theme/tokens";
+import { parseAppLink, sanitizeAppLinks } from "../lib/appLinks";
 
 /**
  * Renders an AI reply's markdown as real formatting inside a chat bubble.
@@ -12,17 +14,52 @@ import { COLORS } from "../theme/tokens";
  *
  * Deliberately small: only the subset of markdown the chat models produce, no
  * HTML passthrough, so nothing in a reply can inject markup.
+ *
+ * One addition to markdown: an answer can end a bullet with a button into the app,
+ * "[[app:orderlabs|Order bloodwork]]" (see lib/appLinks.js). Only whitelisted screen
+ * ids become buttons, and only when the caller passes `onNavigate`; anything else is
+ * shown as its plain label. Stored replies keep the token in their text, so a thread
+ * reloaded tomorrow draws the same buttons.
  */
+
+// The chat screen's setActive, handed down to every inline run without threading it
+// through each block type.
+const NavigateContext = createContext(null);
 
 /* ---------------- inline ---------------- */
 
-const INLINE = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\s][^*]*\*|_[^_\s][^_]*_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+const INLINE = /(\[\[app:[a-z]+\|[^\]\n]+\]\]|\*\*[^*]+\*\*|__[^_]+__|\*[^*\s][^*]*\*|_[^_\s][^_]*_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+
+function AppLink({ id, label }) {
+  const navigate = useContext(NavigateContext);
+  if (!navigate) return <>{label}</>;
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(id)}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "baseline",
+        margin: "2px 0 2px 4px", padding: "3px 9px", borderRadius: 999,
+        border: `1px solid ${COLORS.tealLight}`, background: COLORS.bgCardAlt,
+        color: COLORS.tealLight, fontSize: 11.5, fontWeight: 650, lineHeight: 1.3,
+        cursor: "pointer", whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+      <ChevronRight size={12} />
+    </button>
+  );
+}
 
 function Inline({ text }) {
   const parts = String(text || "").split(INLINE);
   return parts.map((p, i) => {
     if (!p) return null;
-    if (/^(\*\*|__)/.test(p)) return <strong key={i} style={{ fontWeight: 650, color: COLORS.textPrimary }}>{p.slice(2, -2)}</strong>;
+    if (p.startsWith("[[app:")) {
+      const app = parseAppLink(p);
+      return app ? <AppLink key={i} {...app} /> : <React.Fragment key={i}>{p}</React.Fragment>;
+    }
+    if (/^(\*\*|__)/.test(p)) return <strong key={i} style={{ fontWeight: 650, color: COLORS.textPrimary }}><Inline text={p.slice(2, -2)} /></strong>;
     if (/^`/.test(p)) return <code key={i} style={{ fontSize: "0.92em", background: COLORS.bgCardAlt, borderRadius: 4, padding: "0 4px" }}>{p.slice(1, -1)}</code>;
     const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(p);
     if (link) {
@@ -113,9 +150,12 @@ function TableCards({ header, rows }) {
   );
 }
 
-export function RichReply({ text }) {
-  const blocks = parse(text);
+export function RichReply({ text, onNavigate }) {
+  // Whitelisted again here: a reply stored before the server checked tokens, or one
+  // written by the browser care team, gets the same treatment as a fresh one.
+  const blocks = parse(sanitizeAppLinks(text));
   return (
+    <NavigateContext.Provider value={onNavigate || null}>
     <div style={{ display: "grid", gap: 8 }}>
       {blocks.map((b, i) => {
         if (b.type === "heading") {
@@ -145,5 +185,6 @@ export function RichReply({ text }) {
         return <div key={i} style={{ lineHeight: 1.6 }}><Inline text={b.text} /></div>;
       })}
     </div>
+    </NavigateContext.Provider>
   );
 }

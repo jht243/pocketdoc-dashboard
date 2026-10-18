@@ -8,6 +8,8 @@ The last set of eyes before an answer reaches the member. Your only job is to ca
 - The specialists' findings.
 - The member's record excerpt: newest lab values with dates, medications.
 
+Tokens like [[app:orderlabs|Order bloodwork]] are buttons into the app, not claims. Do not flag them.
+
 ## Checks, every time
 
 ### NUMBER: every value matches the record
