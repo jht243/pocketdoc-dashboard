@@ -1,6 +1,8 @@
 import { formatCompletedMonth, isScreeningDone } from "./screeningDates";
 import { BLOODWORK_MAX, calculateBloodworkScore } from "./bloodworkScore";
 import { WEARABLE_MAX } from "./wearableScore";
+import { STATUS, screeningStatus } from "./screeningLogic";
+import { describeScore } from "./scoreExplain";
 
 /**
  * The overall Health Score: three components, each worth 50 points.
@@ -31,27 +33,42 @@ const COMPONENT_MAX = 50;
 /**
  * The preventive-care half: coverage of the recommended screening schedule.
  *
- * Weighting: an overdue item and a never-started one score the same (zero) — this
- * answers "how much of your recommended screening is current", and a colonoscopy
- * you're two years late for is not partially current. Higher-stakes screenings carry
- * more weight than routine ones.
+ * Weighting: a screening earns its points while it's up to date (or due soon), and
+ * none once its recorded date has run past the interval or when nothing is on file
+ * — this answers "how much of your recommended screening is current", and a
+ * colonoscopy you're two years late for is not partially current. Higher-stakes
+ * screenings carry more weight than routine ones.
+ *
+ * An item whose eligibility we can't judge yet (diabetes screening before height
+ * and weight are known) is left out entirely until it's marked done: it would be
+ * unfair to score a member on a recommendation that may not apply to them.
  */
-function buildBaseItems(schedule = [], completedItems = {}) {
-  return schedule.map((item) => {
-    const value = completedItems[item.id];
+function buildBaseItems(schedule = [], completedItems = {}, now = new Date()) {
+  return (schedule || []).flatMap((item) => {
+    const value = completedItems?.[item.id];
     const done = isScreeningDone(value);
+    const status = screeningStatus(item, value, now);
+    if (status === STATUS.CHECK_ELIGIBILITY) return [];
     const max = CATEGORY_WEIGHTS[item.category] || DEFAULT_WEIGHT;
     const month = done ? formatCompletedMonth(value) : null;
+    const earns = status === STATUS.CURRENT || status === STATUS.DUE_SOON;
 
-    return {
+    const detail = {
+      current: month ? `Completed ${month}` : "Marked complete",
+      due_soon: `Completed ${month} · due again soon`,
+      overdue: `Last completed ${month} · past its interval (${item.frequency || "see schedule"})`,
+      not_on_file: "Not on file — mark it on Preventive care if you've had it",
+    }[status];
+
+    return [{
+      id: item.id,
       name: item.name,
-      status: done ? "current" : item.urgency === "overdue" ? "overdue" : "due",
-      detail: done
-        ? month ? `Completed ${month}` : "Marked complete"
-        : item.urgency === "overdue" ? "Overdue" : `Due — ${item.frequency || "see schedule"}`,
-      pts: done ? max : 0,
+      status,
+      recorded: done,
+      detail,
+      pts: earns ? max : 0,
       max,
-    };
+    }];
   });
 }
 
@@ -65,7 +82,11 @@ const round = (n) => Math.round(n * 10) / 10;
 function useScoreModel(nutritionEnabled, healthData, userProfile) {
   const source = healthData?.score;
   const wearable = source?.wearable || null;
-  const baseItems = source?.baseItems || [];
+  // The member's own schedule and marks when we have them, so ticking a screening on
+  // Preventive care moves the score straight away rather than at the next reload.
+  const baseItems = userProfile?.schedule?.length
+    ? buildBaseItems(userProfile.schedule, userProfile.completedItems)
+    : source?.baseItems || [];
 
   // Normally already computed when the snapshot was assembled, so the ring, the
   // breakdown and the AI context all read one object. Computed here only for callers
@@ -75,14 +96,24 @@ function useScoreModel(nutritionEnabled, healthData, userProfile) {
   const bloodwork = source?.bloodwork
     || calculateBloodworkScore(healthData?.labs || [], { sex: userProfile?.profile?.sex });
 
-  const hasPreventive = baseItems.length > 0;
+  const hasSchedule = baseItems.length > 0;
+  // Preventive care counts once at least one screening is on file. A schedule of
+  // nothing-but-"Not on file" isn't a score of zero; it's no score yet.
+  const hasPreventive = baseItems.some((item) => item.recorded);
   const hasWearable = Boolean(wearable);
-  const hasBloodwork = bloodwork.available;
+  const hasBloodwork = Boolean(bloodwork?.available);
 
-  if (!source || (!hasPreventive && !hasWearable && !hasBloodwork)) {
+  const explanation = describeScore({
+    hasSchedule,
+    preventiveCounted: hasPreventive,
+    wearableConnected: hasWearable,
+    bloodworkScored: hasBloodwork,
+  });
+
+  if (!hasPreventive && !hasWearable && !hasBloodwork) {
     return {
-      hasData: false, baseItems: [], wearable: null, bloodwork,
-      components: [], totalScore: 0, totalMax: 0,
+      hasData: false, hasSchedule, baseItems, wearable: null, bloodwork,
+      components: [], totalScore: 0, totalMax: 0, explanation,
     };
   }
 
@@ -126,6 +157,9 @@ function useScoreModel(nutritionEnabled, healthData, userProfile) {
 
   return {
     hasData: true,
+    hasSchedule,
+    preventiveCounted: hasPreventive,
+    explanation,
     nutritionEnabled,
     baseItems,
     preventiveTotal,

@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertCircle, Calendar, ShieldCheck, X } from "lucide-react";
+import { AlertCircle, Calendar, HelpCircle, ShieldCheck, X } from "lucide-react";
 import { useScoreModel } from "../lib/scoring";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { Card } from "./Card";
@@ -36,15 +36,16 @@ function metricDetail(metric) {
 
 function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData, userProfile }) {
   const {
-    baseItems, preventiveTotal, preventiveMax, preventiveDisplay,
-    wearable, bloodwork, totalScore, totalMax,
+    baseItems, preventiveTotal, preventiveMax, preventiveDisplay, preventiveCounted,
+    wearable, bloodwork, totalScore, totalMax, explanation,
   } = useScoreModel(nutritionEnabled, healthData, userProfile);
 
+  // "Not on file" is neutral: no record isn't the same as behind.
   const statusMeta = {
     current: { color: COLORS.tealLight, label: "Current", icon: ShieldCheck },
-    due: { color: COLORS.warning, label: "Due", icon: Calendar },
     due_soon: { color: COLORS.warning, label: "Due soon", icon: Calendar },
     overdue: { color: COLORS.danger, label: "Overdue", icon: AlertCircle },
+    not_on_file: { color: COLORS.textMuted, label: "Not on file", icon: HelpCircle },
   };
 
   const ItemRow = ({ item, statusBadge, last }) => {
@@ -135,11 +136,11 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData, userProfil
       </div>
 
       <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 18 }}>
-        Your score is {totalScore} of {totalMax}. Preventive care reflects whether you're current
-        on the screening that matters for your age. The wearable part is calculated from your raw
-        biometrics measured against your own normal, so the same reading can mean different things
-        for different people. Bloodwork is measured against published clinical thresholds instead.
-        A component only counts once there's enough data behind it to mean something.
+        {/* Wording from lib/scoreExplain.js, shared with Home and the Care tab, so it
+            names only the parts actually counted for this member today. */}
+        Your score is {totalScore} of {totalMax}. {explanation.sentence}
+        {wearable && " Wearable readings are judged against your own normal, so the same reading can mean different things for different people."}
+        {" "}A part only counts once there's enough data behind it to mean something.
       </div>
 
       {wearable && (
@@ -190,13 +191,15 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData, userProfil
       {baseItems.length > 0 && (
         <>
           <SectionLabel>
-            Preventive care &middot; {preventiveDisplay} of 50 pts &middot; {preventiveTotal} of {preventiveMax} screening points
+            {preventiveCounted
+              ? <>Preventive care &middot; {preventiveDisplay} of 50 pts &middot; {preventiveTotal} of {preventiveMax} screening points</>
+              : <>Preventive care &middot; not counted yet</>}
           </SectionLabel>
           <Card>
             {baseItems.map((item, i) => (
               <ItemRow key={item.name} item={item}
                 statusBadge={(() => {
-                  const meta = statusMeta[item.status] || statusMeta.due;
+                  const meta = statusMeta[item.status] || statusMeta.not_on_file;
                   return <meta.icon size={16} color={meta.color} style={{ marginTop: 1 }} />;
                 })()}
                 last={i === baseItems.length - 1} />
@@ -207,8 +210,9 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData, userProfil
             background: COLORS.bgCardAlt, borderRadius: 10, padding: 12, fontSize: 12,
             color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 18
           }}>
-            Completing the outstanding preventive-care items would take this component to the
-            full 50 pts, without any daily changes needed.
+            {preventiveCounted
+              ? "Marking the screenings you've had, and catching up on any past their interval, would take this part to the full 50 pts — no daily changes needed."
+              : "This part starts counting once you mark a screening you've had on Preventive care."}
           </div>}
         </>
       )}

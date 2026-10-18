@@ -9,6 +9,7 @@
 import { supabase, isConfigured } from "./supabase";
 import { buildPreventiveCareSchedule } from "./preventiveCare";
 import { fromCompletedAt, isScreeningDone, toCompletedAt } from "./screeningDates";
+import { applyIntakeScreenings, dbUrgency, nextDueDate } from "./screeningLogic";
 import { compareLabsNewestFirst } from "./clinicalRules";
 
 function ageFromDob(dob) {
@@ -122,20 +123,36 @@ export async function loadFullProfile(userId) {
   // Names only here — the tokens widget and onboarding text join these as strings.
   const medications = (meds || []).map((m) => m.name).filter(Boolean);
   const age = ageFromDob(stored.profile.dob);
+  // The health history is passed in because height and weight decide whether
+  // diabetes screening applies.
   const schedule =
     age != null && stored.profile.dob
-      ? buildPreventiveCareSchedule({ ...stored.profile, age })
+      ? buildPreventiveCareSchedule({ ...stored.profile, age }, stored.intake)
       : [];
 
-  const completedItems = {};
+  const fromRows = {};
   for (const row of screenings || []) {
     const value = fromCompletedAt(row.completed_at, row.urgency);
-    if (value) completedItems[row.key] = value;
+    if (value) fromRows[row.key] = value;
   }
+
+  // Screenings ticked in the health history ("Which of the following have you
+  // completed?") count on the schedule. Done here as well as on save so members who
+  // answered before the two were connected are caught up on their next visit.
+  const synced = applyIntakeScreenings({
+    schedule,
+    completedItems: fromRows,
+    screeningsCompleted: stored.intake.screeningsCompleted,
+    applied: stored.intake.screeningsFromIntake,
+  });
+  const completedItems = synced.completedItems;
+  if (synced.changed) await saveScreenings(userId, schedule, completedItems);
+  if (synced.appliedChanged) await saveScreeningsFromIntake(userId, synced.applied);
+  rememberApplied(userId, stored.intake, synced.applied);
 
   return {
     ...stored,
-    intake: { ...stored.intake, medications },
+    intake: { ...stored.intake, screeningsFromIntake: synced.applied, medications },
     // The full rows — dose, frequency, prescriber, type — for the AI context.
     // Flattening to names alone told the model someone takes "Metformin" while
     // hiding the dose they typed in, which is half of what makes it usable.
@@ -171,14 +188,94 @@ export async function completeOnboarding(userId, data) {
   });
 }
 
+/* ---------------- health history → preventive care ---------------- */
+
+// Which schedule items the health history has already marked, per member, with the
+// answers that produced it. The Health History screen autosaves every pause in
+// typing; this lets a save that didn't touch screenings, height, weight or ancestry
+// skip the extra reads, and stops the screen's own (possibly stale) copy of the
+// list from overwriting the stored one.
+const appliedCache = new Map();
+
+function screeningAnswersSignature(answers = {}) {
+  return JSON.stringify([
+    answers.screeningsCompleted || [],
+    answers.height || null,
+    answers.weight || null,
+    answers.raceEthnicity || [],
+  ]);
+}
+
+function rememberApplied(userId, answers, applied) {
+  appliedCache.set(userId, { signature: screeningAnswersSignature(answers), applied: applied || [] });
+}
+
+/**
+ * Store which schedule items the health history has marked, inside the answer blob
+ * (`intake_answers.screeningsFromIntake`). Read-modify-write on the blob alone, so
+ * nothing else the member answered is touched.
+ */
+async function saveScreeningsFromIntake(userId, applied) {
+  const { data, error: readError } = await supabase
+    .from("profiles")
+    .select("intake_answers")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (readError || !data) return { error: readError };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ intake_answers: { ...(data.intake_answers || {}), screeningsFromIntake: applied } })
+    .eq("user_id", userId);
+  if (error) console.error("saveScreeningsFromIntake", error);
+  return { error };
+}
+
+/**
+ * Bring the schedule in line with a health-history save: rebuild it (height and
+ * weight may have changed whether diabetes screening applies) and mark any newly
+ * ticked screening done. Returns null when nothing relevant changed.
+ */
+async function syncHealthHistoryScreenings(userId, answers) {
+  const cached = appliedCache.get(userId);
+  if (cached && cached.signature === screeningAnswersSignature(answers)) return null;
+
+  const stored = await loadProfile(userId);
+  const age = ageFromDob(stored?.profile?.dob);
+  if (!stored || age == null) return null;
+
+  const rows = await loadScreenings(userId);
+  const fromRows = {};
+  for (const row of rows) {
+    const value = fromCompletedAt(row.completed_at, row.urgency);
+    if (value) fromRows[row.key] = value;
+  }
+  const schedule = buildPreventiveCareSchedule({ ...stored.profile, age }, answers);
+  // `applied` comes from the database, never from the screen's copy of the answers.
+  const synced = applyIntakeScreenings({
+    schedule,
+    completedItems: fromRows,
+    screeningsCompleted: answers.screeningsCompleted,
+    applied: stored.intake.screeningsFromIntake,
+  });
+  await saveScreenings(userId, schedule, synced.completedItems);
+  rememberApplied(userId, answers, synced.applied);
+  return { schedule, completedItems: synced.completedItems, applied: synced.applied };
+}
+
 /**
  * Persist the standalone Health History questionnaire onto the user's existing
  * profile row. Uses UPDATE (not upsert) so it can never null out onboarding-owned
  * columns like first_name/dob, and syncs medications into their own table.
  * `answers` is the flat questionnaire answer set (a superset of the typed columns).
+ *
+ * Also carries screening answers onto the preventive care schedule. When that ran,
+ * the result includes the new `schedule` and `completedItems` so the caller can
+ * update what's on screen without a reload.
  */
 export async function saveHealthHistory(userId, answers = {}) {
   if (!isConfigured || !userId) return { error: null };
+  const synced = await syncHealthHistoryScreenings(userId, answers);
+  const applied = synced?.applied ?? appliedCache.get(userId)?.applied ?? answers.screeningsFromIntake ?? [];
   const { error } = await supabase
     .from("profiles")
     .update({
@@ -188,13 +285,13 @@ export async function saveHealthHistory(userId, answers = {}) {
       primary_concern: answers.primaryConcern || null,
       exercise_frequency: answers.exercise || null,
       sleep_quality: answers.sleep || null,
-      intake_answers: stripMedications(answers),
+      intake_answers: stripMedications({ ...answers, screeningsFromIntake: applied }),
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
   if (error) console.error("saveHealthHistory", error);
   await saveMedications(userId, answers.medications || []);
-  return { error };
+  return { error, schedule: synced?.schedule || null, completedItems: synced?.completedItems || null };
 }
 
 export async function acceptConsent(userId, version = "v1") {
@@ -853,9 +950,12 @@ export async function saveScreenings(userId, schedule = [], completed = {}) {
       name: item.name,
       category: item.category || null,
       frequency: item.frequency || null,
-      // A locally-ticked item wins over the engine's computed urgency.
-      urgency: done ? "done" : item.urgency || null,
+      // "done" for anything on file; otherwise overdue / due_soon, or null for the
+      // "Not on file" and "Check eligibility" states, which the column's check
+      // constraint doesn't allow (writing them would fail the whole upsert).
+      urgency: dbUrgency(item, value),
       completed_at: completedAt,
+      next_due_at: done ? nextDueDate(item, value) : null,
       updated_at: now,
     };
   });
@@ -899,6 +999,31 @@ export async function markScreeningDone(userId, key, completedAt) {
     .eq("user_id", userId)
     .eq("key", key);
   if (error) console.error("markScreeningDone", error);
+  return { error };
+}
+
+/* ---------------- screening questionnaires ---------------- */
+
+/**
+ * Store one completed in-app screening questionnaire (PHQ-2, GAD-2, AUDIT-C or the
+ * single-question drug screen): the answers exactly as given, the score, and
+ * whether it crossed the cut-off. One row per completion, so a repeat next year
+ * sits beside this one rather than replacing it. Marking the schedule item done is
+ * the caller's job, through the same path as any other tick on Preventive care.
+ */
+export async function saveScreeningQuestionnaire(userId, result) {
+  if (!isConfigured || !userId) return { error: null };
+  const { error } = await supabase.from("screening_questionnaires").insert({
+    user_id: userId,
+    instrument: result.instrument,
+    schedule_key: result.scheduleKey,
+    answers: result.answers,
+    score: result.score,
+    positive: result.positive,
+    cutoff: result.cutoff,
+    completed_on: result.completedOn,
+  });
+  if (error) console.error("saveScreeningQuestionnaire", error);
   return { error };
 }
 

@@ -115,9 +115,12 @@
     "maxAge": 70,
     "sex": null,
     "requires": [],
-    "note": "USPSTF Grade B: ages 35–70 with overweight or obesity. Confirm weight status with your clinician.",
+    "bmiMin": 25,
+    "bmiMinAsian": 23,
+    "note": "USPSTF Grade B: adults 35–70 with overweight or obesity (BMI 25 or higher; 23 or higher for Asian American adults).",
     "sourceYear": 2021,
-    "oneTime": false
+    "oneTime": false,
+    "eligibilityNote": "Check eligibility: for adults 35–70 with overweight or obesity. Add your height and weight in your health history and we'll work it out."
   },
   {
     "id": "depression",

@@ -10,6 +10,7 @@ import {
 } from "../lib/wearableStore";
 import { useAuth } from "../lib/AuthContext";
 import { intakeProgressSummary } from "../lib/intakeContent";
+import { useScoreModel } from "../lib/scoring";
 import { COLORS, DISPLAY } from "../theme/tokens";
 
 /**
@@ -238,8 +239,7 @@ function ProfileScreen({
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Track nutrition</div>
             <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
               When on, your advocate factors what you eat into its daily suggestions.
-              Nutrition isn't part of your Health Score — that's built from your screening
-              coverage and your wearable readings measured against your own baseline.
+              Nutrition isn't part of your Health Score. {useScoreModel(nutritionEnabled, healthData, userProfile).explanation.sentence}
             </div>
           </div>
           <button onClick={() => setNutritionEnabled(!nutritionEnabled)} style={{

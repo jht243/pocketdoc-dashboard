@@ -10,6 +10,11 @@
  */
 import { INTAKE_SECTIONS, bloodPressureProblem, hiddenAnswerKeys, isBlankAnswer, INTAKE_PROGRESS_KEY } from "./intakeContent";
 import { MONTH_OPTIONS } from "./screeningDates";
+import { screeningStatus } from "./screeningLogic";
+
+// Keys in the answer blob that are app bookkeeping, not health data: which sections
+// are finished, and which schedule items the health history has already marked.
+const BOOKKEEPING_KEYS = new Set([INTAKE_PROGRESS_KEY, "screeningsFromIntake"]);
 import { checkInContextLines } from "./checkInContent";
 import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules";
 
@@ -99,7 +104,7 @@ export function intakeLines(intake = {}, profile = {}) {
   // answers from a question since renamed) still belongs in the picture.
   const known = new Set(INTAKE_SECTIONS.flatMap((s) => s.questions.flatMap((q) => [q.id, `${q.id}__remind`])));
   const extras = Object.entries(intake)
-    .filter(([k, v]) => !known.has(k) && k !== "medications" && k !== INTAKE_PROGRESS_KEY && !isBlankAnswer(v))
+    .filter(([k, v]) => !known.has(k) && k !== "medications" && !BOOKKEEPING_KEYS.has(k) && !isBlankAnswer(v))
     .map(([k, v]) => bullet(k, v))
     .filter(Boolean);
   if (extras.length) out.push(`Other recorded answers:\n${extras.join("\n")}`);
@@ -431,9 +436,14 @@ function scheduleLines(schedule = [], completedItems = {}) {
   return schedule
     .map((item) => {
       const done = completedItems?.[item.id ?? item.key];
+      // "not on file" is not "overdue": the model must not tell a member they're
+      // behind on a screening we simply have no record of.
+      const status = screeningStatus(item, done);
       const state = done
-        ? `completed${typeof done === "string" ? ` ${done}` : ""}`
-        : item.urgency || item.status || "due";
+        ? `completed${typeof done === "string" ? ` ${done}` : ""}${status === "overdue" ? " — past its interval, now overdue" : status === "due_soon" ? " — due again soon" : ""}`
+        : status === "check_eligibility"
+          ? "check eligibility (applies only with overweight or obesity; height/weight not on file)"
+          : "not on file (no record either way — ask, don't assume it's overdue)";
       const detail = [item.category, item.frequency, item.grade ? `USPSTF grade ${item.grade}` : null]
         .filter(Boolean)
         .join("; ");
@@ -506,7 +516,7 @@ export function buildFactSections({ userProfile, healthData, healthHistory }) {
   const historyExtra = healthHistory
     ? Object.entries(healthHistory)
         // Which questionnaire sections are finished is app bookkeeping, not health data.
-        .filter(([k, v]) => k !== INTAKE_PROGRESS_KEY && !isBlankAnswer(v))
+        .filter(([k, v]) => !BOOKKEEPING_KEYS.has(k) && !isBlankAnswer(v))
         .map(([k, v]) => bullet(k, v))
         .filter(Boolean).join("\n")
     : "";

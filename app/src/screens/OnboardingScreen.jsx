@@ -3,6 +3,7 @@ import { CheckCircle2, Circle, Dna, Sparkles, Upload, X } from "lucide-react";
 import { Card } from "../components/Card";
 import { buildPreventiveCareSchedule } from "../lib/preventiveCare";
 import { isScreeningDone } from "../lib/screeningDates";
+import { applyIntakeScreenings, screeningStatus } from "../lib/screeningLogic";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { scrollPhoneToTop } from "../lib/scroll";
@@ -69,7 +70,28 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
     const age =
       today.getFullYear() - birthDate.getFullYear() -
       (today < new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate()) ? 1 : 0);
-    return buildPreventiveCareSchedule({ ...p, age });
+    // The intake carries height and weight, which decide whether diabetes screening
+    // applies; before step 3 they're usually blank and the item reads "Check eligibility".
+    return buildPreventiveCareSchedule({ ...p, age }, intake);
+  };
+
+  // What onboarding hands over at the end: the schedule rebuilt now that the health
+  // history is in, with any screening it says was done ("Which of the following have
+  // you completed?") carried onto the schedule as done.
+  const finalData = () => {
+    const nextSchedule = profile.dob ? computeSchedule(profile) : schedule;
+    const synced = applyIntakeScreenings({
+      schedule: nextSchedule,
+      completedItems,
+      screeningsCompleted: intake.screeningsCompleted,
+      applied: intake.screeningsFromIntake,
+    });
+    return {
+      profile,
+      intake: { ...intake, screeningsFromIntake: synced.applied },
+      schedule: nextSchedule,
+      completedItems: synced.completedItems,
+    };
   };
 
   const goToStep2 = () => {
@@ -154,7 +176,9 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
     goToStep(5);
     setLoadingInsight(true);
     try {
-      const overdueItems = schedule.filter(i => i.urgency === "overdue").map(i => i.name);
+      // Never-recorded screenings are "not on file", not overdue — the insight must
+      // not tell someone they're behind on something we have no record of.
+      const notOnFile = schedule.filter(i => screeningStatus(i, completedItems[i.id]) === "not_on_file").map(i => i.name);
       const concernText = intake.primaryConcern ? `Their primary health concern is: "${intake.primaryConcern}".` : "";
       const conditionText = intake.conditions.length > 0 ? `Current conditions: ${intake.conditions.join(", ")}.` : "";
       const medText = intake.medications.length > 0 ? `Current medications/supplements: ${intake.medications.join(", ")}.` : "";
@@ -166,7 +190,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
         content: uploadedFile ? [
           { type: "document", source: { type: "base64", media_type: "application/pdf", data: uploadedFile.base64 } },
           { type: "text", text: `This is ${profile.name}'s bloodwork PDF. ${conditionText} ${medText} ${familyText} ${concernText} Analyze the bloodwork and write a warm, specific 3-paragraph health advocate message addressing their primary concern and the most important findings. Reference actual values from the bloodwork where possible. End with one sentence about what having this complete picture will let them do. Never diagnose. Never prescribe.` }
-        ] : [{ type: "text", text: `${profile.name} is a ${(() => { const b = new Date(profile.dob); const t = new Date(); return t.getFullYear() - b.getFullYear() - (t < new Date(t.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0); })()}-year-old ${profile.sex}. ${conditionText} ${medText} ${familyText} Preventive care items overdue: ${overdueItems.length > 0 ? overdueItems.join(", ") : "none"}. ${concernText} Write a warm, specific 3-paragraph health advocate message addressing their primary concern and the 1-2 most important things to focus on given their age and profile. Reference specific details they shared. End with one sentence about what having this complete picture will let them do. Never diagnose. Never prescribe.` }]
+        ] : [{ type: "text", text: `${profile.name} is a ${(() => { const b = new Date(profile.dob); const t = new Date(); return t.getFullYear() - b.getFullYear() - (t < new Date(t.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0); })()}-year-old ${profile.sex}. ${conditionText} ${medText} ${familyText} Recommended screenings with no record on file yet (not known to be overdue — they may simply not have told us): ${notOnFile.length > 0 ? notOnFile.join(", ") : "none"}. ${concernText} Write a warm, specific 3-paragraph health advocate message addressing their primary concern and the 1-2 most important things to focus on given their age and profile. Reference specific details they shared. End with one sentence about what having this complete picture will let them do. Never diagnose. Never prescribe.` }]
       }];
 
       const data = await callAI({
@@ -450,7 +474,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
               <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
                 Your preventive care schedule, health history, and any uploaded bloodwork are now saved. Your advocate gets smarter as you add more over time.
               </div>
-              <button onClick={() => onComplete({ profile, intake, schedule, completedItems })} style={{ width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer" }}>
+              <button onClick={() => onComplete(finalData())} style={{ width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: "pointer" }}>
                 Go to my health record
               </button>
             </div>

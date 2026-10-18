@@ -428,7 +428,15 @@ function App() {
     geneticprofile: <GeneticProfileScreen setActive={navigate} {...back} healthData={healthData} />,
     medications: <MedicationScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} goToMarket={goToMarket} onMedsChange={refreshProfile} />,
     preventivecare: <PreventiveCareScreen setActive={navigate} {...back} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
-    healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
+    healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => {
+      setHealthHistory(data);
+      if (!user) return;
+      // Screenings ticked in the health history, and height/weight, can change the
+      // preventive care schedule; show the new one now rather than after a reload.
+      saveHealthHistory(user.id, data).then((res) => {
+        if (res?.schedule) setUserProfile((p) => (p ? { ...p, schedule: res.schedule, completedItems: res.completedItems } : p));
+      });
+    }} />,
   };
 
   const hiddenTabBar = [

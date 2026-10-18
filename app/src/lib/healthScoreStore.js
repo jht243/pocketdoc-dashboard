@@ -23,7 +23,10 @@ const today = () => new Date().toISOString().slice(0, 10);
  * @param {object} model  the result of `useScoreModel`
  */
 export async function recordHealthScore(userId, model) {
-  if (!isConfigured || !userId || !model?.hasData) return { error: null };
+  // Nothing scoreable yet (a new member with no screening on file, no wearable and
+  // no scoreable bloodwork) writes nothing. A 0 in the history would read forever
+  // after as "they scored zero that day", when the truth is there was no score.
+  if (!isConfigured || !userId || !model?.hasData || !model.components?.length) return { error: null };
 
   const wearable = model.wearable || null;
   const bloodwork = model.bloodwork?.available ? model.bloodwork : null;
@@ -35,7 +38,7 @@ export async function recordHealthScore(userId, model) {
     // Null rather than 0 when there isn't enough of a panel to score: a zero here
     // would read forever after as "they scored nothing", which isn't what happened.
     bloodwork_score: bloodwork ? bloodwork.totalScore : null,
-    preventive_score: model.baseItems?.length ? model.preventiveDisplay : null,
+    preventive_score: model.preventiveCounted ? model.preventiveDisplay : null,
     total_score: model.totalScore,
     total_max: model.totalMax,
     label: wearable?.label ?? null,
