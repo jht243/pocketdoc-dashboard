@@ -5,6 +5,7 @@ import { COLORS } from "./theme/tokens";
 import { useAuth } from "./lib/AuthContext";
 import { isConfigured } from "./lib/supabase";
 import { scrollPhoneToTop } from "./lib/scroll";
+import { backLabel, backTarget, pushHistory } from "./lib/navigation";
 import {
   loadFullProfile,
   loadDocuments,
@@ -140,6 +141,9 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
 function App() {
   const { user, loading: authLoading, recovering } = useAuth();
   const [active, setActive] = useState("onboarding");
+  // Screens visited since the last tab tap, newest last. Back links read it so they
+  // return to where the member came from (lib/navigation.js has the rules).
+  const [history, setHistory] = useState([]);
   const [marketHighlight, setMarketHighlight] = useState(null);
   const [nutritionEnabled, setNutritionEnabled] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -282,6 +286,7 @@ function App() {
       setResumeData(null);
       setHealthHistory(null);
       setLiveHealthData(null);
+      setHistory([]);
       setActive("onboarding");
       return;
     }
@@ -295,13 +300,14 @@ function App() {
       // least one component has real data, so the dial is hidden rather than rendering
       // an honest-looking zero.
       setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
-      // Coming back from Oura's consent screen lands on Profile, where the device
+      // Coming back from Oura's consent screen lands on Care, where the device
       // list and the result notice are — otherwise the user is dropped on Home with
       // no confirmation that anything happened.
       const landing = ouraNotice ? "profile" : "home";
       if (stored?.onboardingCompletedAt) {
         setUserProfile(stored);
         setHealthHistory(null);
+        setHistory([]);
         setActive(landing);
       } else {
         // Partially onboarded (or brand new): hand what we have back to the form
@@ -331,9 +337,22 @@ function App() {
     if (active !== "aichat") scrollPhoneToTop();
   }, [active, gate]);
 
+  // Every in-app move goes through here so the history stays in step with it. The
+  // effects above that pick a landing screen on sign-in call setActive directly and
+  // clear the history, since nothing before a sign-in is somewhere to go back to.
+  const navigate = (to) => {
+    setHistory((h) => pushHistory(h, active, to));
+    setActive(to);
+  };
+  const goBack = () => {
+    setHistory((h) => h.slice(0, -1));
+    setActive(backTarget(history, active));
+  };
+  const back = { goBack, backLabel: backLabel(backTarget(history, active)) };
+
   const goToMarket = (highlight) => {
     setMarketHighlight(highlight);
-    setActive("market");
+    navigate("market");
   };
 
   // Persist after each step (and on screening/med toggles) so a drop-off keeps
@@ -362,6 +381,7 @@ function App() {
       ...(prev || {}),
       score: buildLiveScore(data, null),
     }));
+    setHistory([]);
     setActive("home");
     if (!user) return;
     // The user shouldn't wait on the network to reach home; these settle behind it.
@@ -390,23 +410,23 @@ function App() {
         initial={resumeData}
       />
     ),
-    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} />,
-    checkin: <CheckInScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
-    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
-    records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
-    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} userProfile={userProfile} />,
-    market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
-    discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
-    orderlabs: <OrderLabsScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
-    browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
-    account: <AccountScreen setActive={setActive} onSaved={refreshProfile} />,
-    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
-    body: <BodyScreen setActive={setActive} healthData={healthData} />,
-    importlabs: <ImportLabsScreen setActive={setActive} onImported={refreshRecords} />,
-    geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} />,
-    medications: <MedicationScreen setActive={setActive} userProfile={userProfile} healthData={healthData} goToMarket={goToMarket} onMedsChange={refreshProfile} />,
-    preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
-    healthhistory: <HealthHistoryScreen setActive={setActive} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
+    home: <HomeScreen setActive={navigate} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} />,
+    checkin: <CheckInScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
+    aichat: <AIChatScreen setActive={navigate} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
+    records: <RecordsScreen setActive={navigate} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
+    labs: <LabsScreen setActive={navigate} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} userProfile={userProfile} />,
+    market: <MarketScreen highlight={marketHighlight} setActive={navigate} healthData={healthData} />,
+    discussion: <DiscussionPageScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
+    orderlabs: <OrderLabsScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} />,
+    browsesupplements: <BrowseSupplementsScreen setActive={navigate} {...back} />,
+    account: <AccountScreen setActive={navigate} {...back} onSaved={refreshProfile} />,
+    profile: <ProfileScreen setActive={navigate} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
+    body: <BodyScreen setActive={navigate} {...back} healthData={healthData} />,
+    importlabs: <ImportLabsScreen setActive={navigate} {...back} onImported={refreshRecords} />,
+    geneticprofile: <GeneticProfileScreen setActive={navigate} {...back} healthData={healthData} />,
+    medications: <MedicationScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} goToMarket={goToMarket} onMedsChange={refreshProfile} />,
+    preventivecare: <PreventiveCareScreen setActive={navigate} {...back} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
+    healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
   };
 
   const hiddenTabBar = [
@@ -467,7 +487,7 @@ function App() {
         justifyContent: "center",
       }}
     >
-      <PhoneFrame tabBar={showTabBar ? <TabBar active={active} setActive={setActive} /> : null}>
+      <PhoneFrame tabBar={showTabBar ? <TabBar active={active} setActive={navigate} /> : null}>
         {content}
       </PhoneFrame>
     </div>

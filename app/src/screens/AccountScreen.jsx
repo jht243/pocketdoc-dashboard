@@ -122,7 +122,7 @@ function joinList(items) {
 // The member's own details and login: name, date of birth, contact and address,
 // email and password, sign out, and permanent deletion. Always the real account,
 // read from the database.
-function AccountScreen({ setActive, onSaved }) {
+function AccountScreen({ goBack, backLabel, onSaved }) {
   const { user, signOut } = useAuth();
   const [form, setForm] = useState(EMPTY);
   const [loaded, setLoaded] = useState(false);
@@ -233,11 +233,11 @@ function AccountScreen({ setActive, onSaved }) {
 
   return (
     <div style={{ padding: "24px 18px 40px" }}>
-      <button onClick={() => setActive("home")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18,
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Home
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Account</div>

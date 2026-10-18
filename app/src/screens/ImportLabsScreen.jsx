@@ -89,7 +89,7 @@ function normalizeGenome(g) {
  * when it parses to a real date — a `drawn_on` that's actually a typo is worse than
  * an absent one, because every trend downstream would believe it.
  */
-function ImportLabsScreen({ setActive, onImported }) {
+function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
   const { user } = useAuth();
   // "storing" tracks the file landing in storage, which is independent of the AI
   // extraction below — the document is kept even if extraction fails.
@@ -427,11 +427,11 @@ Rules:
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => { setActive("records"); }} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Records
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Import lab results</div>

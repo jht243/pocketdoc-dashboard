@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Activity, AlertCircle, AlertTriangle, Bell, ChevronRight, Moon, Sparkles } from "lucide-react";
+import { Activity, AlertCircle, AlertTriangle, ChevronRight, Moon, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { ScoreBreakdownModal } from "../components/ScoreBreakdownModal";
 import { ScoreGauge } from "../components/ScoreGauge";
@@ -11,12 +11,13 @@ import { ThumbprintChecklist } from "../components/ThumbprintChecklist";
 import { CheckInCard } from "../components/CheckInCard";
 import { BioAgeCard } from "../components/BioAgeCard";
 import { getDailyRecommendation } from "../lib/recommendations";
+import { insightActionLabel, runInsightAction } from "../lib/insightActions";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
 import { BrandMark } from "../components/BrandMark";
 import { EvidenceBox } from "../components/EvidenceBox";
 import { SectionLabel } from "../components/SectionLabel";
-import { COLORS, DISPLAY, SHADOW } from "../theme/tokens";
+import { COLORS, DISPLAY } from "../theme/tokens";
 
 function HomeScreen({
   setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
@@ -91,15 +92,11 @@ function HomeScreen({
       {/* Brand bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <BrandMark size={26} fontSize={15} />
+        {/* No notifications bell: nothing feeds notifications, and a bell that opens
+            nothing is a fake control. What is pending for the member already sits on
+            this screen — the check-in card, the overdue-screening button — and a due
+            provider follow-up is asked inside the check-in. */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* No unread dot: nothing feeds notifications yet, so a dot would be a fake signal. */}
-          <button aria-label="Notifications" style={{
-            width: 36, height: 36, borderRadius: 10, background: COLORS.bgCard,
-            border: `1px solid ${COLORS.border}`, boxShadow: SHADOW,
-            display: "grid", placeItems: "center", position: "relative", cursor: "pointer", padding: 0
-          }}>
-            <Bell size={17} color={COLORS.textSecondary} strokeWidth={1.9} />
-          </button>
           <button onClick={() => setActive("account")} aria-label="Your account" style={{
             width: 36, height: 36, borderRadius: "50%", cursor: "pointer", padding: 0,
             background: COLORS.brand, border: "none",
@@ -177,8 +174,8 @@ function HomeScreen({
                 {rec.basis && <EvidenceBox>{rec.basis}</EvidenceBox>}
                 {rec.action && (
                   <button style={{ marginTop: 10, background: "none", border: `1px solid ${color}`, color, fontSize: 11, fontWeight: 600, padding: "6px 11px", borderRadius: 8, cursor: "pointer" }}
-                    onClick={() => { if (rec.action.target === "discussion" || rec.action.target === "bodyfat_history") setActive(rec.action.target === "bodyfat_history" ? "body" : "discussion"); else goToMarket(rec.action.target); }}>
-                    {rec.action.label} <ChevronRight size={11} style={{ display: "inline", verticalAlign: -1 }} />
+                    onClick={() => runInsightAction(rec.action, { setActive, goToMarket })}>
+                    {insightActionLabel(rec.action)} <ChevronRight size={11} style={{ display: "inline", verticalAlign: -1 }} />
                   </button>
                 )}
               </div>

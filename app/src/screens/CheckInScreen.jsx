@@ -69,7 +69,7 @@ async function generateReply({ answers, note, checkIns, userProfile, healthData,
 // ---- MORNING CHECK-IN ----
 // One question per screen, large tap targets, a progress line, and one personal
 // sentence back at the end. Open 5–11 AM local time.
-function CheckInScreen({ setActive, userProfile, healthData, healthHistory, checkIns = [], onSaved }) {
+function CheckInScreen({ goBack, backLabel, userProfile, healthData, healthHistory, checkIns = [], onSaved }) {
   const { user } = useAuth();
   const today = localDay();
   const todays = checkIns.find((c) => c.day === today);
@@ -129,12 +129,12 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, chec
   };
 
   const skipToday = async () => {
-    if (await persist({ day: today, skipped: true })) setActive("home");
+    if (await persist({ day: today, skipped: true })) goBack();
   };
 
   const shell = (children) => (
     <div style={{ padding: "24px 18px", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <button onClick={() => setActive("home")} style={backLink}><ChevronLeft size={14} /> Home</button>
+      <button onClick={() => goBack()} style={backLink}><ChevronLeft size={14} /> {backLabel}</button>
       {children}
     </div>
   );
@@ -158,7 +158,7 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, chec
         </div>
       )}
       {saveError && <div style={{ fontSize: 12, color: COLORS.danger, marginTop: 10 }}>{saveError}</div>}
-      <button onClick={() => setActive("home")} style={{ ...primaryBtn, marginTop: "auto" }}>Back to Home</button>
+      <button onClick={() => goBack()} style={{ ...primaryBtn, marginTop: "auto" }}>{backLabel}</button>
     </>);
   }
 

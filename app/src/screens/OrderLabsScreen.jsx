@@ -6,7 +6,7 @@ import { COLORS, DISPLAY } from "../theme/tokens";
 import { memberTherapies } from "../lib/therapies";
 
 // ---- ORDER LABS SCREEN (Tasso at-home collection) ----
-function OrderLabsScreen({ setActive, userProfile, healthData }) {
+function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData }) {
   const [cart, setCart] = useState([]);
   const [showSoon, setShowSoon] = useState(false);
 
@@ -113,11 +113,11 @@ function OrderLabsScreen({ setActive, userProfile, healthData }) {
 
   return (
     <div style={{ padding: "24px 18px", paddingBottom: cart.length ? 100 : 24 }}>
-      <button onClick={() => setActive("labs")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Labs
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Order bloodwork</div>

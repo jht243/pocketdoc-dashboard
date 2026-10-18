@@ -37,7 +37,7 @@ function OrderGeneticTests() {
 // 1. Supplement & lifestyle markers (lower stakes, actionable at user level)
 // 2. Pharmacogenomic markers (medication metabolism, higher stakes, physician-discussion framing)
 // Each marker shows what it means for this specific user, not a generic description.
-function GeneticProfileScreen({ setActive, healthData }) {
+function GeneticProfileScreen({ setActive, goBack, backLabel, healthData }) {
   const [activeSection, setActiveSection] = useState("lifestyle"); // lifestyle | pharma
 
   // Only the member's own imported genome is ever shown: rich objects from
@@ -208,11 +208,11 @@ function GeneticProfileScreen({ setActive, healthData }) {
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => setActive("profile")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Profile
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Genetic profile</div>

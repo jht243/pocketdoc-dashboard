@@ -12,7 +12,7 @@ const AUTOSAVE_MS = 1500;
 // Post-onboarding questionnaire, split into parts the member can finish over several
 // visits. Feeds the AI chat, the Discussion Page, and the preventive care schedule.
 // Content is data-driven (lib/intakeContent.js) and rendered via <SectionedIntake>.
-function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) {
+function HealthHistoryScreen({ goBack, backLabel, onSave, userProfile, healthHistory }) {
   // Hydrate from what was already answered (onboarding or a previous visit) the same
   // way onboarding does. Starting blank collapsed every conditional branch, so the two
   // surfaces rendered different forms from identical rules — and saving from that blank
@@ -65,11 +65,11 @@ function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) 
   return (
     <div style={{ padding: "24px 18px" }}>
       {!inSection && <>
-      <button onClick={() => { persist(answers); setActive("home"); }} style={{
+      <button onClick={() => { persist(answers); goBack(); }} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Your health history</div>
@@ -86,7 +86,7 @@ function HealthHistoryScreen({ setActive, onSave, userProfile, healthHistory }) 
         variant="history"
         onOpenChange={(id) => setInSection(Boolean(id))}
         footer={(
-          <button onClick={() => { persist(answers); setActive("home"); }} style={{
+          <button onClick={() => { persist(answers); goBack(); }} style={{
             width: "100%", background: complete ? COLORS.teal : "none",
             border: complete ? "none" : `1px solid ${COLORS.border}`,
             color: complete ? COLORS.onAccent : COLORS.textSecondary,
