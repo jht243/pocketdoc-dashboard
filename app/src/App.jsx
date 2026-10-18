@@ -452,7 +452,7 @@ function App() {
     checkin: <CheckInScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
     aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
-    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
+    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} userProfile={userProfile} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={setActive} />,

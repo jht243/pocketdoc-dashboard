@@ -9,6 +9,7 @@ import { intakeProgressSummary } from "../lib/intakeContent";
 import { buildThumbprintChecklist } from "../lib/thumbprintChecklist";
 import { ThumbprintChecklist } from "../components/ThumbprintChecklist";
 import { CheckInCard } from "../components/CheckInCard";
+import { BioAgeCard } from "../components/BioAgeCard";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { useScoreModel } from "../lib/scoring";
 import { formatHoursMinutes } from "../lib/wearableShape";
@@ -177,6 +178,9 @@ function HomeScreen({
           rows={3}
         />
       )}
+
+      {/* Biological age — renders nothing unless the bio-age flag is on. */}
+      <BioAgeCard healthData={healthData} userProfile={userProfile} setActive={setActive} />
 
       {/* Element 2: One action card — the single highest-priority signal */}
       {rec && <SectionLabel>Top insight</SectionLabel>}
