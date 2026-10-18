@@ -201,8 +201,8 @@ const DOSE_FREQUENCIES = [
 const familyCancerReported = (a) =>
   Array.isArray(a.familyHistory) && a.familyHistory.some((c) => /cancer|melanoma/i.test(c));
 
-const onTRT = (a) => Boolean(a.testosteroneUse) && a.testosteroneUse !== "No";
-const onPeptides = (a) => Boolean(a.peptideUse) && a.peptideUse !== "No";
+export const onTRT = (a) => Boolean(a.testosteroneUse) && a.testosteroneUse !== "No";
+export const onPeptides = (a) => Boolean(a.peptideUse) && a.peptideUse !== "No";
 // Accepts "54", "54%", "54.2" — anything that parses above the 52% risk threshold.
 const hctAbove52 = (a) => {
   const n = parseFloat(String(a.trtHct || "").replace(/[^0-9.]/g, ""));

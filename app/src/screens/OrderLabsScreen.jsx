@@ -3,15 +3,20 @@ import { ChevronRight } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
+import { memberTherapies } from "../lib/therapies";
 
 // ---- ORDER LABS SCREEN (Tasso at-home collection) ----
-function OrderLabsScreen({ setActive }) {
+function OrderLabsScreen({ setActive, userProfile, healthData }) {
   const [cart, setCart] = useState([]);
   const [showSoon, setShowSoon] = useState(false);
 
+  // Each therapy panel is offered only to a member whose own record shows that
+  // therapy (intake answers or medication list). Nobody else sees the section.
+  const therapies = memberTherapies({ userProfile, healthData });
   const recommended = [
     {
       id: "trt",
+      therapy: "trt",
       name: "TRT monitoring panel",
       why: "Recommended monthly while on testosterone therapy",
       markers: "Total testosterone, free testosterone, SHBG, estradiol, hematocrit, PSA",
@@ -20,13 +25,14 @@ function OrderLabsScreen({ setActive }) {
     },
     {
       id: "peptide",
+      therapy: "peptides",
       name: "Peptide therapy panel",
       why: "Recommended every 8–12 weeks while cycling peptides",
       markers: "IGF-1, fasting glucose, ALT, AST, creatinine, eGFR",
       price: "$79",
       turnaround: "2–3 days",
     },
-  ];
+  ].filter((p) => therapies[p.therapy]);
 
   const browseAll = [
     {
@@ -124,8 +130,12 @@ function OrderLabsScreen({ setActive }) {
         your pattern review.
       </div>
 
-      <SectionLabel>Recommended for your therapies</SectionLabel>
-      {recommended.map(p => <PanelCard key={p.id} p={p} highlight />)}
+      {recommended.length > 0 && (
+        <>
+          <SectionLabel>Recommended for your therapies</SectionLabel>
+          {recommended.map(p => <PanelCard key={p.id} p={p} highlight />)}
+        </>
+      )}
 
       <SectionLabel>Browse all panels</SectionLabel>
       {browseAll.map(p => <PanelCard key={p.id} p={p} />)}

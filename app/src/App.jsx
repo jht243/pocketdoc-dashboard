@@ -455,7 +455,7 @@ function App() {
     labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
-    orderlabs: <OrderLabsScreen setActive={setActive} />,
+    orderlabs: <OrderLabsScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
     // In Test mode the screens show the demo profile; reloading the real one over it
     // after an account save would mix the two.
