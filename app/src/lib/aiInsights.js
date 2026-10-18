@@ -34,6 +34,33 @@ import {
   hasFunctionalConcern,
   violatesForbiddenOutput,
 } from "./clinicalRules";
+import { MARKER_TARGETS, ageFromDob, formatTarget, markerIdFor, targetFor } from "./markerTargets";
+import { markerStatus, statusLabel } from "./scorecard";
+
+/**
+ * The Thumbprint target for each marker on file, as the Biology screen shows it.
+ * Handed to the model as fact so a card's "target" is the one the member sees next
+ * to the number — never a range the model recalls from somewhere else. Uses the
+ * bundled seed: the screen and the cards read the same values until the table is
+ * revised, and a revision ships a new seed with it.
+ */
+function targetLines(labs = [], profile = {}) {
+  const p = profile?.profile || profile || {};
+  const who = { sex: p.sex, age: ageFromDob(p.dob) };
+  const seen = new Set();
+  const lines = [];
+  for (const m of labs || []) {
+    const markerId = markerIdFor(m?.name);
+    if (!markerId || seen.has(markerId)) continue; // newest reading per marker only
+    seen.add(markerId);
+    const target = targetFor(MARKER_TARGETS, { markerId, unit: m.unit, ...who });
+    if (!target) continue;
+    const range = String(m.range || m.ref_range || "").trim();
+    const status = markerStatus({ value: m.value, range, target });
+    lines.push(`- ${m.name} ${m.value}${m.unit ? ` ${m.unit}` : ""}: lab range ${range || "not printed"}; Thumbprint target ${formatTarget(target)} (${target.evidence_level} evidence); ${statusLabel(status, { hasLabRange: Boolean(range) })}.`);
+  }
+  return lines.join("\n");
+}
 
 // Only these navigation targets exist, so the model can't invent a dead link.
 const ALLOWED_TARGETS = new Set(["iv", "vitd3", "discussion", "bodyfat_history"]);
@@ -208,11 +235,12 @@ export async function generateAIInsights(healthData, profile, healthHistory = nu
   // insights generated while blind to nearly everything the member had provided.
   const context = buildHealthContext({ userProfile: profile, healthData, healthHistory });
   const conversation = conversationLines(messages);
+  const targets = targetLines(healthData?.labs, profile);
 
   const user = `Here is everything the app knows about this member:
 
 ${context}
-
+${targets ? `\nTHUMBPRINT TARGETS (the target shown to the member next to each lab range; the only targets you may cite — placeholders awaiting medical-director approval, so never present one as a diagnosis threshold)\n${targets}\n` : ""}
 WHAT THE MEMBER HAS TOLD YOU (their own messages, oldest first — Rule 3: treat these as longitudinal data, weight them by how often a complaint recurs, and cross-reference every symptom against the measured data above)
 ${conversation || "(no conversation on file yet)"}
 
@@ -237,9 +265,9 @@ What each card is for:
 
 - "record": the strongest pattern in this member's data that is worth raising with a clinician — drawn from as many domains as they have. With several domains this is the card that justifies the platform, connecting things no single specialist saw together. With ONE domain it is still a real card: a cluster of markers inside a single panel, what a single uploaded report actually says, or a wearable metric moving against that person's own baseline. Name the physiological system in "system" (Metabolic, Lipid / cardiovascular, Thyroid, Sex hormones, Nutrients, Inflammation, Liver, Kidney, Haematology, Adrenal / HPA, or Recovery / sleep for a wearable-only finding). In "body", give the pattern first and the individual values second, with dates and — only where more than one reading exists — direction of travel; then the differential, most likely first, and what single test would settle it. "doctorPath" is the sentence the member should actually say to their doctor. "selfPayPath" is what they can order themselves if they cannot get it through their clinician. null ONLY if they have no data at all, or nothing in it supports a specific claim — not merely because a second source is missing.
 
-- "labs": 0-3 individual findings, most important first — and where two findings are comparably important, the one measured most recently goes first. Use each marker's NEWEST reading; an earlier reading of the same marker belongs in the sentence only as direction of travel ("down from 14.1 in Jan 2025"). Never open a finding with a superseded value, and give the date of the reading you are reading. A marker inside the lab range but outside the functional range is a legitimate finding on a single panel — the functional range does not need history to be useful. A marker moving steadily the wrong way across panels is a finding when panels exist. Say which of the three reference points made it one. Empty array when there is no bloodwork, rather than findings invented from another domain.
+- "labs": 0-3 individual findings, most important first — and where two findings are comparably important, the one measured most recently goes first. Use each marker's NEWEST reading; an earlier reading of the same marker belongs in the sentence only as direction of travel ("down from 14.1 in Jan 2025"). Never open a finding with a superseded value, and give the date of the reading you are reading. A marker inside the lab range but outside its Thumbprint target is a legitimate finding on a single panel — the target does not need history to be useful. Name both: the lab range as printed on the member's report, and the Thumbprint target from the list above. A marker with no Thumbprint target listed is read against its lab range and its own history only; never supply a target of your own. A marker moving steadily the wrong way across panels is a finding when panels exist. Say which of the three reference points made it one. Empty array when there is no bloodwork, rather than findings invented from another domain.
 
-"basis" on every card: one short line naming the reference point you used and where the numbers came from. Examples: "Lab range 0.5-4.5 mIU/L; functional target 1.0-2.0. TSH 3.1, Jun 2026 panel." — "Trend across 3 panels, Oct 2025 to Jun 2026." — "7-day wearable trend against this member's own 20-day baseline."
+"basis" on every card: one short line naming the reference point you used and where the numbers came from. Examples: "Lab range 0-99 mg/dL; Thumbprint target under 100. LDL 104, Jun 2026 panel." — "Trend across 3 panels, Oct 2025 to Jun 2026." — "7-day wearable trend against this member's own 20-day baseline."
 
 Only write a card the data actually supports. Every number must trace to the data above. Return JSON only.`;
 

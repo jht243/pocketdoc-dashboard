@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronRight, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
@@ -6,12 +6,31 @@ import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { EvidenceBox } from "../components/EvidenceBox";
 import { BioAgeCard } from "../components/BioAgeCard";
+import { MarkerRow } from "../components/MarkerResult";
+import { SystemScorecard } from "../components/SystemScorecard";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { labTone, labToneColor } from "../lib/labTone";
 import { groupMarkers } from "../lib/labGroups";
 import { shortLabSource } from "../lib/labSource";
+import { MARKER_TARGETS, ageFromDob, fetchMarkerTargets } from "../lib/markerTargets";
+import { assessMarker } from "../lib/markerResults";
+import { supabase } from "../lib/supabase";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled, userProfile }) {
+  // Thumbprint targets: the table when it loads (so a medical-director revision
+  // reaches members without a release), the bundled copy of the same seed until then
+  // or whenever it can't be read.
+  const [targets, setTargets] = useState(MARKER_TARGETS);
+  useEffect(() => {
+    let live = true;
+    fetchMarkerTargets(supabase).then((rows) => { if (live && rows) setTargets(rows); });
+    return () => { live = false; };
+  }, []);
+  // Sex and age personalise the targets that depend on them; when either is
+  // missing, those targets are left off and the row shows the lab range alone.
+  const profile = userProfile?.profile || userProfile || {};
+  const ctx = { targets, sex: profile.sex, age: ageFromDob(profile.dob) };
+  const outsideLab = (m) => assessMarker(m, ctx).status === "outside_lab";
+
   // One row per marker, always the most recent draw. The full list holds every
   // panel ever imported (five panels ≈ 300 rows, five "CHOLESTEROL, TOTAL"s), and
   // which duplicate the member saw first was decided by upload order — a March 2024
@@ -43,7 +62,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
   // default, which has to stay derived because markers arrive after first render.
   const [groupOverrides, setGroupOverrides] = useState({});
   const groupIsOpen = (g) =>
-    groupOverrides[g.name] ?? g.markers.some((m) => labTone(m) === "bad");
+    groupOverrides[g.name] ?? g.markers.some(outsideLab);
   const toggleGroup = (g) =>
     setGroupOverrides((prev) => ({ ...prev, [g.name]: !groupIsOpen(g) }));
   // "Bloodtest 6/8/2026" style label: the source file the panel came from plus the
@@ -102,11 +121,16 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
       {/* Biological age — renders nothing unless the bio-age flag is on. */}
       <BioAgeCard healthData={healthData} userProfile={userProfile} setActive={setActive} />
 
+      {markers.length > 0 && <>
+        <SectionLabel>What's driving your numbers</SectionLabel>
+        <SystemScorecard markers={markers} ctx={ctx} />
+      </>}
+
       <SectionLabel>Latest results</SectionLabel>
       {markers.length > 0 ? <div>
         {groups.map((g) => {
           const open = groupIsOpen(g);
-          const flagged = g.markers.filter((m) => labTone(m) === "bad").length;
+          const flagged = g.markers.filter(outsideLab).length;
           return (
             <Card key={g.name} style={{ padding: "4px 16px" }}>
               <div
@@ -118,7 +142,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</div>
-                  {/* Count of markers out of range — the reason to open this panel. */}
+                  {/* Count of markers outside the lab's own range — the reason to open this panel. */}
                   {flagged > 0 && (
                     <span style={{
                       fontSize: 11, fontWeight: 600, color: COLORS.danger,
@@ -135,54 +159,19 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
               </div>
               {open && g.markers.map((m, i) => {
                 const key = String(m.name || "").trim().toUpperCase();
-                const history = historyByMarker.get(key) || [];
-                const expanded = expandedKey === key;
+                // Each row carries its own draw date — after dedup, rows can come from
+                // different panels, and an undated number reads as current.
                 return (
-                  <div key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`} style={{
-                    borderTop: `1px solid ${COLORS.border}`
-                  }}>
-                    <div
-                      onClick={() => setExpandedKey(expanded ? null : key)}
-                      style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "11px 0", cursor: "pointer"
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13 }}>{m.name}</div>
-                        {/* Each marker shows the draw date it came from — after dedup, rows can
-                            come from different panels, and an undated number reads as current. */}
-                        {m.date && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{m.date}</div>}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{m.value}{m.unit ? ` ${m.unit}` : ""}</span>
-                        <div style={{ width: 8, height: 8, borderRadius: 4, background: labToneColor(m) }} />
-                        {expanded
-                          ? <ChevronDown size={14} color={COLORS.textMuted} />
-                          : <ChevronRight size={14} color={COLORS.textMuted} />}
-                      </div>
-                    </div>
-                    {/* Provenance: one line per panel this marker appeared in — which file it
-                        came from, the year, and the value it held there. Each historical value
-                        carries its own dot: a member reading three testosterone draws needs to
-                        see which ones were out of range, not just that today's is. */}
-                    {expanded && (
-                      <div style={{ padding: "0 0 11px 12px" }}>
-                        {history.map((h, j) => (
-                          <div key={j} style={{
-                            display: "flex", justifyContent: "space-between", alignItems: "center",
-                            padding: "5px 0"
-                          }}>
-                            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{sourceLabel(h)}</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ fontSize: 12, color: COLORS.textPrimary }}>{h.value}{h.unit ? ` ${h.unit}` : ""}</div>
-                              <div style={{ width: 8, height: 8, borderRadius: 4, background: labToneColor(withRange(h, m)) }} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <MarkerRow
+                    key={`${m.name}-${m.drawnOn || m.created_at || m.date || i}`}
+                    m={m}
+                    history={historyByMarker.get(key) || []}
+                    ctx={ctx}
+                    expanded={expandedKey === key}
+                    onToggle={() => setExpandedKey(expandedKey === key ? null : key)}
+                    sourceLabel={sourceLabel}
+                    withRange={withRange}
+                  />
                 );
               })}
             </Card>
@@ -234,9 +223,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Vitamin D is low</div>
             <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
-              28 ng/mL sits below the 30–50 ng/mL range this panel reports, and below the
-              40–60 ng/mL most longevity practices target — so it reads as low against both
-              reference points, not just one. Vitamin D3 is the usual lever, absorbed better
+              28 ng/mL sits below the 30–50 ng/mL range this panel reports. Vitamin D3 is the usual lever, absorbed better
               with a meal containing fat. Your clinician sets the amount; ask them to re-check
               in 8–12 weeks so you can see whether the level is actually responding.
             </div>
@@ -264,7 +251,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
       {!testModeEnabled && markers.length === 0 && <><SectionLabel>Trends</SectionLabel>
       <LockedDataSection
         title="Marker trends"
-        description="Import a panel to see your markers read against both the lab range and the functional range. A second panel adds change over time."
+        description="Import a panel to see each marker next to the lab range printed on your report and your Thumbprint target. A second panel adds change over time."
         actionLabel="Import your first panel"
         onAction={() => setActive("importlabs")}
         rows={3}
