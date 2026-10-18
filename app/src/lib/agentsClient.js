@@ -29,18 +29,17 @@ const ROUND_TIMEOUT_MS = 180000;
  * @param {object}   opts.userProfile
  * @param {object}   opts.healthData
  * @param {object}  [opts.healthHistory]
- * @param {boolean} [opts.testModeEnabled]
  * @param {Function} opts.onEvent       each care-team event as it arrives
  * @param {string}  [opts.messageId]    the stored question, so the service's logs can point at it
  * @returns {Promise<{reply, citations, sources, lanes, events, cost}>}
  */
-export async function runAgentTeam({ question, history, userProfile, healthData, healthHistory, testModeEnabled, onEvent, messageId = null }) {
+export async function runAgentTeam({ question, history, userProfile, healthData, healthHistory, onEvent, messageId = null }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("Not signed in.");
 
   // The record, assembled here from what RLS already let this member read, in keyed
   // sections so each specialist is handed only its own slice.
-  const facts = buildFactSections({ userProfile, healthData, healthHistory, testModeEnabled });
+  const facts = buildFactSections({ userProfile, healthData, healthHistory });
   // The code safety checks and the routing lanes read structured values, not text.
   // Sex picks the sex-specific thresholds (ferritin, HDL, creatinine).
   const slim = { labs: healthData?.labs || [], sex: userProfile?.profile?.sex || null, score: { bloodwork: { markers: healthData?.score?.bloodwork?.markers || [] } } };

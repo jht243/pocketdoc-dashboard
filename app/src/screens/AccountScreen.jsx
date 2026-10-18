@@ -121,7 +121,7 @@ function joinList(items) {
 // ---- ACCOUNT ----
 // The member's own details and login: name, date of birth, contact and address,
 // email and password, sign out, and permanent deletion. Always the real account,
-// read from the database, even in Test mode.
+// read from the database.
 function AccountScreen({ setActive, onSaved }) {
   const { user, signOut } = useAuth();
   const [form, setForm] = useState(EMPTY);

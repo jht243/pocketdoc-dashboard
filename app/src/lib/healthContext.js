@@ -204,16 +204,10 @@ export function documentLines(records = []) {
 /**
  * Multi-panel trends.
  *
- * Test mode ships a ready-made `labHistory`; live data is a flat marker list, so
- * derive the trend by grouping repeat measurements of the same marker. A single
- * reading is not a trend and is left out.
+ * Labs arrive as a flat marker list, so derive the trend by grouping repeat
+ * measurements of the same marker. A single reading is not a trend and is left out.
  */
 export function labTrendLines(healthData) {
-  if (healthData?.labHistory?.length) {
-    return healthData.labHistory
-      .map((s) => `- ${s.name}: ${(s.results || []).map((r) => `${r.value}${r.date ? " (" + r.date + ")" : ""}`).join(" → ")}${s.unit ? " " + s.unit : ""}`)
-      .join("\n");
-  }
   const byName = new Map();
   for (const lab of healthData?.labs || []) {
     if (!byName.has(lab.name)) byName.set(lab.name, []);
@@ -401,8 +395,8 @@ export function bloodworkScoreLines(score) {
 /* ---------------- genetics ---------------- */
 
 /**
- * Genetics arrive in two shapes: test mode puts plain strings here, a real import
- * puts rich marker objects. Render either, and for real markers give the model
+ * Genetics usually arrive as rich marker objects from an import; a plain string is
+ * rendered as written. For real markers give the model
  * everything the import captured — genotype and rsID included, so it can reason
  * about the variant rather than only repeat the report's summary.
  */
@@ -455,10 +449,9 @@ function scheduleLines(schedule = [], completedItems = {}) {
  * @param {object}  opts.userProfile      { profile, intake, schedule, completedItems }
  * @param {object}  opts.healthData       labs / genetics / wearable / records / score
  * @param {object} [opts.healthHistory]   standalone Health History answers, when loaded
- * @param {boolean} [opts.testModeEnabled]
  * @returns {string} the block appended to the system prompt
  */
-export function buildFactSections({ userProfile, healthData, healthHistory, testModeEnabled }) {
+export function buildFactSections({ userProfile, healthData, healthHistory }) {
   const profile = userProfile?.profile || {};
   const intake = userProfile?.intake || {};
   const today = healthData?.today;
@@ -525,7 +518,7 @@ export function buildFactSections({ userProfile, healthData, healthHistory, test
 
   return {
     preamble: `${todayLine}
-DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
+DATA: the member's own records — use only what's below; don't invent records.
 
 RECENCY COMES FIRST. Every dated value below says how old it is. Read the newest result for a marker as the fact and older ones as direction of travel only; never present a superseded value as current, and never build a current finding — or any instruction to act now — on data more than 12 months old.
 

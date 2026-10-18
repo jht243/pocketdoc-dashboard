@@ -932,8 +932,7 @@ export function missingOrderDetails(account) {
 
 /**
  * The member's own account details, read straight from their stored row. The
- * Account screen always shows these, even in Test mode: it is about the real
- * person, never the demo snapshot.
+ * Account screen always shows these: it is about the real person.
  */
 export async function loadAccount(userId) {
   if (!isConfigured || !userId) return null;

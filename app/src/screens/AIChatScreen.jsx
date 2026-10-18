@@ -73,7 +73,7 @@ const scrollBehavior = () => (document.visibilityState === "visible" ? "smooth" 
 // Functional-medicine chat. The user's full health profile is injected as context and
 // the web-search model does live research (with citations) so answers are current and
 // grounded in the user's actual data — not generic, stale wellness advice.
-function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled, onMemberMessage }) {
+function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMemberMessage }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -99,7 +99,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
   // Every input the app holds — intake answers, labs and their trends, all synced
   // wearable metrics, genetics, preventive-care schedule, records — is assembled in
   // one place so a newly collected field can never reach a screen but miss the chat.
-  const healthContext = buildHealthContext({ userProfile, healthData, healthHistory, testModeEnabled });
+  const healthContext = buildHealthContext({ userProfile, healthData, healthHistory });
   const healthProfile = [
     PERSONA,
     // Dr. Locker's member-facing rules govern the chat too, not just the insight
@@ -372,7 +372,6 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             userProfile,
             healthData,
             healthHistory,
-            testModeEnabled,
             onEvent,
             messageId,
           });

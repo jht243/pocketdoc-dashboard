@@ -20,7 +20,6 @@ import { COLORS, DISPLAY, SHADOW } from "../theme/tokens";
 
 function HomeScreen({
   setActive, goToMarket, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
-  testModeEnabled, testModeSaving, onTestModeChange,
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const score = useScoreModel(nutritionEnabled, healthData, userProfile);
@@ -93,31 +92,6 @@ function HomeScreen({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <BrandMark size={26} fontSize={15} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={testModeEnabled}
-            aria-label="Toggle test mode"
-            disabled={testModeSaving}
-            onClick={() => onTestModeChange?.(!testModeEnabled)}
-            style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "5px 7px", borderRadius: 10,
-              cursor: testModeSaving ? "wait" : "pointer", fontSize: 10, fontWeight: 700,
-              color: testModeEnabled ? COLORS.onAccent : COLORS.textMuted,
-              background: testModeEnabled ? COLORS.teal : COLORS.bgCard,
-              border: `1px solid ${testModeEnabled ? COLORS.teal : COLORS.border}`,
-              opacity: testModeSaving ? 0.65 : 1,
-            }}
-          >
-            Test
-            <span style={{
-              width: 22, height: 13, borderRadius: 8, padding: 2, display: "flex", alignItems: "center",
-              justifyContent: testModeEnabled ? "flex-end" : "flex-start",
-              background: testModeEnabled ? "rgba(255,255,255,0.35)" : COLORS.border,
-            }}>
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: testModeEnabled ? COLORS.onAccent : COLORS.textMuted }} />
-            </span>
-          </button>
           {/* No unread dot: nothing feeds notifications yet, so a dot would be a fake signal. */}
           <button aria-label="Notifications" style={{
             width: 36, height: 36, borderRadius: 10, background: COLORS.bgCard,
@@ -149,7 +123,7 @@ function HomeScreen({
       <UrgentBanner items={[...urgent, ...recheck]} />
 
       <SectionLabel>This morning</SectionLabel>
-      <CheckInCard checkIns={healthData?.checkIns || []} testModeEnabled={testModeEnabled} setActive={setActive} />
+      <CheckInCard checkIns={healthData?.checkIns || []} setActive={setActive} />
 
       {showChecklist && <>
         <SectionLabel>Your Thumbprint</SectionLabel>

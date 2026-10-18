@@ -55,25 +55,22 @@ const NOTICE_TEXT = {
 
 function ProfileScreen({
   setActive, nutritionEnabled, setNutritionEnabled, userProfile, healthHistory, healthData,
-  testModeEnabled, ouraNotice, onOuraNoticeSeen, onWearableChange,
+  ouraNotice, onOuraNoticeSeen, onWearableChange,
 }) {
   const { user } = useAuth();
 
-  // Identity is derived from the real profile — never hardcoded. Nothing about the
-  // demo user ("Adam Locker") should ever appear for a real signed-in person.
+  // Identity is derived from the real profile — never hardcoded.
   const displayName = userProfile?.profile?.name || null;
   const memberSince = userProfile?.onboardingCompletedAt
     ? new Date(userProfile.onboardingCompletedAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
     : null;
   const identityParts = [displayName, memberSince ? `Member since ${memberSince}` : null].filter(Boolean);
 
-  // Real medications/therapies the user actually entered (or the demo snapshot in
-  // test mode). No pre-filled prescriptions, no invented "On TRT" status.
+  // Real medications/therapies the user actually entered. No pre-filled prescriptions, no invented "On TRT" status.
   const medications = userProfile?.intake?.medications || healthHistory?.medications || [];
   const conditions = userProfile?.intake?.conditions || healthHistory?.conditions || [];
 
-  // Genetic markers are only real once a source is imported; there is no live
-  // ingestion yet, so this is populated only by the demo snapshot.
+  // Genetic markers appear once the member imports a genetic report.
   const hasGenetics = Boolean(healthData?.genetics?.length);
   // Answers saved this session live in healthHistory; otherwise the stored profile.
   const intakeProgress = intakeProgressSummary(healthHistory || userProfile?.intake);
@@ -351,12 +348,6 @@ function ProfileScreen({
           </div>
         ))}
 
-        {testModeEnabled && (
-          <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10, lineHeight: 1.5 }}>
-            Test mode is on, so the app is showing the demo snapshot. A real Oura
-            connection still syncs in the background and appears when test mode is off.
-          </div>
-        )}
       </Card>
     </div>
   );

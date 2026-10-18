@@ -6,12 +6,12 @@ import { WINDOW_CLOSE_HOUR, WINDOW_OPEN_HOUR, computeStreak, localDay, windowSta
 
 // Home's morning check-in row: start it, or see today's reply, with the streak always
 // visible (doc 19: "the streak counter is visible on the home screen").
-function CheckInCard({ checkIns = [], testModeEnabled, setActive }) {
+function CheckInCard({ checkIns = [], setActive }) {
   const today = localDay();
   const todays = checkIns.find((c) => c.day === today);
   const done = todays && !todays.skipped;
   const streak = computeStreak(checkIns, today);
-  const win = testModeEnabled ? "open" : windowState();
+  const win = windowState();
 
   const status = done
     ? todays.response || "Checked in today."

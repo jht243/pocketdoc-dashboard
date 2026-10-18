@@ -8,8 +8,7 @@ import { formatHoursMinutes } from "../lib/wearableShape";
 import { COLORS, DISPLAY } from "../theme/tokens";
 
 // ---- BODY SCREEN (vitals, sleep detail, weight & composition) ----
-// Everything here is driven by real data on `healthData` (or the demo snapshot in
-// test mode). Nothing is hardcoded: with no connected device the screen shows a
+// Everything here is driven by the member's real data on `healthData`. Nothing is hardcoded: with no connected device the screen shows a
 // locked state rather than inventing vitals for a real person.
 function BodyScreen({ setActive, healthData }) {
   const [editingGoals, setEditingGoals] = useState(false);

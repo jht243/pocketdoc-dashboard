@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertCircle, ChevronDown, ChevronRight, Plus, Sparkles, TrendingUp } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
@@ -15,7 +15,7 @@ import { MARKER_TARGETS, ageFromDob, fetchMarkerTargets } from "../lib/markerTar
 import { assessMarker } from "../lib/markerResults";
 import { supabase } from "../lib/supabase";
 
-function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEnabled, userProfile }) {
+function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile }) {
   // Thumbprint targets: the table when it loads (so a medical-director revision
   // reaches members without a release), the bundled copy of the same seed until then
   // or whenever it can't be read.
@@ -185,7 +185,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
         rows={4}
       />}
 
-      {/* AI-generated lab insights once available; otherwise the seeded demo cards. */}
+      {/* AI-generated lab insights once available. */}
       {aiLabs.length > 0 && <><SectionLabel>Insights</SectionLabel>
         {aiLabs.map((c, i) => {
           const color = c.severity === "danger" ? COLORS.danger : c.severity === "info" ? COLORS.tealLight : COLORS.warning;
@@ -217,38 +217,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
         })}
       </>}
 
-      {aiLabs.length === 0 && testModeEnabled && <Card style={{ border: `1px solid ${COLORS.danger}40`, background: COLORS.badDim }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <AlertCircle size={18} color={COLORS.danger} style={{ marginTop: 2, flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Vitamin D is low</div>
-            <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
-              28 ng/mL sits below the 30–50 ng/mL range this panel reports. Vitamin D3 is the usual lever, absorbed better
-              with a meal containing fat. Your clinician sets the amount; ask them to re-check
-              in 8–12 weeks so you can see whether the level is actually responding.
-            </div>
-            <button onClick={() => goToMarket("vitd3")} style={{
-              background: "none", border: `1px solid ${COLORS.tealLight}`, color: COLORS.tealLight,
-              fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer"
-            }}>
-              Shop Vitamin D3 in Marketplace <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
-            </button>
-          </div>
-        </div>
-      </Card>}
-
-      {aiLabs.length === 0 && testModeEnabled && <><SectionLabel>Trend</SectionLabel>
-      <Card>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          <TrendingUp size={16} color={COLORS.warning} />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>TPO antibodies rising</span>
-        </div>
-        <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
-          Oct 2025: 64 IU/mL &rarr; Jan 2026: 91 IU/mL &rarr; Jun 2026: 118 IU/mL.
-          Each result alone was within range. The trend across all three is what matters.
-        </div>
-      </Card></>}
-      {!testModeEnabled && markers.length === 0 && <><SectionLabel>Trends</SectionLabel>
+      {markers.length === 0 && <><SectionLabel>Trends</SectionLabel>
       <LockedDataSection
         title="Marker trends"
         description="Import a panel to see each marker next to the lab range printed on your report and your Thumbprint target. A second panel adds change over time."

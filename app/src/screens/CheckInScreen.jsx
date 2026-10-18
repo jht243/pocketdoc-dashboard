@@ -48,7 +48,7 @@ async function generateReply({ answers, note, checkIns, userProfile, healthData,
   const today = localDay();
   const fallback = fallbackReply(answers, checkIns, today);
   try {
-    const context = buildHealthContext({ userProfile, healthData, healthHistory, testModeEnabled: false });
+    const context = buildHealthContext({ userProfile, healthData, healthHistory });
     const request = callAI({
       system: REPLY_SYSTEM,
       maxTokens: 120,
@@ -68,10 +68,8 @@ async function generateReply({ answers, note, checkIns, userProfile, healthData,
 
 // ---- MORNING CHECK-IN ----
 // One question per screen, large tap targets, a progress line, and one personal
-// sentence back at the end. Open 5–11 AM local time; test mode ignores the window.
-// Answers are always saved, Test mode included: they are the member's own answers,
-// not demo data, and dropping them silently is what kept the streak at 0.
-function CheckInScreen({ setActive, userProfile, healthData, healthHistory, testModeEnabled, checkIns = [], onSaved }) {
+// sentence back at the end. Open 5–11 AM local time.
+function CheckInScreen({ setActive, userProfile, healthData, healthHistory, checkIns = [], onSaved }) {
   const { user } = useAuth();
   const today = localDay();
   const todays = checkIns.find((c) => c.day === today);
@@ -83,7 +81,7 @@ function CheckInScreen({ setActive, userProfile, healthData, healthHistory, test
     return () => { live = false; };
   }, [user]);
   const questions = useMemo(() => checkInQuestions(userProfile, healthData, followUps, today), [userProfile, healthData, followUps, today]);
-  const windowNow = testModeEnabled ? "open" : windowState();
+  const windowNow = windowState();
   const streak = computeStreak(checkIns, today);
   const skipsLeft = Math.max(0, SKIPS_PER_14_DAYS - skipsUsed(checkIns, today));
 

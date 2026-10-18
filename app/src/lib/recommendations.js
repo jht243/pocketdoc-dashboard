@@ -2,7 +2,6 @@
 
 function getDailyRecommendation(healthData) {
   // Recommendations are intentionally silent until we have a real health snapshot.
-  // Test mode supplies a persisted snapshot; production data will use the same shape.
   const today = healthData?.today;
   if (!today) return null;
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { TabBar } from "./components/TabBar";
 import { COLORS } from "./theme/tokens";
@@ -17,11 +17,6 @@ import {
   saveMedications,
   saveHealthHistory,
 } from "./lib/profileStore";
-import {
-  disableTestMode,
-  enableTestMode,
-  loadTestModeSnapshot,
-} from "./lib/testMode";
 import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
 import { loadMessages } from "./lib/chatStore";
@@ -150,9 +145,6 @@ function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [healthHistory, setHealthHistory] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [testModeEnabled, setTestModeEnabled] = useState(false);
-  const [testSnapshot, setTestSnapshot] = useState(null);
-  const [testModeSaving, setTestModeSaving] = useState(false);
   const [liveHealthData, setLiveHealthData] = useState(null);
   // AI-generated insight cards for Home / Records / Labs. null = not ready yet or
   // AI unavailable → screens fall back to their deterministic templates.
@@ -165,15 +157,10 @@ function App() {
   const [gate, setGate] = useState("welcome");
   const [resumeData, setResumeData] = useState(null);
 
-  // Health snapshot in play: the seeded test-mode snapshot, or live records.
-  // Check-ins are the member's own answers, never demo data, so Test mode reads the
-  // real ones on top of the snapshot. Without this a check-in made in Test mode
-  // never showed up, and the streak sat at 0.
-  const healthData = useMemo(() => (
-    testModeEnabled
-      ? (testSnapshot?.health ? { ...testSnapshot.health, checkIns: liveHealthData?.checkIns || [] } : null)
-      : liveHealthData
-  ), [testModeEnabled, testSnapshot, liveHealthData]);
+  // The member's own records, always. There is no demo data: Test mode, which swapped
+  // in a seeded "Adam Locker" profile, was removed on Oct 18 2026 after members were
+  // reading the demo's labs as their own.
+  const healthData = liveHealthData;
   // The assembled Health Score. Computed here rather than only inside Home so it can
   // be persisted regardless of which screen the member happens to be looking at.
   const scoreModel = useScoreModel(nutritionEnabled, healthData, userProfile);
@@ -250,14 +237,13 @@ function App() {
   }, [user?.id]);
 
   // Write today's combined score to its own history table whenever the snapshot
-  // changes. Test mode never writes: a demo score in a member's real score history
-  // would be indistinguishable from a real one a week later.
+  // changes.
   useEffect(() => {
-    if (!user || testModeEnabled || !scoreModel.hasData) return;
+    if (!user || !scoreModel.hasData) return;
     recordHealthScore(user.id, scoreModel);
     // Keyed on the score itself rather than on healthData, so a re-render that
     // doesn't move the number doesn't write a row.
-  }, [user, testModeEnabled, scoreModel.hasData, scoreModel.totalScore, scoreModel.totalMax]);
+  }, [user, scoreModel.hasData, scoreModel.totalScore, scoreModel.totalMax]);
 
   // Regenerate AI insights whenever the snapshot changes. The previous set stays
   // on screen while the new one is computed — clearing first made every insight
@@ -294,14 +280,12 @@ function App() {
       setUserProfile(null);
       setResumeData(null);
       setHealthHistory(null);
-      setTestModeEnabled(false);
-      setTestSnapshot(null);
       setLiveHealthData(null);
       setActive("onboarding");
       return;
     }
     setProfileLoading(true);
-    Promise.all([loadFullProfile(user.id), loadTestModeSnapshot(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id)]).then(([stored, testMode, documents, labMarkers, wearable, geneticMarkers, checkIns]) => {
+    Promise.all([loadFullProfile(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id)]).then(([stored, documents, labMarkers, wearable, geneticMarkers, checkIns]) => {
       if (cancelled) return;
       // Both components of the score come from `buildLiveHealthData`: preventive-care
       // coverage (the same schedule the Preventive Care screen renders), and the
@@ -314,15 +298,7 @@ function App() {
       // list and the result notice are — otherwise the user is dropped on Home with
       // no confirmation that anything happened.
       const landing = ouraNotice ? "profile" : "home";
-      if (testMode.enabled && testMode.snapshot?.profile) {
-        setTestModeEnabled(true);
-        setTestSnapshot(testMode.snapshot);
-        setUserProfile(testMode.snapshot.profile);
-        setHealthHistory(testMode.snapshot.healthHistory || null);
-        setActive(landing);
-      } else if (stored?.onboardingCompletedAt) {
-        setTestModeEnabled(false);
-        setTestSnapshot(null);
+      if (stored?.onboardingCompletedAt) {
         setUserProfile(stored);
         setHealthHistory(null);
         setActive(landing);
@@ -331,8 +307,6 @@ function App() {
         // so they resume where they stopped instead of starting over — including
         // medications and any screenings already marked done.
         setResumeData(stored?.profile?.dob ? stored : null);
-        setTestModeEnabled(false);
-        setTestSnapshot(null);
         setHealthHistory(null);
         setActive("onboarding");
       }
@@ -406,41 +380,6 @@ function App() {
     setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable, geneticMarkers, checkIns));
   };
 
-  const handleTestModeChange = async (nextEnabled) => {
-    if (!user || testModeSaving) return;
-    setTestModeSaving(true);
-    if (nextEnabled) {
-      const { snapshot, error } = await enableTestMode(user.id);
-      if (!error && snapshot?.profile) {
-        setTestSnapshot(snapshot);
-        setTestModeEnabled(true);
-        setUserProfile(snapshot.profile);
-        setHealthHistory(snapshot.healthHistory || null);
-        setActive("home");
-      }
-    } else {
-      const { error } = await disableTestMode(user.id);
-      if (!error) {
-        const stored = await loadFullProfile(user.id);
-        const [documents, labMarkers, wearable, geneticMarkers, checkIns] = await Promise.all([loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id)]);
-        setTestModeEnabled(false);
-        setTestSnapshot(null);
-        setHealthHistory(null);
-        // Rebuild the full live snapshot — including `score`, which this path used to
-        // omit, leaving the ring locked after leaving test mode.
-        setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
-        if (stored?.onboardingCompletedAt) {
-          setUserProfile(stored);
-          setActive("home");
-        } else {
-          setUserProfile(null);
-          setResumeData(stored?.profile?.dob ? stored : null);
-          setActive("onboarding");
-        }
-      }
-    }
-    setTestModeSaving(false);
-  };
 
   const screens = {
     onboarding: (
@@ -450,22 +389,20 @@ function App() {
         initial={resumeData}
       />
     ),
-    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} testModeSaving={testModeSaving} onTestModeChange={handleTestModeChange} />,
-    checkin: <CheckInScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
-    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} testModeEnabled={testModeEnabled} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
+    home: <HomeScreen setActive={setActive} goToMarket={goToMarket} nutritionEnabled={nutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} aiInsights={aiInsights} />,
+    checkin: <CheckInScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} checkIns={healthData?.checkIns || []} onSaved={refreshCheckIns} />,
+    aichat: <AIChatScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} onMemberMessage={() => setChatVersion((v) => v + 1)} />,
     records: <RecordsScreen setActive={setActive} healthData={healthData} aiInsights={aiInsights} onRecordsChange={refreshRecords} />,
-    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} testModeEnabled={testModeEnabled} userProfile={userProfile} />,
+    labs: <LabsScreen setActive={setActive} goToMarket={goToMarket} healthData={healthData} aiInsights={aiInsights} userProfile={userProfile} />,
     market: <MarketScreen highlight={marketHighlight} setActive={setActive} healthData={healthData} />,
     discussion: <DiscussionPageScreen setActive={setActive} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={setActive} userProfile={userProfile} healthData={healthData} />,
     browsesupplements: <BrowseSupplementsScreen setActive={setActive} />,
-    // In Test mode the screens show the demo profile; reloading the real one over it
-    // after an account save would mix the two.
-    account: <AccountScreen setActive={setActive} onSaved={testModeEnabled ? undefined : refreshProfile} />,
-    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} testModeEnabled={testModeEnabled} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
+    account: <AccountScreen setActive={setActive} onSaved={refreshProfile} />,
+    profile: <ProfileScreen setActive={setActive} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={setActive} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={setActive} onImported={refreshRecords} />,
-    geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} testModeEnabled={testModeEnabled} />,
+    geneticprofile: <GeneticProfileScreen setActive={setActive} healthData={healthData} />,
     medications: <MedicationScreen setActive={setActive} userProfile={userProfile} healthData={healthData} goToMarket={goToMarket} onMedsChange={refreshProfile} />,
     preventivecare: <PreventiveCareScreen setActive={setActive} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
     healthhistory: <HealthHistoryScreen setActive={setActive} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => { setHealthHistory(data); if (user) saveHealthHistory(user.id, data); }} />,
