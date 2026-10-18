@@ -13,6 +13,20 @@ function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData
   // Each therapy panel is offered only to a member whose own record shows that
   // therapy (intake answers or medication list). Nobody else sees the section.
   const therapies = memberTherapies({ userProfile, healthData });
+
+  // The standard founding-member order from the Oct 14 spec, listed first because it
+  // is the only panel here that can produce a biological age: PhenoAge needs albumin,
+  // creatinine, glucose and alkaline phosphatase (CMP), lymphocyte %, MCV, RDW and
+  // WBC (CBC with differential) and hs-CRP, and none of the panels below carries the
+  // CBC or the full CMP. No price yet, so none is shown rather than one we made up.
+  const baseline = {
+    id: "baseline",
+    name: "Thumbprint baseline panel",
+    why: "The panel that unlocks your biological age and your full scorecard",
+    markers: "CBC with differential, comprehensive metabolic panel, hs-CRP, lipid panel and ApoB, HbA1c and fasting insulin, vitamin D, ferritin, B12, TSH and free T4",
+    note: "Draw it fasting: water only for 8–12 hours beforehand, so glucose, insulin and lipids read true.",
+    price: null,
+  };
   const recommended = [
     {
       id: "trt",
@@ -76,11 +90,12 @@ function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData
     setCart(c => c.includes(id) ? c.filter(x => x !== id) : [...c, id]);
   };
 
-  const allPanels = [...recommended, ...browseAll];
-  const cartTotal = cart.reduce((sum, id) => {
-    const p = allPanels.find(p => p.id === id);
-    return sum + (p ? parseInt(p.price.replace("$", "")) : 0);
-  }, 0);
+  const allPanels = [baseline, ...recommended, ...browseAll];
+  const cartPanels = cart.map((id) => allPanels.find((p) => p.id === id)).filter(Boolean);
+  // Only panels with a real price add to the total; an unpriced one is named instead
+  // of being counted as $0, which would understate what the order costs.
+  const cartTotal = cartPanels.reduce((sum, p) => sum + (p.price ? parseInt(p.price.replace("$", ""), 10) : 0), 0);
+  const cartHasUnpriced = cartPanels.some((p) => !p.price);
 
   const PanelCard = ({ p, highlight }) => {
     const inCart = cart.includes(p.id);
@@ -88,16 +103,21 @@ function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData
       <Card style={highlight ? { border: `1px solid ${COLORS.accent}50`, background: COLORS.accentDim } : {}}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.tealLight }}>{p.price}</span>
+          {p.price
+            ? <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.tealLight }}>{p.price}</span>
+            : <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, flexShrink: 0, marginLeft: 10 }}>Price coming soon</span>}
         </div>
         {p.why && (
           <div style={{ fontSize: 11, color: COLORS.accent, marginBottom: 6 }}>{p.why}</div>
         )}
-        <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
+        <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: p.note ? 6 : 10 }}>
           {p.markers}
         </div>
+        {p.note && (
+          <div style={{ fontSize: 11.5, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>{p.note}</div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: COLORS.textMuted }}>Results in {p.turnaround}</span>
+          <span style={{ fontSize: 11, color: COLORS.textMuted }}>{p.turnaround ? `Results in ${p.turnaround}` : ""}</span>
           <button onClick={() => toggleCart(p.id)} style={{
             background: inCart ? COLORS.bgCardAlt : COLORS.teal,
             border: inCart ? `1px solid ${COLORS.tealLight}` : "none",
@@ -126,9 +146,12 @@ function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData
       </div>
       <div style={{ fontSize: 12, color: COLORS.textMuted, marginBottom: 22 }}>
         A kit ships to you, you collect a small sample from your upper arm, and mail it back
-        with the included prepaid label. Results sync automatically to your Labs and feed
-        your pattern review.
+        with the included prepaid label. Once your results arrive, upload the PDF (or a
+        photo of it) under Records and it files itself into your Labs.
       </div>
+
+      <SectionLabel>Start here</SectionLabel>
+      <PanelCard p={baseline} highlight />
 
       {recommended.length > 0 && (
         <>
@@ -163,7 +186,12 @@ function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontSize: 11, color: COLORS.textSecondary }}>{cart.length} panel{cart.length > 1 ? "s" : ""} selected</div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>${cartTotal}</div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>
+                {cartTotal > 0 ? `$${cartTotal}` : "Price coming soon"}
+              </div>
+              {cartHasUnpriced && cartTotal > 0 && (
+                <div style={{ fontSize: 10.5, color: COLORS.textMuted }}>plus the baseline panel, price coming soon</div>
+              )}
             </div>
             <button onClick={() => setShowSoon(true)} style={{
               background: COLORS.teal, border: "none", color: COLORS.onAccent,

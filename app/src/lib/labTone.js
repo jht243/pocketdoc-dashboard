@@ -81,9 +81,23 @@ function labTone(marker) {
   return "unknown";
 }
 
+/**
+ * "low" | "high" | "normal" from the value against the lab's own printed range, or
+ * null when either is missing or unreadable. Used for markers typed in by hand, where
+ * no extractor has judged the status, so the stored word matches the range beside it.
+ */
+function statusFromRange(marker) {
+  const range = parseRange(marker?.range || marker?.ref_range);
+  const value = toNumber(marker?.value);
+  if (!range || value == null) return null;
+  if (range.high != null && value > range.high) return "high";
+  if (range.low != null && value < range.low) return "low";
+  return "normal";
+}
+
 /** The colour to paint that marker's dot, chip, or label. */
 function labToneColor(marker) {
   return TONE_COLOR[labTone(marker)];
 }
 
-export { labTone, labToneColor, TONE_COLOR };
+export { labTone, labToneColor, statusFromRange, TONE_COLOR };
