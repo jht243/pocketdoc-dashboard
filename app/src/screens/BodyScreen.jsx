@@ -10,7 +10,7 @@ import { COLORS, DISPLAY } from "../theme/tokens";
 // ---- BODY SCREEN (vitals, sleep detail, weight & composition) ----
 // Everything here is driven by the member's real data on `healthData`. Nothing is hardcoded: with no connected device the screen shows a
 // locked state rather than inventing vitals for a real person.
-function BodyScreen({ setActive, healthData }) {
+function BodyScreen({ setActive, goBack, backLabel, healthData }) {
   const [editingGoals, setEditingGoals] = useState(false);
   const [historyMetric, setHistoryMetric] = useState(null); // null | "weight" | "bodyfat"
   const [showAllMetrics, setShowAllMetrics] = useState(false); // collapsed by default
@@ -40,11 +40,11 @@ function BodyScreen({ setActive, healthData }) {
 
   const Header = () => (
     <>
-      <button onClick={() => setActive("home")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Home
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Body</div>

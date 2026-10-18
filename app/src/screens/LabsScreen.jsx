@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, FlaskConical, Plus, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
-import { LockedDataSection } from "../components/LockedDataSection";
 import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { EvidenceBox } from "../components/EvidenceBox";
@@ -14,6 +13,7 @@ import { shortLabSource } from "../lib/labSource";
 import { MARKER_TARGETS, ageFromDob, fetchMarkerTargets } from "../lib/markerTargets";
 import { assessMarker } from "../lib/markerResults";
 import { supabase } from "../lib/supabase";
+import { insightActionLabel, runInsightAction } from "../lib/insightActions";
 
 function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile }) {
   // Thumbprint targets: the table when it loads (so a medical-director revision
@@ -101,7 +101,9 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
         Tracked across every panel, not just your most recent one.
       </div>
 
-      <button onClick={() => setActive("orderlabs")} style={{
+      {/* With no results yet, ordering is offered inside the one empty state below
+          instead of as a second competing card up here. */}
+      {markers.length > 0 && <button onClick={() => setActive("orderlabs")} style={{
         width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.tealLight}60`,
         borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center",
         justifyContent: "space-between", cursor: "pointer", marginBottom: 18
@@ -114,7 +116,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
           </div>
         </div>
         <ChevronRight size={16} color={COLORS.textMuted} />
-      </button>
+      </button>}
 
       <UrgentBanner items={urgent} />
 
@@ -126,7 +128,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
         <SystemScorecard markers={markers} ctx={ctx} />
       </>}
 
-      <SectionLabel>Latest results</SectionLabel>
+      {markers.length > 0 && <SectionLabel>Latest results</SectionLabel>}
       {markers.length > 0 ? <div>
         {groups.map((g) => {
           const open = groupIsOpen(g);
@@ -177,24 +179,39 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
             </Card>
           );
         })}
-      </div> : <LockedDataSection
-        title="Your lab markers"
-        description="Import a lab result to see each marker, its range, and what needs attention."
-        actionLabel="Import lab results"
-        onAction={() => setActive("importlabs")}
-        rows={4}
-      />}
+      </div> : (
+        // One empty state, one Import button. This screen used to stack "Your lab
+        // markers — Import lab results" over "Marker trends — Import your first
+        // panel": two prompts for the same single step.
+        <Card style={{ textAlign: "center", padding: "26px 20px" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: COLORS.bgCardAlt, display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+            <FlaskConical size={20} color={COLORS.tealLight} />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.textPrimary, marginBottom: 6 }}>No lab results yet</div>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.55, marginBottom: 16 }}>
+            Import a lab report to see each marker next to the range printed on it and your Thumbprint target. A second panel adds change over time.
+          </div>
+          <button onClick={() => setActive("importlabs")} style={{
+            width: "100%", background: COLORS.teal, border: "none", color: COLORS.onAccent,
+            fontSize: 14, fontWeight: 700, padding: "13px", borderRadius: 12, cursor: "pointer"
+          }}>
+            Import lab results
+          </button>
+          <button onClick={() => setActive("orderlabs")} style={{
+            marginTop: 10, background: "none", border: "none", color: COLORS.tealLight,
+            fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 6
+          }}>
+            No results to import? Order bloodwork
+          </button>
+        </Card>
+      )}
 
       {/* AI-generated lab insights once available. */}
       {aiLabs.length > 0 && <><SectionLabel>Insights</SectionLabel>
         {aiLabs.map((c, i) => {
           const color = c.severity === "danger" ? COLORS.danger : c.severity === "info" ? COLORS.tealLight : COLORS.warning;
           const bg = c.severity === "danger" ? COLORS.badDim : c.severity === "info" ? COLORS.bgCard : COLORS.warnDim;
-          const onAction = () => {
-            if (!c.action) return;
-            if (c.action.target === "discussion" || c.action.target === "bodyfat_history") setActive(c.action.target === "bodyfat_history" ? "body" : "discussion");
-            else goToMarket(c.action.target);
-          };
+          const onAction = () => runInsightAction(c.action, { setActive, goToMarket });
           return (
             <Card key={i} style={{ border: `1px solid ${color}40`, background: bg }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -207,7 +224,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
                   {c.basis && <EvidenceBox style={{ marginBottom: c.action ? 10 : 0 }}>{c.basis}</EvidenceBox>}
                   {c.action && (
                     <button onClick={onAction} style={{ background: "none", border: `1px solid ${color}`, color, fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>
-                      {c.action.label} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
+                      {insightActionLabel(c.action)} <ChevronRight size={12} style={{ display: "inline", verticalAlign: -2 }} />
                     </button>
                   )}
                 </div>
@@ -217,14 +234,6 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, userProfile
         })}
       </>}
 
-      {markers.length === 0 && <><SectionLabel>Trends</SectionLabel>
-      <LockedDataSection
-        title="Marker trends"
-        description="Import a panel to see each marker next to the lab range printed on your report and your Thumbprint target. A second panel adds change over time."
-        actionLabel="Import your first panel"
-        onAction={() => setActive("importlabs")}
-        rows={3}
-      /></>}
     </div>
   );
 }

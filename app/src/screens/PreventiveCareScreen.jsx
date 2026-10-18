@@ -8,7 +8,7 @@ import { useAuth } from "../lib/AuthContext";
 import { saveScreenings } from "../lib/profileStore";
 import { currentYearMonth, formatCompletedMonth, isScreeningDone } from "../lib/screeningDates";
 
-function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }) {
+function PreventiveCareScreen({ setActive, goBack, backLabel, userProfile, onCompletedItemsChange }) {
   const { user } = useAuth();
   const [completedItems, setCompletedItems] = useState(userProfile?.completedItems || {});
   const schedule = userProfile?.schedule || [];
@@ -45,11 +45,11 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
   if (!userProfile || schedule.length === 0) {
     return (
       <div style={{ padding: "24px 18px" }}>
-        <button onClick={() => setActive("profile")} style={{
+        <button onClick={goBack} style={{
           background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
           color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
         }}>
-          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
         </button>
         <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 10 }}>Preventive care</div>
         <Card style={{ textAlign: "center", padding: "30px 20px" }}>
@@ -66,11 +66,11 @@ function PreventiveCareScreen({ setActive, userProfile, onCompletedItemsChange }
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => setActive("profile")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Preventive care</div>
       <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 6 }}>

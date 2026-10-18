@@ -135,13 +135,7 @@ function ProfileScreen({
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => setActive("home")} style={{
-        background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
-        color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
-      }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Home
-      </button>
-
+      {/* No back link: Care is a tab, and the tab bar is how a member leaves it. */}
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Your care</div>
       {identityParts.length > 0 && (
         <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 22 }}>

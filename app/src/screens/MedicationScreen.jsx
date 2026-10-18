@@ -13,7 +13,7 @@ import { searchProducts } from "../lib/amazon";
 // The user's real medication + supplement list (entered by them, persisted to
 // ghai.medications). Nothing here is pre-filled or invented. Plus an AI "Suggested
 // for you" section that pulls live Amazon supplement cards from their profile.
-function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMedsChange }) {
+function MedicationScreen({ setActive, goBack, backLabel, userProfile, healthData, goToMarket, onMedsChange }) {
   const { user } = useAuth();
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,11 +132,11 @@ function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMe
 
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => setActive("home")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>

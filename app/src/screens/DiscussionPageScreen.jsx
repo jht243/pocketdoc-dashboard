@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, ChevronRight, FileText, Sparkles, Upload } from "lucide-react";
+import { CheckCircle2, ChevronRight, Copy, FileText, Share2, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
@@ -26,8 +26,9 @@ const FALLBACK = {
   ],
 };
 
-function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistory }) {
-  const [shared, setShared] = useState(false);
+function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healthData, healthHistory }) {
+  // "copied" | "copy-failed" | null — what the copy button last did, said in words.
+  const [shareStatus, setShareStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(FALLBACK.summary);
   const [questions, setQuestions] = useState(FALLBACK.questions);
@@ -114,13 +115,65 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
     };
   }, [hasRealData, userProfile, healthData]);
 
+  // The text Copy and Share hand over: the summary and the suggested questions, as
+  // plain text that reads correctly when pasted into an email, a text or a note.
+  const shareText = () => [
+    "Discussion page: for my next appointment",
+    "",
+    "Summary",
+    summary,
+    "",
+    "Questions to raise",
+    ...questions.map((q, i) => `${i + 1}. ${q}`),
+  ].join("\n");
+
+  // Web Share is a phone feature; most desktop browsers lack it, and there the
+  // Share button simply isn't shown.
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  const copySummary = async () => {
+    track("discussion_export");
+    const text = shareText();
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      // No clipboard API (older browsers, non-HTTPS) or permission refused: fall back
+      // to copying from a hidden text box, which every browser still supports.
+      try {
+        const box = document.createElement("textarea");
+        box.value = text;
+        box.setAttribute("readonly", "");
+        box.style.position = "fixed";
+        box.style.opacity = "0";
+        document.body.appendChild(box);
+        box.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(box);
+      } catch {
+        ok = false;
+      }
+    }
+    setShareStatus(ok ? "copied" : "copy-failed");
+  };
+
+  const shareSummary = async () => {
+    track("discussion_export");
+    try {
+      await navigator.share({ title: "Discussion page", text: shareText() });
+    } catch {
+      // Closing the share sheet rejects too; there is nothing to report.
+    }
+  };
+
   return (
     <div style={{ padding: "24px 18px" }}>
-      <button onClick={() => setActive("records")} style={{
+      <button onClick={goBack} style={{
         background: "none", border: "none", display: "flex", alignItems: "center", gap: 6,
         color: COLORS.textSecondary, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 18
       }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to Records
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {backLabel}
       </button>
 
       <div style={{ fontFamily: DISPLAY, fontSize: 21, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4 }}>Discussion page</div>
@@ -211,21 +264,40 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
         </div>
       </>)}
 
-      <button onClick={() => { if (!shared) track("discussion_export"); setShared(true); }} style={{
-        width: "100%", background: shared ? COLORS.bgCardAlt : COLORS.teal,
-        border: shared ? `1px solid ${COLORS.tealLight}` : "none",
-        color: shared ? COLORS.tealLight : COLORS.onAccent,
-        fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
-        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-      }}>
-        {shared ? <CheckCircle2 size={16} /> : <Upload size={16} />}
-        {shared ? "Ready to share" : "Share / Export as PDF"}
-      </button>
-      {shared && (
-        <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10, textAlign: "center" }}>
-          Export as PDF, email it directly to your provider, or print for your visit.
-        </div>
-      )}
+      {/* Copy and Share hand over the same plain text: the summary and the questions.
+          There is no PDF, email or print step — the member pastes or sends it
+          wherever they like. Both wait until the real summary has loaded, so the
+          placeholder text can't be what gets shared. */}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={copySummary} disabled={loading} style={{
+          flex: 1, background: COLORS.teal, border: "none", color: COLORS.onAccent,
+          fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
+          cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+        }}>
+          {shareStatus === "copied" ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+          {shareStatus === "copied" ? "Copied" : "Copy summary"}
+        </button>
+        {canShare && (
+          <button onClick={shareSummary} disabled={loading} style={{
+            flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.tealLight}`, color: COLORS.tealLight,
+            fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
+            cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+          }}>
+            <Share2 size={16} /> Share
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: shareStatus === "copy-failed" ? COLORS.danger : COLORS.textMuted, marginTop: 10, textAlign: "center", lineHeight: 1.5 }}>
+        {shareStatus === "copied"
+          ? "The summary and questions are on your clipboard. Paste them into a message or a note for your visit."
+          : shareStatus === "copy-failed"
+            ? "Couldn't copy automatically. Select the summary and questions above and copy them by hand."
+            : canShare
+              ? "Copies the summary and suggested questions as text, or sends them to another app on your phone."
+              : "Copies the summary and suggested questions as text you can paste into a message or note."}
+      </div>
 
       <div style={{
         marginTop: 20, padding: 12, background: COLORS.bgCardAlt, borderRadius: 10,
