@@ -1,0 +1,14 @@
+{
+  "name": "thumbprint-agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "My Advocate and the four specialist advocates behind the chat: route → research in parallel → huddle → compose → safety review, over the member's own record and the knowledge library. The Monitus agent system, adapted for medicine.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

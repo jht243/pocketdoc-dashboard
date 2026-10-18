@@ -433,7 +433,7 @@ function scheduleLines(schedule = [], completedItems = {}) {
  * @param {boolean} [opts.testModeEnabled]
  * @returns {string} the block appended to the system prompt
  */
-export function buildHealthContext({ userProfile, healthData, healthHistory, testModeEnabled }) {
+export function buildFactSections({ userProfile, healthData, healthHistory, testModeEnabled }) {
   const profile = userProfile?.profile || {};
   const intake = userProfile?.intake || {};
   const today = healthData?.today;
@@ -498,7 +498,8 @@ export function buildHealthContext({ userProfile, healthData, healthHistory, tes
   const nowDate = new Date();
   const todayLine = `TODAY'S DATE: ${nowDate.toISOString().slice(0, 10)} (${nowDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })})`;
 
-  return `${todayLine}
+  return {
+    preamble: `${todayLine}
 DATA MODE: ${testModeEnabled ? "Seeded test snapshot — treat it exactly like real client data." : "Live client data — use only what's below; don't invent records."}
 
 RECENCY COMES FIRST. Every dated value below says how old it is. Read the newest result for a marker as the fact and older ones as direction of travel only; never present a superseded value as current, and never build a current finding — or any instruction to act now — on data more than 12 months old.
@@ -509,22 +510,36 @@ SOURCE PRECEDENCE — for any marker that appears in more than one place, quote 
 1. LAB RESULTS / LAB TRENDS / BLOODWORK SCORE below (values a lab actually ran).
 2. UPLOADED RECORDS & DOCUMENTS (values you read out of the member's own report).
 3. INTAKE QUESTIONNAIRE (what the member typed from memory at signup, often months old).
-Numbers the member self-reported at intake are only worth citing when no lab result covers that marker — and when you do cite one, say it is self-reported. If a lab result and an intake answer disagree, the lab result is the fact and the difference is itself worth raising.
-${section("USER PROFILE", identity)}
-${section("INTAKE QUESTIONNAIRE (their own answers — SELF-REPORTED, may be out of date)", intakeLines(intake, profile))}
-${section("MEDICATIONS & SUPPLEMENTS", meds)}
-${section("LAB RESULTS — NEWEST READING PER MARKER, MOST RECENTLY DRAWN FIRST (this is the current picture; anything older lives in LAB TRENDS below and is history, not status)", labLines(healthData?.labs))}
-${section("LAB TRENDS (repeat measurements over time, OLDEST → NEWEST — the last value in each series is the current one)", labTrendLines(healthData))}
-${section("WEARABLE SCORE (calculated from raw values vs their own baseline)", wearableScoreLines(healthData?.score?.wearable))}
-${section("BLOODWORK SCORE (calculated from lab markers vs clinical thresholds)", bloodworkScoreLines(healthData?.score?.bloodwork))}
-${section("WEARABLE — LATEST DAY (all synced metrics)", wearableTodayLines(today))}
-${section("WEARABLE — EACH METRIC vs THEIR OWN RANGE", metricRangeLines(healthData?.metrics))}
-${section("WEARABLE — RECENT DAYS", wearableHistoryLines(healthData?.history))}
-${section("GENETICS", (healthData?.genetics || []).map(geneticLine).join("\n"))}
-${section("PREVENTIVE CARE SCHEDULE", scheduleLines(userProfile?.schedule, userProfile?.completedItems))}
-${section("BODY COMPOSITION", body)}
-${section("UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", records)}
-${section("DAILY SCORE INPUTS", scoreLines)}
-${section("MORNING CHECK-INS (SELF-REPORTED daily answers, newest first — patterns across days matter more than any single morning)", checkInContextLines(healthData?.checkIns || []))}
-${historyExtra ? section("HEALTH HISTORY (standalone questionnaire)", historyExtra) : ""}`;
+Numbers the member self-reported at intake are only worth citing when no lab result covers that marker — and when you do cite one, say it is self-reported. If a lab result and an intake answer disagree, the lab result is the fact and the difference is itself worth raising.`,
+    // Keyed so the agents service can hand each specialist only the sections its
+    // job needs (agents/lib/team.mjs). The order here is the order the chat reads.
+    sections: [
+      { key: "profile", title: "USER PROFILE", body: identity },
+      { key: "intake", title: "INTAKE QUESTIONNAIRE (their own answers — SELF-REPORTED, may be out of date)", body: intakeLines(intake, profile) },
+      { key: "medications", title: "MEDICATIONS & SUPPLEMENTS", body: meds },
+      { key: "labs", title: "LAB RESULTS — NEWEST READING PER MARKER, MOST RECENTLY DRAWN FIRST (this is the current picture; anything older lives in LAB TRENDS below and is history, not status)", body: labLines(healthData?.labs) },
+      { key: "labTrends", title: "LAB TRENDS (repeat measurements over time, OLDEST → NEWEST — the last value in each series is the current one)", body: labTrendLines(healthData) },
+      { key: "wearableScore", title: "WEARABLE SCORE (calculated from raw values vs their own baseline)", body: wearableScoreLines(healthData?.score?.wearable) },
+      { key: "bloodworkScore", title: "BLOODWORK SCORE (calculated from lab markers vs clinical thresholds)", body: bloodworkScoreLines(healthData?.score?.bloodwork) },
+      { key: "wearableToday", title: "WEARABLE — LATEST DAY (all synced metrics)", body: wearableTodayLines(today) },
+      { key: "wearableRanges", title: "WEARABLE — EACH METRIC vs THEIR OWN RANGE", body: metricRangeLines(healthData?.metrics) },
+      { key: "wearableHistory", title: "WEARABLE — RECENT DAYS", body: wearableHistoryLines(healthData?.history) },
+      { key: "genetics", title: "GENETICS", body: (healthData?.genetics || []).map(geneticLine).join("\n") },
+      { key: "preventive", title: "PREVENTIVE CARE SCHEDULE", body: scheduleLines(userProfile?.schedule, userProfile?.completedItems) },
+      { key: "body", title: "BODY COMPOSITION", body },
+      { key: "documents", title: "UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", body: records },
+      { key: "dailyScore", title: "DAILY SCORE INPUTS", body: scoreLines },
+      { key: "checkIns", title: "MORNING CHECK-INS (SELF-REPORTED daily answers, newest first — patterns across days matter more than any single morning)", body: checkInContextLines(healthData?.checkIns || []) },
+      ...(historyExtra ? [{ key: "history", title: "HEALTH HISTORY (standalone questionnaire)", body: historyExtra }] : []),
+    ],
+  };
+}
+
+/** One section block, as the chat has always read it. */
+export const renderFactSection = ({ title, body }) => section(title, body);
+
+export function buildHealthContext(opts) {
+  const { preamble, sections } = buildFactSections(opts);
+  return `${preamble}
+${sections.map(renderFactSection).join("\n")}`;
 }

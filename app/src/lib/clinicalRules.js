@@ -812,3 +812,32 @@ export function conversationLines(messages = []) {
   }
   return lines.reverse().join("\n");
 }
+
+/**
+ * Last line of the safety review: drop every sentence that still breaks a
+ * clinical rule after the rewrites. Works line by line so headings, bullets and
+ * table rows keep their shape; a bullet or row left with nothing is removed.
+ *
+ * Shared by the browser care team and the agents service (agents/lib/safety.mjs).
+ */
+export function scrubForbidden(text, breaks) {
+  const out = [];
+  for (const line of String(text).split("\n")) {
+    if (!breaks(line)) { out.push(line); continue; }
+    const lead = /^(\s*(?:[-*\u2022]|\d+[.)])\s+)/.exec(line)?.[1] || "";
+    // A sentence that opens with a label ("Vitamin K2 (MK-7): ...") keeps the label,
+    // so the item stays named and the member is told who sets the amount.
+    let kept = line.slice(lead.length)
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => {
+        if (!breaks(sentence)) return sentence;
+        const label = /^((?:\*\*)?[^:.]{1,60}:(?:\*\*)?)\s/.exec(sentence);
+        return label ? `${label[1]} your prescriber sets the amount.` : "";
+      })
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (kept && !breaks(kept) && !/^\|/.test(line)) out.push(lead + kept);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}

@@ -17,7 +17,7 @@
  * to read.
  */
 import { callAI, firstText, firstCitations } from "./api";
-import { violatesForbiddenOutput, hasFunctionalConcern, detectUrgentPatterns, FORBIDDEN_OUTPUT_RULES } from "./clinicalRules";
+import { violatesForbiddenOutput, hasFunctionalConcern, detectUrgentPatterns, scrubForbidden, FORBIDDEN_OUTPUT_RULES } from "./clinicalRules";
 
 // Routing, consults and the huddle are short, structured calls, so a fast model
 // keeps the whole round inside the time a member will watch it. The Advocate's
@@ -77,6 +77,17 @@ export const SPECIALISTS = [
     lens: "eye health: vision changes, diabetic and hypertensive eye risk, glaucoma and retinal screening schedule" },
 ];
 
+/**
+ * The agents service's roster (agents/lib/team.mjs): the four specialists Adam's
+ * Oct 14 build spec names, each with its own brief and its own slice of the record.
+ * Kept apart from SPECIALISTS, which is the browser team's roster and its fallback.
+ */
+export const AGENT_TEAM = [
+  { id: "hormones", label: "Hormone & Thyroid", short: "Hormones", icon: "Flame", color: "#D97706" },
+  { id: "medications", label: "Medication & Interactions", short: "Meds", icon: "Pill", color: "#7C3AED" },
+  { id: "lifestyle", label: "Lifestyle", short: "Lifestyle", icon: "Salad", color: "#16A34A" },
+];
+
 // One line under each name saying what that advocate is for (the role-tagline
 // idea from Microsoft's MAI-DxO virtual panel), so a member watching can tell why
 // each one was brought in.
@@ -97,8 +108,11 @@ const TAGLINES = {
   neurology: "Mood, focus and brain health",
   dermatology: "Skin, hair and nails",
   ophthalmology: "Vision and eye screening",
+  hormones: "Hormones, thyroid and menopause",
+  medications: "Medications, supplements, interactions",
+  lifestyle: "Nutrition, sleep, training and recovery",
 };
-for (const m of [ADVOCATE, SAFETY, ...SPECIALISTS]) m.tagline = TAGLINES[m.id] || "";
+for (const m of [ADVOCATE, SAFETY, ...SPECIALISTS, ...AGENT_TEAM]) m.tagline = TAGLINES[m.id] || "";
 
 // Portraits for the advocates: free-licence Unsplash photos, served from
 // Unsplash's CDN with a face crop. The Safety Review keeps its shield on purpose:
@@ -120,6 +134,9 @@ const PHOTOS = {
   neurology: "1678695972687-033fa0bdbac9",
   dermatology: "1758691462651-611d730c5272",
   ophthalmology: "1758691463582-11aea602cd4a",
+  hormones: "1659353888906-adb3e0041693",
+  medications: "1770134223774-13b735e29201",
+  lifestyle: "1643297654416-05795d62e39c",
 };
 export function photoUrl(id, px) {
   const photo = PHOTOS[id];
@@ -128,7 +145,7 @@ export function photoUrl(id, px) {
     : null;
 }
 
-const BY_ID = Object.fromEntries([ADVOCATE, SAFETY, ...SPECIALISTS].map((m) => [m.id, m]));
+const BY_ID = Object.fromEntries([ADVOCATE, SAFETY, ...SPECIALISTS, ...AGENT_TEAM].map((m) => [m.id, m]));
 export const member = (id) => BY_ID[id] || { id, label: id, short: id, icon: "Stethoscope", color: "#5B6470" };
 
 const MAX_SPECIALISTS = 3;
@@ -246,33 +263,6 @@ Reply with JSON only, 2 to 4 notes in a natural order:
     .slice(0, 4)
     .map((n) => ({ from: n.from, to: n.to, note: clip(n.note, 200) }));
   return { notes, consensus: clip(out.consensus, 180) };
-}
-
-/**
- * Last line of the safety review: drop every sentence that still breaks a
- * clinical rule after the rewrites. Works line by line so headings, bullets and
- * table rows keep their shape; a bullet or row left with nothing is removed.
- */
-function scrubForbidden(text, breaks) {
-  const out = [];
-  for (const line of String(text).split("\n")) {
-    if (!breaks(line)) { out.push(line); continue; }
-    const lead = /^(\s*(?:[-*\u2022]|\d+[.)])\s+)/.exec(line)?.[1] || "";
-    // A sentence that opens with a label ("Vitamin K2 (MK-7): ...") keeps the label,
-    // so the item stays named and the member is told who sets the amount.
-    let kept = line.slice(lead.length)
-      .split(/(?<=[.!?])\s+/)
-      .map((sentence) => {
-        if (!breaks(sentence)) return sentence;
-        const label = /^((?:\*\*)?[^:.]{1,60}:(?:\*\*)?)\s/.exec(sentence);
-        return label ? `${label[1]} your prescriber sets the amount.` : "";
-      })
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    if (kept && !breaks(kept) && !/^\|/.test(line)) out.push(lead + kept);
-  }
-  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /**

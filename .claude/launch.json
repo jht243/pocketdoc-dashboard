@@ -9,6 +9,24 @@
         "cd '/Users/jonathanteplitsky/Desktop/Github Projects/Clients/PocketDoc/app' && exec npm run dev -- --port 5176"
       ],
       "port": 5176
+    },
+    {
+      "name": "agents",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd '/Users/jonathanteplitsky/Desktop/Github Projects/Clients/PocketDoc/app/agents' && AGENTS_PORT=5190 exec node server.mjs"
+      ],
+      "port": 5190
+    },
+    {
+      "name": "app-with-agents",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd '/Users/jonathanteplitsky/Desktop/Github Projects/Clients/PocketDoc/app' && VITE_AGENTS_URL=http://localhost:5190 exec npm run dev -- --port 5177"
+      ],
+      "port": 5177
     }
   ]
 }

@@ -9,6 +9,7 @@ import {
   appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
 } from "../lib/chatStore";
 import { runCareTeam, safetyReview } from "../lib/careTeam";
+import { agentsEnabled, runAgentTeam } from "../lib/agentsClient";
 import { FORBIDDEN_OUTPUT_RULES } from "../lib/clinicalRules";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
 import { RichReply } from "../components/RichReply";
@@ -339,21 +340,46 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
           ? { ...m, content: m.content.filter(c => c.type === "text").map(c => c.text).join("\n") }
           : m))
         .filter(m => m.content);
+      const onEvent = (e) => {
+        live.push(e);
+        patchLive({ team: [...live] });
+      };
+      // The browser team: the fallback when the agents service is off or unreachable.
+      const inBrowser = () => runCareTeam({
+        question: userText,
+        apiMessages: textThread,
+        systemPrompt: healthProfile,
+        healthContext,
+        userProfile,
+        healthData,
+        chatModel: CHAT_MODEL,
+        cleanReply,
+        onEvent,
+      });
+      // My Advocate and the four specialists on the agents service, when it is set
+      // up. A failure there restarts the round in the browser rather than failing
+      // the member's question.
+      const onServer = async () => {
+        try {
+          const out = await runAgentTeam({
+            question: userText,
+            history: textThread.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+            userProfile,
+            healthData,
+            healthHistory,
+            testModeEnabled,
+            onEvent,
+          });
+          return { ...out, reply: cleanReply(out.reply) };
+        } catch (err) {
+          console.warn("Agents service failed; running the care team in the browser", err);
+          live.length = 0;
+          patchLive({ team: [{ type: "route_start", t: 0 }] });
+          return inBrowser();
+        }
+      };
       try {
-        const { reply, citations, events } = await runCareTeam({
-          question: userText,
-          apiMessages: textThread,
-          systemPrompt: healthProfile,
-          healthContext,
-          userProfile,
-          healthData,
-          chatModel: CHAT_MODEL,
-          cleanReply,
-          onEvent: (e) => {
-            live.push(e);
-            patchLive({ team: [...live] });
-          },
-        });
+        const { reply, citations, events } = await (agentsEnabled() ? onServer() : inBrowser());
         const ranked = rankCitations(citations);
         patchLive({ pending: false, text: reply, citations: ranked, team: events });
         if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations: ranked, team: events });
