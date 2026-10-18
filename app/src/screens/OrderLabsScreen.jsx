@@ -147,7 +147,7 @@ function OrderLabsScreen({ setActive, goBack, backLabel, userProfile, healthData
       <div style={{ fontSize: 12, color: COLORS.textMuted, marginBottom: 22 }}>
         A kit ships to you, you collect a small sample from your upper arm, and mail it back
         with the included prepaid label. Once your results arrive, upload the PDF (or a
-        photo of it) under Records and it files itself into your Labs.
+        photo of it) under Records and it files itself into Biology.
       </div>
 
       <SectionLabel>Start here</SectionLabel>
