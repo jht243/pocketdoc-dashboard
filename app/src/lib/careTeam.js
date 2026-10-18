@@ -434,25 +434,35 @@ export function readTeam(events = []) {
     routing: true,
     reason: "",
     plan: [],                // [{id, ask}]
+    // The agents service calls its specialists all at once; the browser team calls
+    // them one after another. The card draws whichever actually happened.
+    parallel: false,
     consults: [],            // [{id, ask, state: working|done, headline, finding, flag}]
+    lastReported: null,      // the specialist whose report landed most recently
     huddle: null,            // {ids, notes: [], consensus, done}
-    draft: null,             // {done, sources}
-    safety: null,            // {done, clean, revised, problem, urgent}
-    active: "advocate",      // who is speaking right now
+    draft: null,             // {done, research, sources, passages}
+    safety: null,            // {done, clean, revised, problem, revising, urgent}
+    active: "advocate",      // who is speaking right now (null while several work at once)
     done: false,
     seconds: null,
   };
+  const working = () => view.consults.filter((c) => c.state === "working");
   for (const e of events) {
     switch (e.type) {
       case "route_start": view.routing = true; view.active = "advocate"; break;
       case "route_done":
-        view.routing = false; view.reason = e.reason; view.plan = e.consult || []; break;
+        view.routing = false; view.reason = e.reason; view.plan = e.consult || []; view.parallel = Boolean(e.parallel); break;
       case "specialist_start":
-        view.stage = "consult"; view.active = e.id;
-        view.consults.push({ id: e.id, ask: e.ask, state: "working" }); break;
+        view.stage = "consult";
+        view.consults.push({ id: e.id, ask: e.ask, state: "working" });
+        view.active = view.parallel ? null : e.id;
+        break;
       case "specialist_done": {
         const c = [...view.consults].reverse().find((x) => x.id === e.id);
         if (c) Object.assign(c, { state: "done", headline: e.headline, finding: e.finding, flag: e.flag, failed: e.failed });
+        view.lastReported = e.id;
+        // In parallel, the baton rests on whoever just reported until the next one does.
+        if (view.parallel) view.active = working().length ? null : e.id;
         break;
       }
       case "huddle_start":
@@ -463,10 +473,15 @@ export function readTeam(events = []) {
         break;
       case "huddle_done":
         if (view.huddle) { view.huddle.done = true; view.huddle.consensus = e.consensus; } break;
-      case "draft_start": view.stage = "draft"; view.active = "advocate"; view.draft = { done: false }; break;
-      case "draft_done": if (view.draft) Object.assign(view.draft, { done: true, sources: e.sources }); break;
+      case "draft_start":
+        view.stage = "draft"; view.active = "advocate";
+        // Older stored turns carry no flag; they came from the browser team, which researches live.
+        view.draft = { done: false, research: e.research !== false }; break;
+      case "draft_done": if (view.draft) Object.assign(view.draft, { done: true, sources: e.sources, passages: e.passages || 0 }); break;
       case "safety_start": view.stage = "safety"; view.active = "safety"; view.safety = { done: false }; break;
       case "safety_flag": if (view.safety) view.safety.problem = e.problem; break;
+      case "revise_start": if (view.safety) { view.safety.revising = true; view.safety.sentBack = true; view.active = "advocate"; } break;
+      case "revise_done": if (view.safety) { view.safety.revising = false; view.active = "safety"; } break;
       case "safety_done": if (view.safety) Object.assign(view.safety, { done: true, clean: e.clean, revised: e.revised, urgent: e.urgent || [] }); break;
       case "answer": view.stage = "done"; view.done = true; view.active = null; view.seconds = e.seconds; break;
       default: break;

@@ -98,19 +98,19 @@ function Typed({ text, animate, onGrow }) {
 /* ---------------- the reveal queue ---------------- */
 
 /**
- * The team's events land at model speed, which is uneven: a consult can return in
- * under a second and the next in eight. Revealing them through a queue with a
- * minimum dwell keeps one voice on screen long enough to read, which is the
- * "one advocate at a time" behaviour agreed on the Oct 7 call. Stored turns skip
- * the queue entirely.
+ * The card shows each agent when it is really called and when it really reports.
+ * The queue only spaces out reports that land within a moment of each other, so
+ * two findings arriving together are read one at a time (the Oct 7 "one voice at
+ * a time" agreement) without ever showing an agent as working after it has
+ * finished. A call starting is never held back. Stored turns skip the queue.
  */
 function dwell(e) {
-  if (!e) return 600;
-  if (e.type === "specialist_done") return Math.min(4200, 900 + (e.finding || "").length * 9);
-  if (e.type === "huddle_note") return Math.min(3200, 800 + (e.note || "").length * 14);
-  if (e.type === "route_done") return 1800;
-  if (e.type === "specialist_start") return 1300;
-  return 900;
+  if (!e) return 0;
+  if (e.type === "specialist_start") return 0;
+  if (e.type === "specialist_done") return Math.min(1400, 500 + (e.finding || "").length * 3);
+  if (e.type === "huddle_note") return Math.min(1200, 400 + (e.note || "").length * 5);
+  if (e.type === "route_done") return 700;
+  return 250;
 }
 
 function useReveal(events, animate, onGrow) {
@@ -157,7 +157,7 @@ function RosterRail({ view }) {
       <div style={{ position: "relative", display: "flex" }}>
         {ids.map((id) => {
           const s = stateOf(id);
-          const on = id === view.active;
+          const on = id === view.active || (view.parallel && view.stage === "consult" && s === "working");
           const m = member(id);
           return (
             <div key={id} style={{
@@ -193,6 +193,13 @@ function RosterRail({ view }) {
 function statusLine(view) {
   if (view.routing) return "My Advocate is reading your question and your chart";
   if (view.stage === "route") return `My Advocate is bringing in ${view.plan.length} specialist${view.plan.length === 1 ? "" : "s"}`;
+  if (view.stage === "consult" && view.parallel) {
+    const waiting = view.consults.filter((c) => c.state === "working");
+    const names = (list) => list.map((c) => member(c.id).label).join(list.length > 2 ? ", " : " and ").replace(/, ([^,]*)$/, " and $1");
+    if (waiting.length === view.consults.length) return `Consulting ${names(waiting)} at once`;
+    if (waiting.length) return `${member(view.lastReported).label} reported back, waiting on ${names(waiting)}`;
+    return "Every specialist has reported back";
+  }
   if (view.stage === "consult") {
     const c = view.consults[view.consults.length - 1];
     return c?.state === "working"
@@ -200,8 +207,10 @@ function statusLine(view) {
       : `${member(c.id).label} reported back`;
   }
   if (view.stage === "huddle") return view.huddle?.done ? "The team agreed on what matters most" : "The specialists are comparing notes";
-  if (view.stage === "draft") return view.draft?.done ? "Answer drafted" : "My Advocate is writing your answer with live research";
-  if (view.stage === "safety") return view.safety?.done ? "Safety review complete" : "Checking the answer against clinical safety rules";
+  if (view.stage === "draft") return view.draft?.done ? "Answer drafted"
+    : view.draft?.research ? "My Advocate is writing your answer with live research" : "My Advocate is writing your answer from your team's findings";
+  if (view.stage === "safety") return view.safety?.done ? "Safety review complete"
+    : view.safety?.revising ? "Safety Review sent the answer back. My Advocate is fixing it" : "Checking the answer against clinical safety rules";
   if (view.done) return "Your answer is ready";
   return "";
 }
@@ -380,7 +389,8 @@ function Timeline({ view, animate, onGrow }) {
   );
 
   view.consults.forEach((c, i) => {
-    const latest = i === view.consults.length - 1 && !view.huddle && !view.draft;
+    const newest = view.parallel ? c.id === view.lastReported : i === view.consults.length - 1;
+    const latest = newest && !view.huddle && !view.draft;
     rows.push(
       <ConsultRow
         key={`c${i}`} c={c} animate={animate} onGrow={onGrow}
@@ -406,8 +416,12 @@ function Timeline({ view, animate, onGrow }) {
           <Name id="advocate" />
           <div style={{ marginTop: 2, color: COLORS.textPrimary }}>
             {view.draft.done
-              ? `Wrote your answer${view.draft.sources ? `, checking ${view.draft.sources} live source${view.draft.sources === 1 ? "" : "s"}` : ""}`
-              : <>Writing your answer with live research <Dots /></>}
+              ? view.draft.research
+                ? `Wrote your answer${view.draft.sources ? `, checking ${view.draft.sources} live source${view.draft.sources === 1 ? "" : "s"}` : ""}`
+                : `Wrote your answer from your record and your team's findings${view.draft.passages ? `, citing ${view.draft.passages} library passage${view.draft.passages === 1 ? "" : "s"}` : ""}`
+              : view.draft.research
+                ? <>Writing your answer with live research <Dots /></>
+                : <>Writing your answer from your team's findings <Dots /></>}
           </div>
         </div>
       </Row>
@@ -421,11 +435,17 @@ function Timeline({ view, animate, onGrow }) {
         <div style={{ fontSize: 12, lineHeight: 1.45, color: COLORS.textSecondary }}>
           <Name id="safety" />
           <div style={{ marginTop: 2, color: COLORS.textPrimary, display: "flex", gap: 5, alignItems: "flex-start" }}>
-            {!s.done && <>Checking every line against clinical safety rules <Dots /></>}
-            {s.done && s.revised && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Caught wording that crossed a safety rule and sent it back to My Advocate to fix.</>}
+            {!s.done && !s.revising && <>Checking every line against clinical safety rules <Dots /></>}
+            {!s.done && s.revising && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} /><span>Sent the answer back to My Advocate to fix <Dots /></span></>}
+            {/* Says who fixed it: the Advocate (the fact-checker sent it back) or the rules in code. Older stored turns have no sentBack flag and keep the original wording. */}
+            {s.done && s.revised && (s.sentBack || s.sentBack === undefined && !view.parallel) && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Caught wording that crossed a safety rule and sent it back to My Advocate to fix.</>}
+            {s.done && s.revised && !s.sentBack && view.parallel && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Caught wording that crossed a safety rule and rewrote it before you saw it.</>}
             {s.done && !s.revised && s.clean && <><ShieldCheck size={14} color={COLORS.good} style={{ flexShrink: 0, marginTop: 1 }} />Passed: no diagnoses, no prescriptions, grounded in your data.</>}
             {s.done && !s.revised && !s.clean && <><ShieldAlert size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />Flagged for caution. Confirm with your clinician.</>}
           </div>
+          {s.problem && (s.revising || s.revised) && (
+            <div style={{ marginTop: 3, fontSize: 11, color: COLORS.textMuted, lineHeight: 1.4 }}>Caught: {s.problem}</div>
+          )}
           {s.done && s.urgent?.length > 0 && (
             <div style={{ marginTop: 4, fontSize: 11.5, color: COLORS.danger, fontWeight: 600 }}>
               Needs prompt attention: {s.urgent.join("; ")}

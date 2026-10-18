@@ -18,9 +18,11 @@ const facts = {
 };
 
 // A stand-in for OpenAI that answers by which agent is calling.
-function stubModel({ composeText }) {
+function stubModel({ composeText, delay = {} }) {
   const calls = [];
   globalThis.fetch = async (url, init) => {
+    const ms = Object.entries(delay).find(([k]) => JSON.parse(init.body).messages[0].content.includes(k))?.[1];
+    if (ms) await new Promise((r) => setTimeout(r, ms));
     const body = JSON.parse(init.body);
     const system = body.messages[0].content;
     const user = body.messages.at(-1).content;
@@ -55,9 +57,10 @@ test('a round emits the CareTeam.jsx event contract in order', async () => {
   assert.deepEqual(types.slice(0, 2), ['route_start', 'route_done']);
   // The router picked bloodwork; "supplement" forces the medication specialist in too.
   assert.deepEqual(events[1].consult.map((c) => c.id), ['bloodwork', 'medications']);
-  // One voice at a time on screen: start, done, start, done.
-  assert.deepEqual(types.slice(2, 6), ['specialist_start', 'specialist_done', 'specialist_start', 'specialist_done']);
-  assert.equal(events[3].headline, 'Vitamin D is 74, not low');
+  // Both specialists are called at once, and each reports when it is actually done.
+  assert.deepEqual(types.slice(2, 6), ['specialist_start', 'specialist_start', 'specialist_done', 'specialist_done']);
+  assert.equal(events[4].headline, 'Vitamin D is 74, not low');
+  assert.equal(events[1].parallel, true);
   assert.ok(types.includes('huddle_note'));
   assert.deepEqual(types.slice(-6), ['huddle_done', 'draft_start', 'draft_done', 'safety_start', 'safety_done', 'answer']);
   assert.ok(events.every((e) => typeof e.t === 'number'));
@@ -118,4 +121,21 @@ test('a specialist reply that is only the screen block still counts as a report'
   const done = events.find((e) => e.type === 'specialist_done');
   assert.equal(done.failed, undefined);
   assert.equal(done.headline, 'HRV a little low');
+});
+
+test('specialists report in the order they finish, not the order they were called', async () => {
+  // Bloodwork is asked first but takes longest; Medication must report before it.
+  stubModel({ composeText: 'Your newest vitamin D is 74 ng/mL.', delay: { 'Agent: Bloodwork': 60 } });
+  const events = [];
+  await runQuestion({ question: 'Is my vitamin D supplement working?', facts, healthData: {}, run: { ledger: [] } }, (e) => events.push(e));
+  const starts = events.filter((e) => e.type === 'specialist_start').map((e) => e.id);
+  const dones = events.filter((e) => e.type === 'specialist_done').map((e) => e.id);
+  assert.deepEqual(starts, ['bloodwork', 'medications']);
+  assert.deepEqual(dones, ['medications', 'bloodwork']);
+  // Both starts went out together, before either report.
+  const lastStart = events.findLastIndex((e) => e.type === 'specialist_start');
+  const firstDone = events.findIndex((e) => e.type === 'specialist_done');
+  assert.ok(lastStart < firstDone);
+  // The draft says what it really used: no web research.
+  assert.equal(events.find((e) => e.type === 'draft_start').research, false);
 });

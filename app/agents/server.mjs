@@ -73,7 +73,12 @@ const server = http.createServer(async (req, res) => {
     if (!Array.isArray(body.facts?.sections)) return json(res, 400, { error: 'The record (facts.sections) is missing.' });
 
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' });
-    const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+    // AGENTS_LOG_EVENTS=1 prints every event with its time, to check the card against the real calls.
+    const logEvents = env('AGENTS_LOG_EVENTS') === '1';
+    const send = (o) => {
+      if (logEvents && o.t != null) console.log(`  ${String(o.t).padStart(6)}ms  ${o.type}${o.id ? ` ${o.id}` : o.from ? ` ${o.from}→${o.to}` : ''}`);
+      res.write(`data: ${JSON.stringify(o)}\n\n`);
+    };
     // A comment line every 15s keeps proxies from closing a quiet stream mid-round.
     const beat = setInterval(() => res.write(': keep-alive\n\n'), 15000);
     const run = { auth: who.auth, ledger: [] };

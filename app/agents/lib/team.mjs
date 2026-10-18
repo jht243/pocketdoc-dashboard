@@ -260,68 +260,79 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   // 2. Route.
   emit({ type: 'route_start' });
   const plan = await route({ question, recent, facts, run });
-  emit({ type: 'route_done', reason: plan.reason, consult: plan.consult });
+  // `parallel` tells the card the specialists are called together, not in turn.
+  emit({ type: 'route_done', reason: plan.reason, consult: plan.consult, parallel: true });
 
-  // 3. Research, all at once. The events go out one specialist at a time, in the
-  // Advocate's order, because the member watches one voice at a time; the work
-  // itself is parallel, so the round takes as long as the slowest read, not the sum.
-  const jobs = plan.consult.map((c) => research({ id: c.id, ask: c.ask, question, facts, run })
-    .then((r) => ({ ok: true, ...r }), (err) => { console.log(`[research:${c.id}] failed: ${err.message}`); return { ok: false }; }));
+  // 3. Research. Every event goes out the moment its call starts or returns: all
+  // the specialists are called at once, and each reports when it is actually done,
+  // in whatever order that is. The card draws exactly this, nothing staged.
   const reads = {};
   const sources = [];
-  for (let i = 0; i < plan.consult.length; i++) {
-    const { id, ask } = plan.consult[i];
-    emit({ type: 'specialist_start', id, ask });
-    const r = await jobs[i];
-    if (r.ok && r.read) {
+  for (const { id, ask } of plan.consult) emit({ type: 'specialist_start', id, ask });
+  await Promise.all(plan.consult.map(async ({ id, ask }) => {
+    try {
+      const r = await research({ id, ask, question, facts, run });
+      if (!r.read) throw new Error('empty report');
       reads[id] = r.read;
       sources.push(...r.sources.map((s) => ({ ...s, readBy: id })));
-      emit({ type: 'specialist_done', id, headline: r.headline, finding: r.finding, flag: r.flag });
-    } else {
+      emit({ type: 'specialist_done', id, headline: r.headline, finding: r.finding, flag: r.flag, passages: r.sources.length });
+    } catch (err) {
+      console.log(`[research:${id}] failed: ${err.message}`);
       emit({ type: 'specialist_done', id, headline: "Couldn't report this time", finding: '', flag: 'ok', failed: true });
     }
-  }
-  if (!Object.keys(reads).length) throw new Error('No specialist could report. Please try again.');
+  }));
+  // Reads keep the Advocate's order, whatever order they finished in.
+  const ordered = Object.fromEntries(plan.consult.filter((c) => reads[c.id]).map((c) => [c.id, reads[c.id]]));
+  if (!Object.keys(ordered).length) throw new Error('No specialist could report. Please try again.');
 
-  // 4. Huddle: with two or more voices, each sends one note to a colleague.
+  // 4. Huddle: with two or more voices, each sends one note, shown as it arrives.
   let notes = [];
   let consensus = '';
-  const ids = Object.keys(reads);
+  const ids = Object.keys(ordered);
   if (ids.length > 1) {
     emit({ type: 'huddle_start', ids });
-    notes = (await Promise.all(ids.map((id) => confer({ id, reads, run }).catch((err) => { console.log(`[huddle:${id}] failed: ${err.message}`); return null; })))).filter(Boolean);
-    for (const n of notes) emit({ type: 'huddle_note', ...n });
+    await Promise.all(ids.map(async (id) => {
+      try {
+        const n = await confer({ id, reads: ordered, run });
+        if (n) { notes.push(n); emit({ type: 'huddle_note', ...n }); }
+      } catch (err) {
+        console.log(`[huddle:${id}] failed: ${err.message}`);
+      }
+    }));
     consensus = await consensusOf({ notes, run }).catch(() => '');
     emit({ type: 'huddle_done', consensus });
   }
 
-  // 5. Compose.
-  emit({ type: 'draft_start' });
-  let reply = await compose({ question, recent, facts, reads, notes, consensus, pre, run });
-  emit({ type: 'draft_done', sources: sources.length });
+  // 5. Compose, from the member's record and the library (no web research).
+  const realTitles = [...new Set(sources.map((s) => s.title))];
+  emit({ type: 'draft_start', research: false });
+  let reply = await compose({ question, recent, facts, reads: ordered, notes, consensus, pre, run });
+  reply = scrubInventedCitations(reply, realTitles);
+  emit({ type: 'draft_done', sources: 0, passages: realTitles.length });
 
-  // 6. Safety: the fact-checker, one revision if it flags, then the code rules.
+  // 6. Safety: the fact-checker, one revision by the Advocate if it flags, then the
+  // code rules. Each of those is its own event, so the card shows a revision only
+  // when one really happened.
   emit({ type: 'safety_start' });
   let revised = false;
-  const realTitles = sources.map((s) => s.title);
-  reply = scrubInventedCitations(reply, realTitles);
-  const check = await factCheck({ answer: reply, facts, reads, sources, run }).catch((err) => {
+  const check = await factCheck({ answer: reply, facts, reads: ordered, sources, run }).catch((err) => {
     console.log(`[safety:check] failed: ${err.message}`);
     return { clean: true, flags: '' };
   });
   if (!check.clean) {
-    emit({ type: 'safety_flag', problem: clip(check.flags.split('\n').find((l) => l.trim()) || check.flags, 160) });
-    const fixed = await revise({ answer: reply, flags: check.flags, facts, reads, run }).catch(() => '');
+    emit({ type: 'safety_flag', problem: clip((check.flags.split('\n').find((l) => l.trim()) || check.flags).replace(/^[-*\s]*[A-Z]+(?:-\d+)?:\s*/, ''), 160), by: 'fact-check' });
+    emit({ type: 'revise_start' });
+    const fixed = await revise({ answer: reply, flags: check.flags, facts, reads: ordered, run }).catch(() => '');
     if (fixed) { reply = scrubInventedCitations(fixed, realTitles); revised = true; }
+    emit({ type: 'revise_done', revised: Boolean(fixed) });
   }
-  const enforced = await enforce({ reply, healthData, run, onFlag: (problem) => emit({ type: 'safety_flag', problem }) });
+  const enforced = await enforce({ reply, healthData, run, onFlag: (problem) => emit({ type: 'safety_flag', problem, by: 'rules' }) });
   emit({
     type: 'safety_done',
     clean: enforced.clean,
     revised: revised || enforced.revised,
     scrubbed: enforced.scrubbed,
     urgent: pre.urgent,
-    factCheck: check.clean ? 'clean' : check.flags,
   });
 
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
