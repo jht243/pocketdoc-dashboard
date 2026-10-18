@@ -5,8 +5,10 @@
 //   3. research  every specialist reads ITS slice of the record and ITS library
 //                sections, independently and in parallel (smart tier)
 //   4. huddle    each specialist reads the others' findings and sends one note (cheap)
-//   5. compose   the Advocate writes the one answer the member reads (smart)
-//   6. safety    the fact-checker brief audits it against the record; one revision if
+//   5. lanes     code: every marker on file is matched against the escalation matrix
+//                (spec #25) and gets its lane; the model is handed the cards, never asked
+//   6. compose   the Advocate writes the one answer the member reads (smart)
+//   7. safety    the fact-checker brief audits it against the record; one revision if
 //                flagged; then the forbidden-output rules run as code (rewrite, then cut)
 //
 // Every step is reported as an event the moment it happens. The event names and
@@ -16,6 +18,7 @@ import { complete, parseJson } from './llm.mjs';
 import { systemFor } from './config.mjs';
 import { searchReference, knowledgeBlock, scrubInventedCitations } from './knowledge.mjs';
 import { precheck, enforce } from './safety.mjs';
+import { lanesFor, laneBlock, emergencyFor, emergencyMessage } from './escalation.mjs';
 import { URGENCY_RULES } from '../../src/lib/clinicalRules.js';
 
 /**
@@ -186,7 +189,7 @@ async function consensusOf({ notes, run }) {
   return clip(raw.replace(/^["']|["']$/g, ''), 180);
 }
 
-/* ---------------- 5–6. compose and check ---------------- */
+/* ---------------- 6–7. compose and check ---------------- */
 
 const NAMES = { bloodwork: 'Bloodwork', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', lifestyle: 'Lifestyle' };
 
@@ -198,13 +201,14 @@ ${Object.entries(reads).map(([id, r]) => `### ${NAMES[id] || id}\n${r}`).join('\
 ${notes.length ? `\n## Huddle notes\n${notes.map((n) => `- ${n.from} → ${n.to}: ${n.note}`).join('\n')}` : ''}${consensus ? `\nConsensus: ${consensus}` : ''}`;
 }
 
-async function compose({ question, recent, facts, reads, notes, consensus, pre, run }) {
+async function compose({ question, recent, facts, reads, notes, consensus, pre, lanes, run }) {
+  const routed = laneBlock(lanes);
   const urgent = pre.lines.length ? `\n\n## Safety pre-check: URGENT\n${pre.lines.join('\n')}\n\n${URGENCY_RULES}` : '';
   return complete({
     system: systemFor('advocate-answer'),
     messages: [
       ...recent,
-      { role: 'user', content: `${factsFor(facts, ['profile', 'medications', 'labs'])}\n\n${findingsText(reads, notes, consensus)}${urgent}\n\n## The member's question\n"${question}"\n\nWrite your answer to the member now.` },
+      { role: 'user', content: `${factsFor(facts, ['profile', 'medications', 'labs'])}\n\n${findingsText(reads, notes, consensus)}${routed ? `\n\n${routed}` : ''}${urgent}\n\n## The member's question\n"${question}"\n\nWrite your answer to the member now.` },
     ],
     tier: 'smart', maxTokens: 1400, temperature: 0.3, label: 'compose', run,
   });
@@ -238,7 +242,7 @@ async function revise({ answer, flags, facts, reads, run }) {
  * @param {string}   o.question
  * @param {Array}    o.history     prior turns, [{role, content}] (string content)
  * @param {object}   o.facts       { preamble, sections: [{key, title, body}] } from buildFactSections
- * @param {object}   o.healthData  { labs, score: { bloodwork: { markers } } } for the code checks
+ * @param {object}   o.healthData  { labs, sex, score: { bloodwork: { markers } } } for the code checks and lanes
  * @param {object}   o.run         { auth, ledger }
  * @param {Function} send          receives each event
  */
@@ -256,6 +260,20 @@ export async function runQuestion({ question, history = [], facts, healthData, r
     emit({ type: 'answer', seconds: 0 });
     return { reply: "I'm really glad you told me. If you're thinking about harming yourself, please call or text **988** (the Suicide & Crisis Lifeline) right now, or go to your nearest emergency room. You don't have to go through this alone, and I'm here to keep talking with you.", sources: [] };
   }
+
+  // Spec #25 Section 9: a fresh emergency value bypasses the lanes and the agents.
+  // The member gets the hard-coded message, written in code, not a composed answer.
+  const emergency = emergencyFor(healthData?.labs);
+  const act = emergency.filter((h) => h.fresh);
+  if (act.length) {
+    emit({ type: 'safety_start' });
+    emit({ type: 'safety_done', clean: true, revised: false, scrubbed: false, urgent: act.map((h) => `${h.name} ${h.shown}`), emergency: act });
+    emit({ type: 'answer', seconds: 0 });
+    return { reply: emergencyMessage(act), sources: [], emergency: act, lanes: [] };
+  }
+
+  // The lanes, in code, before any model: they depend only on the record.
+  const lanes = lanesFor(healthData?.labs, { sex: healthData?.sex });
 
   // 2. Route.
   emit({ type: 'route_start' });
@@ -295,12 +313,12 @@ export async function runQuestion({ question, history = [], facts, healthData, r
     emit({ type: 'huddle_done', consensus });
   }
 
-  // 5. Compose.
+  // 5–6. Compose, handed the lane cards from step 5.
   emit({ type: 'draft_start' });
-  let reply = await compose({ question, recent, facts, reads, notes, consensus, pre, run });
+  let reply = await compose({ question, recent, facts, reads, notes, consensus, pre, lanes, run });
   emit({ type: 'draft_done', sources: sources.length });
 
-  // 6. Safety: the fact-checker, one revision if it flags, then the code rules.
+  // 7. Safety: the fact-checker, one revision if it flags, then the code rules.
   emit({ type: 'safety_start' });
   let revised = false;
   const realTitles = sources.map((s) => s.title);
@@ -325,7 +343,7 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   });
 
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
-  return { reply: enforced.reply, sources: dedupeSources(sources) };
+  return { reply: enforced.reply, sources: dedupeSources(sources), lanes };
 }
 
 function dedupeSources(sources) {

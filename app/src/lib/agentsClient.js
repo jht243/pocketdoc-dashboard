@@ -36,8 +36,9 @@ export async function runAgentTeam({ question, history, userProfile, healthData,
   // The record, assembled here from what RLS already let this member read, in keyed
   // sections so each specialist is handed only its own slice.
   const facts = buildFactSections({ userProfile, healthData, healthHistory, testModeEnabled });
-  // The code safety checks read structured values, not text.
-  const slim = { labs: healthData?.labs || [], score: { bloodwork: { markers: healthData?.score?.bloodwork?.markers || [] } } };
+  // The code safety checks and the routing lanes read structured values, not text.
+  // Sex picks the sex-specific thresholds (ferritin, HDL, creatinine).
+  const slim = { labs: healthData?.labs || [], sex: userProfile?.profile?.sex || null, score: { bloodwork: { markers: healthData?.score?.bloodwork?.markers || [] } } };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ROUND_TIMEOUT_MS);

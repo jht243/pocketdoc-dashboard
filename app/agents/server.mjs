@@ -78,14 +78,14 @@ const server = http.createServer(async (req, res) => {
     const beat = setInterval(() => res.write(': keep-alive\n\n'), 15000);
     const run = { auth: who.auth, ledger: [] };
     try {
-      const { reply, sources } = await runQuestion({
+      const { reply, sources, lanes } = await runQuestion({
         question,
         history: Array.isArray(body.history) ? body.history : [],
         facts: body.facts,
         healthData: body.healthData || {},
         run,
       }, send);
-      send({ type: 'reply', text: reply, sources });
+      send({ type: 'reply', text: reply, sources, lanes });
       const usd = costOf(run.ledger);
       send({ type: 'cost', calls: run.ledger.length, tokensIn: run.ledger.reduce((a, r) => a + r.in, 0), tokensOut: run.ledger.reduce((a, r) => a + r.out, 0), usd: +usd.toFixed(4) });
       console.log(`[$${usd.toFixed(3)}] ${who.user.id.slice(0, 8)} ${run.ledger.length} calls: ${question.slice(0, 80)}`);

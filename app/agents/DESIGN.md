@@ -35,6 +35,11 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
    - the `SUMMARY_ASK` closing block
 4. **Huddle, in parallel.** Each specialist sees the others' findings and writes three or fewer bullets: agree, conflict or revise. The current care-team UI already draws this.
 5. **Routing lanes (code + data).** Each finding is matched against the escalation matrix (spec #25) and becomes either "You can act on this" or "Bring this to your provider". Matching is deterministic, like Monitus playbooks.
+   - Built in `lib/escalation.mjs`. The newest reading of each matrix marker gets a lane card (`self`, or `provider` at level `flag` or `immediate`). Provider rules run in matrix order, first match wins; `lab_high`/`lab_low` read the range on the member's report; sex-specific rules use the profile's sex (unknown sex: the lower threshold applies, and the card says so).
+   - A value is compared only in the matrix's unit. Spellings of one unit match ("K/uL" = "x10^9/L"); nothing is converted. Lp(a) routes to the provider in any unit, but its mg/dL threshold is applied only to mg/dL.
+   - eGFR's trend rule needs the previous draw date, in the same unit, to be higher.
+   - Section 9 overrides (`emergencyFor`) run before routing. A hit drawn within 90 days skips the agents and returns a hard-coded message; older ones are left to the urgency pre-check's recheck.
+   - The `conditions` (ESC-02 to ESC-05) are text and travel on each card as context; code does not evaluate them yet.
 6. **Compose.** The Advocate drafts from all findings, the huddle notes and the lane cards.
 7. **Safety check.** The Fact-Checker brief and the code rules check:
    - doses
@@ -101,6 +106,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 | `briefs/` | Who each agent is: `shared/rules.md`, `advocate`, `advocate-answer`, `bloodwork`, `hormones`, `medications`, `lifestyle`, `safety` |
 | `lib/team.mjs` | The roster (facts slice + library sections per agent) and the pipeline |
 | `lib/safety.mjs` | Code checks before and after the model, from `src/lib/clinicalRules.js` |
+| `lib/escalation.mjs` | Step 5: lab names → matrix markers, one lane card per marker, Section 9 emergency overrides, and the block compose reads |
 | `lib/knowledge.mjs` | Library search: keyword overlap weighted by rarity, title words count double |
 | `library/` | Step 2: 179 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All awaiting medical-director approval. `npm run library:readme` rebuilds the README |
 | `lib/llm.mjs` | Model calls and the per-question cost ledger |
