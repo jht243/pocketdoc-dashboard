@@ -788,7 +788,10 @@ const FORBIDDEN = [
   // the question to bring, not the answer.
   { id: "treatment_conclusion", re: /(?<!\b(?:whether|if|unless)\b[^.]{0,40})\b(?:supplementation|supplements?|treatment|medication|therapy|replacement|an? (?:iron|vitamin [a-z0-9]+|magnesium|b12|zinc|omega-3) (?:supplement|infusion|injection))\s+(?:is|are|would be|will be)\s+(?:necessary|needed|required|essential|warranted|indicated)\b/i,
     why: "a treatment conclusion" },
-  { id: "treatment_instruction", re: /\byou (?:need to|must|should|have to|ought to) (?:take|start|begin|be on|go on|add)\b(?![^.]{0,60}\bto (?:your|the|an?) (?:provider|doctor|clinician|appointment|visit))[^.]{0,40}\b(?:supplement|vitamin|iron|ferrous|magnesium|zinc|omega|fish oil|d3|b12|folate|methylfolate|statin|metformin|testosterone|trt|hormone|estradiol|progesterone|thyroid|levothyroxine|peptide|medication)/i,
+  // "You should take your vitamin D with food" is timing advice about something the
+  // member already takes, which the medications agent exists to give: the "your" and
+  // the how/when words keep it out of this rule.
+  { id: "treatment_instruction", re: /\byou (?:need to|must|should|have to|ought to) (?:(?:start|begin|be on|go on|add)\b|take\b(?![^.]{0,60}\b(?:with (?:food|a meal|meals|breakfast|lunch|dinner|water)|on an empty stomach|in the morning|at night|before bed|at bedtime|at the same time|hours? (?:before|after|apart)|apart from|separately from)\b))(?![^.]{0,60}\bto (?:your|the|an?) (?:provider|doctor|clinician|appointment|visit))(?:(?!\byour\s)[^.]){0,40}\b(?:supplement|vitamin|iron|ferrous|magnesium|zinc|omega|fish oil|d3|b12|folate|methylfolate|statin|metformin|testosterone|trt|hormone|estradiol|progesterone|thyroid|levothyroxine|peptide|medication)/i,
     why: "a treatment conclusion" },
   { id: "treatment_imperative", re: /(?:^|[.!?]\s+|\n)\s*(?:(?:[-*•]|\d+\.)\s*)?(?:start|begin) (?:taking|on|supplementing)\b[^.]{0,40}\b(?:supplement|vitamin|iron|magnesium|zinc|omega|fish oil|d3|b12|folate|statin|metformin|testosterone|hormone|peptide|medication)/i,
     why: "a treatment conclusion" },

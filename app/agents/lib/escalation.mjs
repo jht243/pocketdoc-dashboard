@@ -390,7 +390,9 @@ export function emergencyMessage(hits) {
     parts.push(`${today.length ? '**Also worth a visit this week:**' : `**${week.length > 1 ? 'Some of your results need' : 'One of your results needs'} a provider visit this week.**`}\n\n${list(week)}\n\nPlease book a visit with your provider this week to have ${week.length > 1 ? 'them' : 'it'} reviewed.`);
   }
   parts.push(redFlags);
-  parts.push('Take these results with you, and ask for them to be reviewed and repeated.');
+  parts.push(hits.length > 1
+    ? 'Take these results with you, and ask for them to be reviewed and repeated.'
+    : 'Take this result with you, and ask for it to be reviewed and repeated.');
   return parts.join('\n\n');
 }
 

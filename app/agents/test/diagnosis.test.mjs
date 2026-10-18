@@ -70,6 +70,10 @@ test('a treatment conclusion is caught', () => {
     'Vitamin D3 is the form most often discussed for low levels; your provider can tell you if it fits.',
     'You should take your supplement list to your provider so they can check interactions.',
     'You need to retest ferritin in about three months.',
+    // Timing advice about something the member already takes.
+    'You should take your vitamin D with a meal that has some fat in it.',
+    'You should take magnesium at night, a couple of hours apart from your levothyroxine.',
+    'You need to take your iron on an empty stomach, or with vitamin C.',
   ];
   for (const t of caught) assert.equal(violatesForbiddenOutput(t), 'a treatment conclusion', t);
   for (const t of allowed) assert.equal(violatesForbiddenOutput(t), null, t);

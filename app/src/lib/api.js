@@ -123,7 +123,7 @@ function toOpenAIMessage(message) {
  * @param {string}   opts.system     system prompt
  * @param {Array}    opts.messages   Anthropic-shaped message array
  * @param {number}  [opts.maxTokens]
- * @param {boolean} [opts.webSearch] run the request with live web research + citations
+ * @param {boolean} [opts.webSearch] live web research; off for health answers since Oct 19 2026
  * @param {boolean} [opts.pdf]       accepted for call-site compatibility; unused (PDFs are auto-handled)
  * @returns {Promise<object>} raw OpenAI response body
  */

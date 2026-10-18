@@ -56,6 +56,8 @@ function BrowseSupplementsScreen({ setActive, goBack, backLabel }) {
         Live from Amazon. Prices and availability update in real time.
       </div>
 
+      <StoreDisclosure style={{ marginBottom: 18 }} />
+
       {/* Category chips */}
       <div style={{ display: "flex", gap: 6, marginBottom: 18, overflowX: "auto", paddingBottom: 4 }}>
         {CATEGORIES.map((c) => (
@@ -120,7 +122,6 @@ function BrowseSupplementsScreen({ setActive, goBack, backLabel }) {
         </Card>
       )}
 
-      <StoreDisclosure style={{ marginTop: 16 }} />
     </div>
   );
 }
