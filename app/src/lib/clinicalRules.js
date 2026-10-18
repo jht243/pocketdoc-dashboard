@@ -106,7 +106,7 @@ export const CLINICAL_ANALYSIS_RULES = `HOW YOU ANALYSE (these rules govern ever
  * `violatesForbiddenOutput` on the way back.
  */
 export const FORBIDDEN_OUTPUT_RULES = `NEVER WRITE ANY OF THESE, however the data looks:
-- "You have [condition]" or any other diagnosis phrasing.
+- "You have [condition]" or any other diagnosis phrasing, including a result that "shows", "confirms" or "indicates" a condition, or a condition called "active" or "ongoing". Describe the pattern and what it is consistent with instead.
 - "Your results are normal" when the value sits in the lab range but the functional range or the trend says otherwise.
 - "Nothing to worry about" as reassurance when the data warrants attention.
 - "Just talk to your doctor" as the whole answer. Always say what to raise and why.
@@ -702,6 +702,16 @@ const FORBIDDEN = [
   { id: "diagnosis_state", re: /\byou are (?:diabetic|pre-?diabetic|hypothyroid|hyperthyroid|an(?:a)?emic|insulin[- ]resistant)\b/i,
     why: "diagnosis language" },
   { id: "diagnosis_results", re: /\b(?:results?|labs?|bloodwork|panel)\b[^.]{0,25}\b(?:indicate|show|confirm|mean)s?\b[^.]{0,30}\byou have\b/i,
+    why: "diagnosis language" },
+  // A result that "shows" or "confirms" a condition is a diagnosis without the words
+  // "you have" ("your antibodies show active Hashimoto's"). "Consistent with" and
+  // "suggests" stay allowed: rule 1 asks for exactly that hedged pattern language.
+  // A test that "shows whether" or screens "for" a condition is not a claim.
+  { id: "diagnosis_asserted", re: new RegExp(`\\b(?:shows?|showing|confirms?|confirming|indicates?|indicating|indicative of|means?|proves?|diagnostic of)\\b(?![^.]{0,30}\\b(?:whether|if|rule out|ruled out|risk of|risk for|screen(?:ing)? for|test(?:ing)? for)\\b)[^.]{0,30}?${CONDITION}`, "i"),
+    why: "diagnosis language" },
+  // Calling a condition active, ongoing or established states it as fact, however
+  // the sentence opens ("suggesting ongoing Hashimoto's activity").
+  { id: "diagnosis_state_named", re: new RegExp(`\\b(?:active|ongoing|established|confirmed|full-blown|early-stage)\\s+${CONDITION}`, "i"),
     why: "diagnosis language" },
   { id: "reassurance", re: /\b(?:nothing to worry about|no cause for concern|don'?t worry)\b/i,
     why: "blanket reassurance" },
