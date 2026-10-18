@@ -7,6 +7,7 @@ import { COLORS, DISPLAY } from "../theme/tokens";
 // ---- ORDER LABS SCREEN (Tasso at-home collection) ----
 function OrderLabsScreen({ setActive }) {
   const [cart, setCart] = useState([]);
+  const [showSoon, setShowSoon] = useState(false);
 
   const recommended = [
     {
@@ -139,19 +140,28 @@ function OrderLabsScreen({ setActive }) {
         <div style={{
           position: "sticky", bottom: 0, left: 0, right: 0, marginTop: 18,
           background: COLORS.bgCard, borderTop: `1px solid ${COLORS.border}`,
-          padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center",
-          marginLeft: -18, marginRight: -18, marginBottom: -24
+          padding: "14px 18px", marginLeft: -18, marginRight: -18, marginBottom: -24
         }}>
-          <div>
-            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>{cart.length} panel{cart.length > 1 ? "s" : ""} selected</div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>${cartTotal}</div>
+          {/* Kit ordering isn't live. The button used to do nothing at all, which reads
+              as broken, or worse, as an order that went through silently. */}
+          {showSoon && (
+            <div role="status" style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
+              Ordering is coming soon. We'll let you know when you can order these panels here.
+              Nothing has been ordered or charged.
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 11, color: COLORS.textSecondary }}>{cart.length} panel{cart.length > 1 ? "s" : ""} selected</div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>${cartTotal}</div>
+            </div>
+            <button onClick={() => setShowSoon(true)} style={{
+              background: COLORS.teal, border: "none", color: COLORS.onAccent,
+              fontSize: 13, fontWeight: 700, padding: "12px 22px", borderRadius: 10, cursor: "pointer"
+            }}>
+              Ship my kit
+            </button>
           </div>
-          <button style={{
-            background: COLORS.teal, border: "none", color: COLORS.onAccent,
-            fontSize: 13, fontWeight: 700, padding: "12px 22px", borderRadius: 10, cursor: "pointer"
-          }}>
-            Ship my kit
-          </button>
         </div>
       )}
     </div>

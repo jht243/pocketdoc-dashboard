@@ -3,7 +3,8 @@ import { X } from "lucide-react";
 import { Card } from "./Card";
 import { SectionLabel } from "./SectionLabel";
 import { COLORS } from "../theme/tokens";
-import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer } from "../lib/intakeContent";
+import { INTAKE_SECTIONS, bloodPressureProblem, hiddenAnswerKeys, isBlankAnswer } from "../lib/intakeContent";
+import { MONTH_OPTIONS, yearOptions } from "../lib/screeningDates";
 
 // ---- INTAKE FORM ----
 // Data-driven renderer for the health intake questionnaire (content lives in
@@ -235,6 +236,10 @@ function Control({ q, answers, setValue, toggleMulti }) {
     );
   }
 
+  if (q.type === "bloodPressure") {
+    return <BloodPressureInput value={value} onChange={(v) => setValue(q.id, v)} />;
+  }
+
   // Dose = three inputs (amount / unit / frequency) rather than one free-text
   // field, so the value is structured. `units` is per-question — TRT offers no
   // "g" option because a gram of testosterone is never a therapeutic dose.
@@ -300,6 +305,44 @@ function Control({ q, answers, setValue, toggleMulti }) {
       placeholder={q.placeholder}
       style={{ width: "100%", background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "9px 12px", color: COLORS.textPrimary, fontSize: 13, outline: "none", boxSizing: "border-box" }}
     />
+  );
+}
+
+// Blood pressure is two numbers plus roughly when it was taken: a reading from five
+// years ago says less than one from last month. A reading that looks like a typo is
+// still saved as typed (answers save on every change) and nothing is blocked; a note
+// under it asks the member to check. The note waits until they leave a field, so
+// typing "128" doesn't flag the "1" on the way.
+function BloodPressureInput({ value, onChange }) {
+  const bp = value && typeof value === "object" ? value : { systolic: "", diastolic: "", month: "", year: "" };
+  const patch = (k, v) => onChange({ ...bp, [k]: v });
+  const problem = bloodPressureProblem(bp);
+  // A saved reading that already looks wrong is flagged as soon as the form opens.
+  const [checked, setChecked] = useState(() => Boolean(problem));
+  const check = () => setChecked(true);
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input value={bp.systolic || ""} onChange={(e) => patch("systolic", e.target.value)} onBlur={check} inputMode="numeric" placeholder="120" aria-label="Systolic (top number)" style={{ ...fieldStyle, flex: "0 0 72px" }} />
+        <span style={{ fontSize: 16, color: COLORS.textMuted }}>/</span>
+        <input value={bp.diastolic || ""} onChange={(e) => patch("diastolic", e.target.value)} onBlur={check} inputMode="numeric" placeholder="80" aria-label="Diastolic (bottom number)" style={{ ...fieldStyle, flex: "0 0 72px" }} />
+        <span style={{ fontSize: 12, color: COLORS.textMuted }}>mmHg</span>
+      </div>
+      <div style={{ fontSize: 11, color: COLORS.textMuted, margin: "10px 0 6px" }}>When was it taken?</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <select value={bp.month || ""} onChange={(e) => { patch("month", e.target.value); check(); }} aria-label="Month taken" style={{ ...fieldStyle, flex: 1 }}>
+          <option value="">Month</option>
+          {MONTH_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+        <select value={bp.year || ""} onChange={(e) => { patch("year", e.target.value); check(); }} aria-label="Year taken" style={{ ...fieldStyle, flex: 1 }}>
+          <option value="">Year</option>
+          {yearOptions(20).map((y) => <option key={y} value={String(y)}>{y}</option>)}
+        </select>
+      </div>
+      {checked && problem && (
+        <div style={{ fontSize: 11.5, color: COLORS.warning, lineHeight: 1.5, marginTop: 6 }}>{problem}</div>
+      )}
+    </>
   );
 }
 

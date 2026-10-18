@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { ChevronRight, ExternalLink, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, ExternalLink, Pencil, Pill, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Card } from "../components/Card";
+import { OrderComingSoon } from "../components/OrderComingSoon";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
@@ -96,6 +97,9 @@ function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMe
   const rxMeds = medications.filter((m) => m.type === "rx");
   const supplements = medications.filter((m) => m.type === "supplement");
   const displayName = userProfile?.profile?.name || "Your medications";
+  // Same test the Home checklist uses: a PGx result is any imported marker the
+  // extraction filed as pharmacogenomic.
+  const hasPgx = (healthData?.genetics || []).some((g) => g && typeof g === "object" && g.category === "pharma");
 
   const MedRow = (m, i, arr) => (
     <div key={m.id} style={{
@@ -245,6 +249,33 @@ function MedicationScreen({ setActive, userProfile, healthData, goToMarket, onMe
               border: "none", color: !newMed.name.trim() ? COLORS.textMuted : COLORS.onAccent,
               fontSize: 12, fontWeight: 700, padding: "9px", borderRadius: 8, cursor: newMed.name.trim() ? "pointer" : "default"
             }}>Save</button>
+          </div>
+        </Card>
+      )}
+
+      {/* Pharmacogenomics belongs beside the medication list: it says how this member
+          processes what's on it. Shown only while no PGx result is on file; the Order
+          button is a placeholder until in-app ordering is live. */}
+      {!hasPgx && (
+        <Card style={{ marginTop: 12 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8, background: COLORS.bgCardAlt, flexShrink: 0,
+              display: "grid", placeItems: "center"
+            }}><Pill size={16} color={COLORS.accent} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Pharmacogenomic (PGx) test</div>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
+                A one-time test showing how your genes affect the way you process common medications
+                and supplements. Already have results?{" "}
+                <button onClick={() => setActive("importlabs")} style={{
+                  background: "none", border: "none", padding: 0, color: COLORS.tealLight,
+                  fontSize: 12, fontWeight: 600, cursor: "pointer"
+                }}>Upload them</button>{" "}
+                and they file themselves.
+              </div>
+              <OrderComingSoon testName="pharmacogenomic (PGx)" style={{ marginTop: 10 }} />
+            </div>
           </div>
         </Card>
       )}

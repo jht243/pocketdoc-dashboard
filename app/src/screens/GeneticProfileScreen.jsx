@@ -2,7 +2,33 @@ import React, { useState } from "react";
 import { ChevronRight, Dna, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
+import { OrderComingSoon } from "../components/OrderComingSoon";
 import { COLORS, DISPLAY } from "../theme/tokens";
+
+// The two genetic panels a member can't yet order in the app, each with a placeholder
+// Order button. Shown only while no genetic data is on file.
+const GENETIC_TESTS = [
+  { id: "pgx", name: "Pharmacogenomics (PGx)", orderName: "pharmacogenomic (PGx)", note: "How you process medications and supplements." },
+  { id: "cgx", name: "Clinical genomics (CGx)", orderName: "clinical genomics (CGx)", note: "Inherited disease and cancer risk." },
+];
+
+function OrderGeneticTests() {
+  return (
+    <Card>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Don't have a genetic test yet?</div>
+      <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 6 }}>
+        Each is a one-time test. Your genes don't change, so one result serves for life.
+      </div>
+      {GENETIC_TESTS.map((t, i) => (
+        <div key={t.id} style={{ padding: "10px 0", borderTop: i ? `1px solid ${COLORS.border}` : "none" }}>
+          <div style={{ fontSize: 13 }}>{t.name}</div>
+          <div style={{ fontSize: 11, color: COLORS.textMuted }}>{t.note}</div>
+          <OrderComingSoon testName={t.orderName} style={{ marginTop: 8 }} />
+        </div>
+      ))}
+    </Card>
+  );
+}
 
 // ---- HOME SCREEN ----
 // ---- PROFILE SCREEN ----
@@ -388,6 +414,7 @@ function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
             onAction={() => setActive("importlabs")}
             rows={3}
           />
+          <OrderGeneticTests />
         </div>
       )}
 
@@ -442,6 +469,18 @@ function GeneticProfileScreen({ setActive, healthData, testModeEnabled }) {
             on this screen alone.
           </div>
           {pharmaMarkers.map((m, i) => <PharmaMarkerCard key={m.id || `${m.gene}-${i}`} m={m} />)}
+          {/* Genetics on file but none of it pharmacogenomic (a 23andMe export, say):
+              say so plainly rather than leave an empty tab. */}
+          {pharmaMarkers.length === 0 && (
+            <Card>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>No pharmacogenomic results yet</div>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
+                The genetic data you imported doesn't include a pharmacogenomic (PGx) report. A PGx
+                test shows how you process common medications and supplements.
+              </div>
+              <OrderComingSoon testName="pharmacogenomic (PGx)" label="Order a PGx test" />
+            </Card>
+          )}
         </>
       )}
       </>)}

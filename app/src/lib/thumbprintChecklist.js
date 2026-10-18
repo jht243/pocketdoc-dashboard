@@ -6,6 +6,14 @@
  *   uploaded — a file is on file but has not yet produced this kind of data
  *   started  — (health history only) some sections finished
  *   done     — the data is on file
+ *
+ * `once` marks a test a member does one time, not on a schedule: the genetic panels
+ * (genes don't change) and the baseline blood panel. Once done, Home folds these into
+ * one "Done" line so the card doesn't keep listing finished work (Oct 7 call). Health
+ * history and the wearable stay as rows: both keep changing.
+ *
+ * `orderName` marks a test the member will be able to order in the app. Ordering isn't
+ * live yet, so the row only shows a placeholder Order button (see OrderComingSoon).
  */
 import { intakeProgressSummary } from "./intakeContent";
 
@@ -39,6 +47,7 @@ export function buildThumbprintChecklist({ healthData, userProfile, healthHistor
       status: fileStatus(labs.length > 0, labFileOnly),
       target: "importlabs",
       required: true,
+      once: true,
     },
     {
       id: "pgx",
@@ -47,6 +56,8 @@ export function buildThumbprintChecklist({ healthData, userProfile, healthHistor
       status: fileStatus(genetics.some((m) => m.category === "pharma"), geneticFileOnly),
       target: "importlabs",
       required: true,
+      once: true,
+      orderName: "pharmacogenomic (PGx)",
     },
     {
       id: "cgx",
@@ -55,6 +66,8 @@ export function buildThumbprintChecklist({ healthData, userProfile, healthHistor
       status: fileStatus(genetics.some((m) => CGX_GENES.has(geneOf(m))), geneticFileOnly),
       target: "importlabs",
       required: true,
+      once: true,
+      orderName: "clinical genomics (CGx)",
     },
     {
       id: "history",
