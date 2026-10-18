@@ -117,6 +117,7 @@ export const FORBIDDEN_OUTPUT_RULES = `NEVER WRITE ANY OF THESE, however the dat
 - A supplement or medication DOSE ("take 5,000 IU of D3"). You may describe what a class of supplement is for; you never prescribe an amount.
 - Any instruction to start, stop or change a medication.
 - A genetic variant leading directly to a product recommendation with no biomarker behind it.
+- A number of years an action would change biological age by ("lowering LDL takes 0.5 years off your biological age"). Describe the effect in plain words; only the app's own calculator shows year figures.
 - "This is not medical advice" bolted onto a thin answer. The disclaimer does not make a lazy card acceptable.`;
 
 /**
@@ -774,6 +775,11 @@ const FORBIDDEN = [
     why: "a supplement or medication dose" },
   { id: "med_change", re: /\b(?:stop|discontinue|reduce|increase|switch off|come off)\b[^.]{0,30}\b(?:your |the )?(?:medication|prescription|dose|statin|metformin|ssri|beta.?blocker)\b/i,
     why: "an instruction to change a medication" },
+  // Decided Oct 18 2026: a year figure for biological age comes only from the app's
+  // simulator (fasting glucose and hs-CRP, recomputed by the published formula). The
+  // AI never states one; everything else is described in plain words.
+  { id: "bioage_years", re: /\b(?:improv|lower|reduc|cut|shav|take|knock|subtract|add|drop|turn(?:s|ed|ing)? back|revers)\w*[^.]{0,50}\bbiological age\b[^.]{0,40}?\b\d+(?:\.\d+)?(?:\s*(?:-|–|to)\s*\d+(?:\.\d+)?)?\s*years?\b|\b\d+(?:\.\d+)?(?:\s*(?:-|–|to)\s*\d+(?:\.\d+)?)?\s*years?\s+(?:off|from|younger on)\b[^.]{0,30}\bbiological age\b/i,
+    why: "a biological-age year claim" },
   { id: "boilerplate", re: /\bthis is not medical advice\b/i,
     why: "boilerplate disclaimer" },
 ];

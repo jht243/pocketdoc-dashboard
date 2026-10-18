@@ -384,3 +384,24 @@ test('rows group by draw date', () => {
   // The % row wins over the absolute count under the same marker.
   assert.equal(draws[0].rows.lymphocytes.unit, '%');
 });
+
+/* --------------------------------------- decisions of Oct 18 2026 (2A, 3A) */
+
+test('more than 10 years younger shows the phrase, not the number', () => {
+  const young = { age: 20, albumin: 5.0, creatinine: 0.75, glucose: 78, crp: 0.2, lymphocytes: 40, mcv: 85, rdw: 11.9, alp: 90, wbc: 5.0 };
+  const r = calculatePhenoAge(young, FASTING);
+  assert.equal(r.status, 'ok');
+  assert.ok(r.gap < -10, `gap ${r.gap}`);
+  assert.equal(r.capped, true);
+  assert.equal(r.headline, 'More than 10 years younger than your age');
+  const w = calculatePhenoAge(WORKED, FASTING);
+  assert.equal(w.capped, false);
+  assert.equal(w.headline, null);
+});
+
+test('pregnancy, active cancer treatment or illness at the draw pauses the score', () => {
+  for (const flag of ['pregnant', 'cancerTreatment', 'acuteIllness']) {
+    const r = calculatePhenoAge(WORKED, { ...FASTING, flags: { [flag]: true } });
+    assert.equal(r.status, 'suppressed', flag);
+  }
+});

@@ -62,7 +62,9 @@ function Simulator({ out, onClose }) {
       </div>
 
       <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 16 }}>
-        Your biological age from your {fmtDate(draw?.date) || "latest"} draw is {latest.display}.
+        {latest.capped
+          ? <>Your biological age from your {fmtDate(draw?.date) || "latest"} draw is more than 10 years younger than your age.</>
+          : <>Your biological age from your {fmtDate(draw?.date) || "latest"} draw is {latest.display}.</>}
         Each line below reruns the same published model (Levine et al., 2018) with one value
         changed and everything else held as it was. These are estimates from a research model,
         not a diagnosis or a promise.
@@ -132,7 +134,16 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
   const [open, setOpen] = useState(false);
   const labs = healthData?.labs;
   const dob = userProfile?.profile?.dob || null;
-  const out = useMemo(() => bioAgeFromLabs(labs || [], { dob }), [labs, dob]);
+  // Intake answers that pause the score: each moves these markers for reasons
+  // unrelated to aging.
+  const intake = userProfile?.intake || {};
+  const pregnant = intake.pregnancy === "Pregnant";
+  const cancerTreatment = intake.cancerActiveTreatment === "Yes";
+  const acuteIllness = intake.illnessAtLastDraw === "Yes";
+  const out = useMemo(
+    () => bioAgeFromLabs(labs || [], { dob, flags: { pregnant, cancerTreatment, acuteIllness } }),
+    [labs, dob, pregnant, cancerTreatment, acuteIllness],
+  );
   useTrackOnce("score_viewed", { score: "biological" }, out.status === "ok");
   useTrackOnce("score_missing_prompt_shown", { score: "biological", status: out.status }, out.status !== "ok");
 
@@ -178,8 +189,12 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
         <Card style={{ marginBottom: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontFamily: DISPLAY, fontSize: 15, fontWeight: 600, color: COLORS.textPrimary }}>Biological age</span>
-            <span style={{ fontFamily: DISPLAY, fontSize: 26, fontWeight: 700, color: COLORS.brand, letterSpacing: "-0.01em" }}>{latest.display}</span>
-            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>(you're {latest.age})</span>
+            {latest.capped
+              ? <span style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: COLORS.brand }}>{latest.headline}</span>
+              : <>
+                  <span style={{ fontFamily: DISPLAY, fontSize: 26, fontWeight: 700, color: COLORS.brand, letterSpacing: "-0.01em" }}>{latest.display}</span>
+                  <span style={{ fontSize: 13, color: COLORS.textSecondary }}>(you're {latest.age})</span>
+                </>}
           </div>
           {draw?.date && (
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>From your {fmtDate(draw.date)} draw</div>

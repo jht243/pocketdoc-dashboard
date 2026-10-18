@@ -82,6 +82,9 @@ export const PHENOAGE_GAMMA = 0.0076927;
 /** The model was fitted on NHANES adults in this range (85+ was top-coded). */
 export const PHENOAGE_AGE_RANGE = Object.freeze({ min: 20, max: 84 });
 
+/** Past this many years younger than actual age, the number is replaced by a phrase. */
+export const CAP_YEARS_YOUNGER = 10;
+
 /** hs-CRP at or above this (mg/L) is acute-phase, not chronic inflammation. */
 export const CRP_ACUTE_MG_L = 10;
 
@@ -542,12 +545,18 @@ export function calculatePhenoAge(input = {}, opts = {}) {
     return { status: "unavailable", reason: "not-finite", message: "Biological age couldn't be calculated from this draw." };
   }
   const phenoAge = round1(raw);
+  const gap = round1(phenoAge - age);
   return {
     status: "ok",
     phenoAge,
     display: formatYears(phenoAge),
+    // The model returns very low numbers for very healthy young adults (a healthy
+    // 25-year-old comes out near 11). Past 10 years younger, the member sees that
+    // phrase instead of the number (decided Oct 18 2026).
+    capped: gap < -CAP_YEARS_YOUNGER,
+    headline: gap < -CAP_YEARS_YOUNGER ? `More than ${CAP_YEARS_YOUNGER} years younger than your age` : null,
     age,
-    gap: round1(phenoAge - age),
+    gap,
     confidence,
     notes,
     inputs,

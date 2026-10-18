@@ -296,6 +296,10 @@ export const INTAKE_SECTIONS = [
       { id: "conditions", type: "chips", label: "Diagnosed conditions", options: DIAGNOSED_CONDITIONS, addLabel: "Add another condition...", exclusive: ["None of the above"] },
       { id: "autoimmuneDetail", type: "text", label: "Specify autoimmune condition", placeholder: "e.g. Hashimoto's, lupus, RA...", showIf: (a) => has(a, "conditions", "Autoimmune condition (lupus, MS, RA, IBD, celiac, psoriasis)") },
       { id: "cancerDetail", type: "text", label: "Cancer — type and year diagnosed", placeholder: "e.g. Melanoma, 2019", showIf: (a) => has(a, "conditions", "Cancer") },
+      // These two, with the pregnancy question, pause the biological age score: each
+      // moves the blood markers it reads for reasons unrelated to aging.
+      { id: "cancerActiveTreatment", type: "single", label: "Are you currently being treated for cancer (chemotherapy, radiation, immunotherapy or hormone therapy for cancer)?", options: ["No", "Yes"], showIf: (a) => has(a, "conditions", "Cancer") },
+      { id: "illnessAtLastDraw", type: "single", label: "Were you sick or injured (a cold, flu, infection, injury or surgery) in the two weeks before your most recent blood draw?", options: ["No", "Yes", "Not sure"] },
     ],
   },
   {

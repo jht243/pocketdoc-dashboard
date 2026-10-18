@@ -37,3 +37,17 @@ test('asserted diagnoses are caught', () => {
 test('pattern language and plain results are allowed', () => {
   for (const t of ALLOWED) assert.equal(violatesForbiddenOutput(t), null, t);
 });
+
+// Decided Oct 18 2026 (4A): biological-age year figures come only from the simulator.
+test('a biological-age year claim from the AI is caught', () => {
+  const caught = [
+    'Correcting this is estimated to improve your biological age by 0.4–0.8 years.',
+    'Lowering your homocysteine could take 1 year off your biological age.',
+  ];
+  const allowed = [
+    'Your biological age is 50, about 3 years younger than your age.',
+    'Lowering fasting glucose is one of the levers that moves biological age.',
+  ];
+  for (const t of caught) assert.equal(violatesForbiddenOutput(t), 'a biological-age year claim', t);
+  for (const t of allowed) assert.equal(violatesForbiddenOutput(t), null, t);
+});
