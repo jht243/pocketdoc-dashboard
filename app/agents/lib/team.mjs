@@ -44,17 +44,17 @@ export const TEAM = {
   },
   hormones: {
     desc: 'hormones and thyroid: menopause/perimenopause, testosterone, estradiol, SHBG, progesterone, TSH/T4/T3/antibodies, peptide education',
-    facts: ['profile', 'intake', 'medications', 'labs', 'labTrends', 'checkIns', 'documents'],
+    facts: ['profile', 'intake', 'medications', 'labs', 'labTrends', 'checkIns', 'questionnaires', 'documents'],
     library: ['thyroid', 'hormones-female', 'hormones-male', 'peptides'],
   },
   medications: {
     desc: 'medications and supplements: interactions, timing, nutrient depletion, labs a drug moves, pharmacogenomics',
-    facts: ['profile', 'medications', 'labs', 'genetics', 'intake'],
+    facts: ['profile', 'medications', 'labs', 'genetics', 'intake', 'questionnaires'],
     library: ['medications', 'pharmacogenomics', 'supplements'],
   },
   lifestyle: {
     desc: 'nutrition, sleep, activity, wearable trends (HRV, resting HR, readiness), stress, check-in follow-up',
-    facts: ['profile', 'intake', 'labs', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'body'],
+    facts: ['profile', 'intake', 'labs', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'questionnaires', 'body'],
     library: ['nutrition', 'sleep', 'activity'],
   },
   // Scope-limited on purpose (briefs/general): answers a short approved list and
@@ -62,7 +62,7 @@ export const TEAM = {
   // question was in scope and what it was about, which is how fallbacks are counted.
   general: {
     desc: 'ONLY: preventive screening schedule from the record, how the app works, preparing for an appointment, wellness questions the record already answers. Anything outside every other specialist (a rash, an injury, pain, a new symptom, a diagnosis question) goes here, and it hands it to the clinician',
-    facts: ['profile', 'intake', 'medications', 'preventive', 'checkIns', 'documents'],
+    facts: ['profile', 'intake', 'medications', 'preventive', 'questionnaires', 'checkIns', 'documents'],
     library: ['preventive'],
     scoped: true,
   },

@@ -192,3 +192,31 @@ export function resultMessage(instrument, result) {
     show988: Boolean(result.positive && instrument === "phq2"),
   };
 }
+
+const SCREEN_FOR = { phq2: "depression screen", gad2: "anxiety screen", auditc: "alcohol-use screen", single_drug: "drug-use screen" };
+
+/**
+ * Completed in-app screening questionnaires, newest first: the score, whether it
+ * crossed the validated cut-off, and each answer in the member's own words. A
+ * positive screen is a reason to raise it with a clinician, never a diagnosis.
+ */
+export function questionnaireLines(rows = []) {
+  return rows.slice(0, 12).map((r) => {
+    const def = QUESTIONNAIRES[r.instrument];
+    if (!def) return null;
+    const max = def.max != null ? ` of ${def.max}` : "";
+    const verdict = r.positive
+      ? `POSITIVE screen (cut-off ${r.cutoff}): worth raising with their clinician`
+      : `negative screen (cut-off ${r.cutoff})`;
+    const answers = def.questions
+      .filter((q) => r.answers && r.answers[q.id] != null)
+      .map((q) => {
+        const opt = q.options.find((o) => o.value === r.answers[q.id]);
+        return `"${q.text}": ${opt ? opt.label : r.answers[q.id]}`;
+      })
+      .join("; ");
+    // The drug screen's stored value is a count bucket, not a score worth quoting.
+    const score = def.max != null ? `score ${r.score}${max}, ` : "";
+    return `- ${r.completed_on} ${def.name} (${SCREEN_FOR[r.instrument] || def.title}): ${score}${verdict}.${answers ? ` Answers: ${answers}.` : ""}`;
+  }).filter(Boolean).join("\n");
+}

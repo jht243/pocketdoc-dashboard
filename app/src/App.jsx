@@ -17,6 +17,7 @@ import {
   acceptConsent,
   saveMedications,
   saveHealthHistory,
+  loadScreeningQuestionnaires,
 } from "./lib/profileStore";
 import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
@@ -96,7 +97,7 @@ function buildLiveScore(storedProfile, wearable, labs = []) {
 // Shape the DB rows (labs, uploaded documents, wearable) plus the derived score into
 // the single `liveHealthData` object every screen reads. Kept here so the mount load,
 // the onboarding hand-off, and the test-mode-off path can never drift apart.
-function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = [], checkIns = []) {
+function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable = null, geneticMarkers = [], checkIns = [], questionnaires = []) {
   // `date` is a display string; `created_at` is preserved on each marker and is what
   // the bloodwork rubric reads for recency.
   const labs = labMarkers.map((marker) => ({
@@ -129,6 +130,9 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
     // Morning check-ins, newest first. Read by Home (streak), the check-in screen,
     // and the AI context, which treats them as self-reported daily signals.
     checkIns,
+    // Completed in-app screening questionnaires (PHQ-2, GAD-2, AUDIT-C, drug
+    // screen), newest first. Read by the AI context as self-reported screens.
+    questionnaires,
     today: wearable?.today,
     vitals: wearable?.vitals || [],
     // Per-metric latest + trailing range, and the raw daily rows behind it. The Body
@@ -186,17 +190,18 @@ function App() {
    */
   const refreshRecords = useCallback(async () => {
     if (!user) return;
-    const [documents, labMarkers, wearable, geneticMarkers, checkIns] = await Promise.all([
+    const [documents, labMarkers, wearable, geneticMarkers, checkIns, questionnaires] = await Promise.all([
       loadDocuments(user.id),
       loadLabMarkers(user.id),
       loadWearableSnapshot(user.id),
       loadGeneticMarkers(user.id),
       loadCheckIns(user.id),
+      loadScreeningQuestionnaires(user.id),
     ]);
     // Rebuilt from the stored profile so the score's preventive-care half is scored
     // off the same schedule the rest of the app is reading.
     const stored = await loadFullProfile(user.id);
-    setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
+    setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns, questionnaires));
   }, [user?.id]);
 
   /**
@@ -218,6 +223,13 @@ function App() {
     if (!user) return;
     const checkIns = await loadCheckIns(user.id);
     setLiveHealthData((prev) => ({ ...(prev || {}), checkIns }));
+  }, [user?.id]);
+
+  // Re-pull questionnaires after one is completed, so the next chat question sees it.
+  const refreshQuestionnaires = useCallback(async () => {
+    if (!user) return;
+    const questionnaires = await loadScreeningQuestionnaires(user.id);
+    setLiveHealthData((prev) => ({ ...(prev || {}), questionnaires }));
   }, [user?.id]);
 
   // Re-pull the wearable slice after a connect/sync/disconnect, without refetching
@@ -292,7 +304,7 @@ function App() {
       return;
     }
     setProfileLoading(true);
-    Promise.all([loadFullProfile(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id)]).then(([stored, documents, labMarkers, wearable, geneticMarkers, checkIns]) => {
+    Promise.all([loadFullProfile(user.id), loadDocuments(user.id), loadLabMarkers(user.id), loadWearableSnapshot(user.id), loadGeneticMarkers(user.id), loadCheckIns(user.id), loadScreeningQuestionnaires(user.id)]).then(([stored, documents, labMarkers, wearable, geneticMarkers, checkIns, questionnaires]) => {
       if (cancelled) return;
       // Both components of the score come from `buildLiveHealthData`: preventive-care
       // coverage (the same schedule the Preventive Care screen renders), and the
@@ -300,7 +312,7 @@ function App() {
       // useScoreModel returns hasData:false without it — and stays undefined until at
       // least one component has real data, so the dial is hidden rather than rendering
       // an honest-looking zero.
-      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns));
+      setLiveHealthData(buildLiveHealthData(stored, documents, labMarkers, wearable, geneticMarkers, checkIns, questionnaires));
       // Coming back from Oura's consent screen lands on Care, where the device
       // list and the result notice are — otherwise the user is dropped on Home with
       // no confirmation that anything happened.
@@ -387,14 +399,15 @@ function App() {
     // Uploads are no longer deferred to here — OnboardingScreen stores the file the
     // moment it's picked, so abandoning steps 4/5 can't lose it. Pull the labs, records,
     // and wearable saved during onboarding and fold them in over the interim score.
-    const [documents, labMarkers, wearable, geneticMarkers, checkIns] = await Promise.all([
+    const [documents, labMarkers, wearable, geneticMarkers, checkIns, questionnaires] = await Promise.all([
       loadDocuments(user.id),
       loadLabMarkers(user.id),
       loadWearableSnapshot(user.id),
       loadGeneticMarkers(user.id),
       loadCheckIns(user.id),
+      loadScreeningQuestionnaires(user.id),
     ]);
-    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable, geneticMarkers, checkIns));
+    setLiveHealthData(buildLiveHealthData(data, documents, labMarkers, wearable, geneticMarkers, checkIns, questionnaires));
   };
 
 
@@ -421,7 +434,7 @@ function App() {
     importlabs: <ImportLabsScreen setActive={navigate} {...back} onImported={refreshRecords} />,
     geneticprofile: <GeneticProfileScreen setActive={navigate} {...back} healthData={healthData} />,
     medications: <MedicationScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} onMedsChange={refreshProfile} />,
-    preventivecare: <PreventiveCareScreen setActive={navigate} {...back} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} />,
+    preventivecare: <PreventiveCareScreen setActive={navigate} {...back} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} onQuestionnaireSaved={refreshQuestionnaires} />,
     healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => {
       setHealthHistory(data);
       if (!user) return;

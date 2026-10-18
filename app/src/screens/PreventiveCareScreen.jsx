@@ -30,7 +30,7 @@ const pill = (color, solid = false) => ({
   cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
 });
 
-function PreventiveCareScreen({ setActive, goBack, backLabel, userProfile, onCompletedItemsChange }) {
+function PreventiveCareScreen({ setActive, goBack, backLabel, userProfile, onCompletedItemsChange, onQuestionnaireSaved }) {
   const { user } = useAuth();
   const [completedItems, setCompletedItems] = useState(userProfile?.completedItems || {});
   // The questionnaire open over the list, if any (phq2 / gad2 / auditc / single_drug).
@@ -60,7 +60,10 @@ function PreventiveCareScreen({ setActive, goBack, backLabel, userProfile, onCom
   const completeQuestionnaire = async (result) => {
     await persist({ ...completedItems, [result.scheduleKey]: currentYearMonth() });
     if (!user) return { error: null };
-    return saveScreeningQuestionnaire(user.id, result);
+    const saved = await saveScreeningQuestionnaire(user.id, result);
+    // So the chat and the care team read the result on the next question.
+    if (!saved.error) onQuestionnaireSaved?.();
+    return saved;
   };
 
   const toggleDone = (id) => {

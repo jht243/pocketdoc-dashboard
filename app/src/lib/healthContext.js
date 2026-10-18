@@ -16,6 +16,7 @@ import { screeningStatus } from "./screeningLogic";
 // are finished, and which schedule items the health history has already marked.
 const BOOKKEEPING_KEYS = new Set([INTAKE_PROGRESS_KEY, "screeningsFromIntake"]);
 import { checkInContextLines } from "./checkInContent";
+import { questionnaireLines } from "./screeningQuestionnaires";
 import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules";
 
 /* ---------------- value formatting ---------------- */
@@ -557,6 +558,7 @@ Numbers the member self-reported at intake are only worth citing when no lab res
       { key: "body", title: "BODY COMPOSITION", body },
       { key: "documents", title: "UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", body: records },
       { key: "dailyScore", title: "DAILY SCORE INPUTS", body: scoreLines },
+      { key: "questionnaires", title: "SCREENING QUESTIONNAIRES (taken in the app, SELF-REPORTED, newest first — a screen, not a diagnosis; a positive one means it is worth raising with their clinician)", body: questionnaireLines(healthData?.questionnaires || []) },
       { key: "checkIns", title: "MORNING CHECK-INS (SELF-REPORTED daily answers, newest first — patterns across days matter more than any single morning)", body: checkInContextLines(healthData?.checkIns || []) },
       ...(historyExtra ? [{ key: "history", title: "HEALTH HISTORY (standalone questionnaire)", body: historyExtra }] : []),
     ],

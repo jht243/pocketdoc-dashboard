@@ -1027,6 +1027,27 @@ export async function saveScreeningQuestionnaire(userId, result) {
   return { error };
 }
 
+/**
+ * The member's completed screening questionnaires, newest first. Read into
+ * healthData so the chat and the care team see the results, not only the tick on
+ * Preventive care.
+ */
+export async function loadScreeningQuestionnaires(userId) {
+  if (!isConfigured || !userId) return [];
+  const { data, error } = await supabase
+    .from("screening_questionnaires")
+    .select("instrument, schedule_key, answers, score, positive, cutoff, completed_on, created_at")
+    .eq("user_id", userId)
+    .order("completed_on", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(24);
+  if (error) {
+    console.error("loadScreeningQuestionnaires", error);
+    return [];
+  }
+  return data || [];
+}
+
 /* ---------------- account ---------------- */
 
 const ACCOUNT_COLUMNS = "first_name, last_name, email, dob, sex, phone, address_line1, address_line2, city, state, postal_code, country";
