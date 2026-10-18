@@ -27,13 +27,17 @@ const DEMO_INTAKE = {
   medInput: "",
 };
 
-const TEST_SNAPSHOT_VERSION = 5;
+// 6: every reading has one date. The trends had TPO 118 drawn in Jan 2026 while the
+// current labs carried the same 118 as a Jun 2026 result.
+const TEST_SNAPSHOT_VERSION = 6;
 
 // Dated relative to the demo's "today" so the bloodwork score reads as current
 // rather than ageing into its stale state as the snapshot sits in the repo.
 const DEMO_LAB_DATE = "2026-06-14T00:00:00.000Z";
+// `drawnOn` carries the same day as the display date, so every "which reading is
+// newest" check reads the draw rather than falling back to the display string.
 const demoLab = (name, value, unit, status) => ({
-  name, value, unit, status, date: "Jun 2026", created_at: DEMO_LAB_DATE,
+  name, value, unit, status, date: "Jun 2026", drawnOn: DEMO_LAB_DATE.slice(0, 10), created_at: DEMO_LAB_DATE,
 });
 
 const DEMO_LABS = [
@@ -198,7 +202,7 @@ export function createTestSnapshot() {
       score: {
         baseItems: [
           { name: "Annual physical", status: "current", detail: "Completed Mar 2026", pts: 8, max: 8 },
-          { name: "Comprehensive bloodwork", status: "current", detail: "Completed Jan 2026", pts: 8, max: 8 },
+          { name: "Comprehensive bloodwork", status: "current", detail: "Completed Jun 2026", pts: 8, max: 8 },
           { name: "TRT monitoring panel", status: "current", detail: "Completed Jul 2026", pts: 8, max: 8 },
           { name: "Colonoscopy", status: "current", detail: "Completed May 2026", pts: 10, max: 10 },
           { name: "PSA screening", status: "current", detail: "Completed Mar 2026", pts: 8, max: 8 },
@@ -220,23 +224,26 @@ export function createTestSnapshot() {
       // TPO antibodies and the lipid fractions aren't scored — they're here because a
       // real panel carries plenty the rubric doesn't weight.
       labs: DEMO_LABS,
+      // Each series ends on the reading in `labs` above — same value, same Jun 2026
+      // date. A trend whose last point disagrees with the current result tells the
+      // model one reading was taken twice, months apart.
       labHistory: [
         {
           name: "TPO antibodies",
           unit: "IU/mL",
           results: [
-            { date: "Apr 2025", value: 64 },
-            { date: "Oct 2025", value: 91 },
-            { date: "Jan 2026", value: 118 },
+            { date: "Oct 2025", value: 64 },
+            { date: "Jan 2026", value: 91 },
+            { date: "Jun 2026", value: 118 },
           ],
         },
         {
           name: "TSH",
           unit: "mIU/L",
           results: [
-            { date: "Apr 2025", value: 2.0 },
-            { date: "Oct 2025", value: 2.2 },
-            { date: "Jan 2026", value: 2.1 },
+            { date: "Oct 2025", value: 2.0 },
+            { date: "Jan 2026", value: 2.2 },
+            { date: "Jun 2026", value: 2.1 },
           ],
         },
       ],
@@ -257,9 +264,12 @@ export function createTestSnapshot() {
         { name: "Testosterone cypionate", dose: "As prescribed", frequency: "Weekly", type: "prescription" },
         { name: "Vitamin D3 + K2", dose: "5,000 IU", frequency: "Daily", type: "supplement" },
       ],
+      // The Jun 2026 panel is the one `labs` holds; the two thyroid panels are the
+      // earlier points in `labHistory`.
       records: [
-        { name: "Comprehensive panel, Jan 2026", type: "Lab result" },
+        { name: "Comprehensive panel, Jun 2026", type: "Lab result" },
         { name: "Endocrinology visit notes", type: "Appointment note" },
+        { name: "Thyroid panel, Jan 2026", type: "Lab result" },
         { name: "Thyroid panel, Oct 2025", type: "Lab result" },
       ],
     },
@@ -277,7 +287,23 @@ export async function loadTestModeSnapshot(userId) {
     console.error("loadTestModeSnapshot", error);
     return { enabled: false, snapshot: null, error };
   }
-  return { enabled: Boolean(data?.enabled), snapshot: data?.snapshot || null };
+  const stored = data?.snapshot || null;
+  // A member who never switches Test mode off would otherwise keep the snapshot they
+  // were seeded with forever — including whatever it got wrong. The snapshot is
+  // generated demo data with nothing of theirs in it, so an outdated one is simply
+  // replaced: in memory now, and in the table without holding up the load.
+  if (data?.enabled && stored && !(stored.version >= TEST_SNAPSHOT_VERSION)) {
+    const fresh = createTestSnapshot();
+    supabase
+      .from("test_mode_snapshots")
+      .update({ snapshot: fresh, seeded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .then(({ error: saveError }) => {
+        if (saveError) console.error("loadTestModeSnapshot/refresh", saveError);
+      });
+    return { enabled: true, snapshot: fresh };
+  }
+  return { enabled: Boolean(data?.enabled), snapshot: stored };
 }
 
 export async function enableTestMode(userId) {
