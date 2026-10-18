@@ -5,6 +5,7 @@ import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
 import { track } from "../lib/analytics";
+import { getDocumentUrl } from "../lib/profileStore";
 import { buildHealthContext } from "../lib/healthContext";
 
 // ---- DISCUSSION PAGE (for next doctor appointment) ----
@@ -109,7 +110,19 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
   const privateLabFiles = (healthData?.records || []).map((r) => ({
     name: r.name,
     source: r.type,
+    storagePath: r.storagePath || null,
   }));
+
+  // Each file opens in a new tab through a short-lived signed link (the bucket is
+  // private). The tab is opened inside the tap, before the link arrives, so a
+  // pop-up blocker treats it as the member's own action.
+  const openFile = async (f) => {
+    if (!f.storagePath) return;
+    const tab = window.open("", "_blank");
+    const url = await getDocumentUrl(f.storagePath);
+    if (url && tab) tab.location.href = url;
+    else if (tab) tab.close();
+  };
 
   useEffect(() => {
     if (!hasRealData) return;
@@ -285,7 +298,8 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
         <SectionLabel>Lab files to share</SectionLabel>
         <Card>
           {privateLabFiles.map((f, i) => (
-            <div key={`${f.name}-${i}`} style={{
+            <button key={`${f.name}-${i}`} type="button" onClick={() => openFile(f)} disabled={!f.storagePath} style={{
+              all: "unset", boxSizing: "border-box", width: "100%", cursor: f.storagePath ? "pointer" : "default",
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "10px 0", borderBottom: i < privateLabFiles.length - 1 ? `1px solid ${COLORS.border}` : "none"
             }}>
@@ -296,12 +310,12 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
                   {f.source && <div style={{ fontSize: 11, color: COLORS.textMuted }}>{f.source}</div>}
                 </div>
               </div>
-              <ChevronRight size={14} color={COLORS.textMuted} />
-            </div>
+              {f.storagePath && <span style={{ fontSize: 11, color: COLORS.tealLight, fontWeight: 600 }}>Open</span>}
+            </button>
           ))}
         </Card>
         <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 18, lineHeight: 1.5 }}>
-          Your uploaded records, ready to bring to your appointment.
+          Your uploaded records. Tap one to open it, then show or send it at your appointment.
         </div>
       </>)}
 
