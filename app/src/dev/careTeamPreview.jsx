@@ -20,7 +20,7 @@ const SCRIPT = [
     finding: "TSH has climbed from 2.1 (Jan 2025) to 3.8 (Jun 2026) while free T4 sits low-normal at 1.0 ng/dL. With Hashimoto's, that pattern is consistent with a slowly failing thyroid, and fatigue is one of its earliest signs. A full panel with free T3 and TPO antibodies would clarify it." }],
   [300, { type: "specialist_start", id: "bloodwork", ask: "Which markers alongside ferritin 48 and vitamin D 31 best explain my member's low energy, and what should be retested?" }],
   [3100, { type: "specialist_done", id: "bloodwork", headline: "Vitamin D and ferritin are both suboptimal", flag: "watch",
-    finding: "Vitamin D at 31 ng/mL (Jun 2026) is in range but below the 40–60 functional target, and ferritin at 48 ng/mL is on the low side for energy. Neither alone explains fatigue, but together with the TSH trend they form a cluster worth retesting in 8–12 weeks." }],
+    finding: "Vitamin D at 31 ng/mL (Jun 2026) is in range but near the low end of it, and ferritin at 48 ng/mL is on the low side for energy. Neither alone explains fatigue, but together with the TSH trend they form a cluster worth retesting in 8–12 weeks." }],
   [300, { type: "specialist_start", id: "pharmacy", ask: "Could my member's rosuvastatin 10mg or TRT be contributing to fatigue or CoQ10 depletion?" }],
   [2900, { type: "specialist_done", id: "pharmacy", headline: "Statins can lower CoQ10; worth asking about", flag: "ok",
     finding: "Rosuvastatin can reduce CoQ10, which some people notice as muscle fatigue; the evidence for supplementing is mixed. Hematocrit is 47% on TRT, so not a cause here. Worth raising with his prescriber before changing anything." }],
@@ -41,7 +41,7 @@ Your fatigue most likely has more than one contributor, and **your thyroid is th
 
 ## What the team found
 - **Endocrinology:** TSH rose from 2.1 to 3.8 over 18 months while free T4 sits low-normal.
-- **Blood Work:** vitamin D (31 ng/mL) and ferritin (48 ng/mL) are both *below functional targets*.
+- **Blood Work:** vitamin D (31 ng/mL) and ferritin (48 ng/mL) are both *toward the low end of their lab ranges*.
   - Low iron can make thyroid conversion worse.
 
 ## What to test, and how often

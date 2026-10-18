@@ -25,6 +25,9 @@
  *
  * Pure — no network, no Supabase, no DOM.
  */
+// With extensions: the agents server imports this file under plain node.
+import { MARKER_TARGETS, markerIdFor, targetFor } from "./markerTargets.js";
+import { markerStatus } from "./scorecard.js";
 
 /* ==================================================================== */
 /* RULE TEXT — what the model is told                                    */
@@ -61,7 +64,7 @@ export const CLINICAL_ANALYSIS_RULES = `HOW YOU ANALYSE (these rules govern ever
 3. THREE REFERENCE POINTS, ALWAYS.
    Every marker you mention is evaluated against all three, and you say which one you are using:
    (a) the laboratory reference range that came with the result,
-   (b) the functional / optimal range that longevity and integrative medicine target, which is usually narrower,
+   (b) the Thumbprint target for that marker, where one is listed for this member (THUMBPRINT TARGETS, when given) — often narrower than the lab range, personalised by sex and age, and carrying its evidence label; never substitute a target of your own,
    (c) the member's OWN history — direction of travel across their panels.
    A value inside the lab range that has moved toward the edge across three panels is a real finding. Say so. Never call a result "normal" on lab range alone when (b) or (c) disagree.
 
@@ -99,7 +102,7 @@ export const CLINICAL_ANALYSIS_RULES = `HOW YOU ANALYSE (these rules govern ever
     One night's HRV is noise. Interpret 7-, 30- and 90-day direction and flag directional change, not point values. A member with a wearable and nothing else still gets real findings: each metric read against their OWN rolling baseline is a comparison, and it is enough.
 
 14. WORK WITH WHAT THEY HAVE.
-   These rules describe the fullest picture, not a minimum bar. A member with one uploaded document, or one lab panel, or only a connected ring gets a real suggestion on day one — you narrow the claim, you never withhold the card. With a single panel, read its markers against each other and against the functional ranges. With a single document, read what it actually says. With a wearable only, read each metric against that person's own baseline. Never imply a trend you cannot see, never reference a domain that is not on file, and name the ONE thing worth adding next rather than listing everything absent.`;
+   These rules describe the fullest picture, not a minimum bar. A member with one uploaded document, or one lab panel, or only a connected ring gets a real suggestion on day one — you narrow the claim, you never withhold the card. With a single panel, read its markers against each other and against their lab ranges and Thumbprint targets. With a single document, read what it actually says. With a wearable only, read each metric against that person's own baseline. Never imply a trend you cannot see, never reference a domain that is not on file, and name the ONE thing worth adding next rather than listing everything absent.`;
 
 /**
  * Section 9. Stated to the model, and separately enforced by
@@ -107,7 +110,7 @@ export const CLINICAL_ANALYSIS_RULES = `HOW YOU ANALYSE (these rules govern ever
  */
 export const FORBIDDEN_OUTPUT_RULES = `NEVER WRITE ANY OF THESE, however the data looks:
 - "You have [condition]" or any other diagnosis phrasing, including a result that "shows", "confirms" or "indicates" a condition, or a condition called "active" or "ongoing". Describe the pattern and what it is consistent with instead.
-- "Your results are normal" when the value sits in the lab range but the functional range or the trend says otherwise.
+- "Your results are normal" when the value sits in the lab range but the Thumbprint target or the trend says otherwise.
 - "Nothing to worry about" as reassurance when the data warrants attention.
 - "Just talk to your doctor" as the whole answer. Always say what to raise and why.
 - Any interpretation built on data more than 12 months old presented as current.
@@ -730,8 +733,8 @@ const FORBIDDEN = [
 ];
 
 /**
- * "Your results are normal" is only forbidden when it is contradicted by the
- * functional range or the trend (Section 9, bullet 2) — which the caller knows and
+ * "Your results are normal" is only forbidden when it is contradicted by a
+ * Thumbprint target or the trend (Section 9, bullet 2) — which the caller knows and
  * this function does not. Passed in rather than guessed.
  */
 const NORMAL_CLAIM = /\b(?:results?|labs?|levels?|values?|markers?|everything)\b[^.]{0,20}\b(?:are|is|look|looks|remain|remains)\b[^.]{0,10}\bnormal\b/i;
@@ -740,8 +743,9 @@ const NORMAL_CLAIM = /\b(?:results?|labs?|levels?|values?|markers?|everything)\b
  * @param {string} text            the card copy to check
  * @param {object} [opts]
  * @param {boolean} [opts.hasFunctionalConcern]  a marker is in lab range but outside
- *   the functional range, or is trending adversely — which makes "normal" a
- *   forbidden claim rather than a true one
+ *   its target, or is trending adversely — which makes "normal" a forbidden claim
+ *   rather than a true one. (The name predates the lab range + Thumbprint target
+ *   framing; it is kept because the agents' safety net passes it by this name.)
  * @returns {string|null} why the text is unpublishable, or null when it is fine
  */
 export function violatesForbiddenOutput(text, { hasFunctionalConcern = false } = {}) {
@@ -751,23 +755,37 @@ export function violatesForbiddenOutput(text, { hasFunctionalConcern = false } =
     if (rule.re.test(body)) return rule.why;
   }
   if (hasFunctionalConcern && NORMAL_CLAIM.test(body)) {
-    return "\"normal\" claimed while a marker is outside its functional range or trending adversely";
+    return "\"normal\" claimed while a marker is outside its target or trending adversely";
   }
   return null;
 }
 
 /**
  * Does this member have a marker that is inside the lab range but still a concern —
- * either outside the functional range the scorer uses, or moving the wrong way?
+ * outside its Thumbprint target, in a sub-optimal band of the bloodwork scorer, or
+ * moving the wrong way?
  *
  * This is what turns "your results are normal" from a true sentence into a
- * forbidden one, so it is computed from the scored data rather than inferred.
+ * forbidden one, so it is computed from the data rather than inferred. The name
+ * predates the lab range + Thumbprint target framing and is kept because the care
+ * team and the agents' safety net call it by this name.
  */
 export function hasFunctionalConcern(healthData) {
   const markers = healthData?.score?.bloodwork?.markers || [];
   // A marker the lab did not flag but the rubric placed in a sub-optimal band.
   const suboptimal = markers.some((m) => !m.excluded && m.max > 0 && m.points / m.max < 0.6);
   if (suboptimal) return true;
+
+  // A newest reading outside the Thumbprint target the Biology screen shows. Sex and
+  // age aren't on healthData, so only targets that hold for everyone are applied.
+  const seenIds = new Set();
+  for (const lab of healthData?.labs || []) {
+    const markerId = markerIdFor(lab?.name);
+    if (!markerId || seenIds.has(markerId)) continue;
+    seenIds.add(markerId);
+    const target = targetFor(MARKER_TARGETS, { markerId, unit: lab.unit });
+    if (target && markerStatus({ value: lab.value, range: lab.range || lab.ref_range, target }) === "outside_target") return true;
+  }
 
   // An adverse trend: three or more readings of the same marker moving one way.
   const byName = new Map();

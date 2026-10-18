@@ -10,7 +10,7 @@ import { BrandMark } from "../components/BrandMark";
  */
 export default function WelcomeScreen({ onContinue, onPrivacy }) {
   const points = [
-    { Icon: FlaskConical, title: "Your bloodwork, read in context", body: "Upload a PDF or photo and see your markers against functional ranges over time." },
+    { Icon: FlaskConical, title: "Your bloodwork, read in context", body: "Upload a PDF or photo and see each marker next to your lab's range and your Thumbprint target, over time." },
     { Icon: Dna, title: "Built on your genetics", body: "Your genetic and medication profile shapes what the platform tells you." },
     { Icon: MessageCircle, title: "Ask about your own data", body: "A health team that can see your profile and results, and shows its evidence." },
   ];

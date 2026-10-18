@@ -17,7 +17,7 @@ const SYSTEM_BY_PANEL = {
 };
 
 // Worst first. `critical` and `poor` are findings on their own; `fair` is a
-// functional-range finding — inside the lab's range, outside the optimal band —
+// target finding — inside the lab's range, outside the scorer's optimal band —
 // which Rule 1.3 treats as legitimate on a single panel.
 const TIER_RANK = { critical: 0, poor: 1, fair: 2 };
 
