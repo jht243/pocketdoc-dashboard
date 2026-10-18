@@ -9,6 +9,7 @@ import {
   appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
 } from "../lib/chatStore";
 import { runCareTeam, safetyReview } from "../lib/careTeam";
+import { openFollowUps } from "../lib/followUpStore";
 import { agentsEnabled, runAgentTeam } from "../lib/agentsClient";
 import { FORBIDDEN_OUTPUT_RULES } from "../lib/clinicalRules";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
@@ -318,7 +319,10 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
     }
     // Written now rather than after the reply lands: a member who navigates away
     // mid-answer should still find their question waiting when they come back.
-    if (user) await appendMessage(user.id, { role: "user", text: userText, imagePath });
+    const savedQuestion = user ? await appendMessage(user.id, { role: "user", text: userText, imagePath }) : null;
+    // The stored question's id goes with the round, so the safety and routing logs
+    // can point the medical director at the exact message.
+    const messageId = savedQuestion?.id || null;
     // What the member just said is data, not only conversation — a newly described
     // symptom should reach the insight cards on this turn rather than at the next
     // lab import. Fired once the reply is in: AI calls run one at a time, and the
@@ -355,6 +359,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         chatModel: CHAT_MODEL,
         cleanReply,
         onEvent,
+        messageId,
       });
       // My Advocate and the four specialists on the agents service, when it is set
       // up. A failure there restarts the round in the browser rather than failing
@@ -369,6 +374,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
             healthHistory,
             testModeEnabled,
             onEvent,
+            messageId,
           });
           return { ...out, reply: cleanReply(out.reply) };
         } catch (err) {
@@ -379,10 +385,14 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         }
       };
       try {
-        const { reply, citations, events } = await (agentsEnabled() ? onServer() : inBrowser());
+        const { reply, citations, events, lanes } = await (agentsEnabled() ? onServer() : inBrowser());
         const ranked = rankCitations(citations);
         patchLive({ pending: false, text: reply, citations: ranked, team: events });
         if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations: ranked, team: events });
+        // A marker the answer put in "Bring this to your provider" becomes an open
+        // follow-up the morning check-in asks about at 30 and 60 days. After the
+        // reply is on screen and stored, and never in its way.
+        if (user && lanes?.length) openFollowUps(user.id, lanes).catch((err) => console.warn("openFollowUps", err));
       } catch (err) {
         console.error("Care team request failed", err);
         const text = `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`;
@@ -412,6 +422,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, testM
         question: userText,
         healthData,
         cleanReply,
+        messageId,
       });
       // Ranked before it is rendered or stored, so the member sees the best source
       // first and a stored reply keeps the same ordering when the thread reloads.

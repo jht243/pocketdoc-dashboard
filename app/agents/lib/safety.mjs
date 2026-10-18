@@ -5,7 +5,7 @@
 // Every rule here comes from src/lib/clinicalRules.js, the same module the browser
 // chat and the insight cards use, so there is one copy of Dr. Locker's rules.
 import {
-  detectUrgentPatterns, hasFunctionalConcern, violatesForbiddenOutput, scrubForbidden, FORBIDDEN_OUTPUT_RULES,
+  detectUrgentPatterns, hasFunctionalConcern, violatesForbiddenOutput, scrubForbidden, offendingSentences, FORBIDDEN_OUTPUT_RULES,
 } from '../../src/lib/clinicalRules.js';
 import { complete } from './llm.mjs';
 
@@ -25,6 +25,9 @@ export function precheck({ healthData, question }) {
 /**
  * After the model: anything that still breaks a forbidden-output rule gets up to two
  * rewrites, and whatever survives those is cut sentence by sentence.
+ *
+ * `found` is what the model first wrote that broke a rule ({ problem, excerpt }), or
+ * null: the safety log records it for the medical director's weekly review.
  */
 export async function enforce({ reply, healthData, run, onFlag }) {
   const functional = hasFunctionalConcern(healthData);
@@ -32,6 +35,7 @@ export async function enforce({ reply, healthData, run, onFlag }) {
   let problem = breaks(reply);
   let revised = false;
   let scrubbed = false;
+  const found = problem ? { problem, excerpt: offendingSentences(reply, breaks) } : null;
   if (problem) onFlag?.(problem);
   for (let attempt = 0; problem && attempt < 2; attempt++) {
     try {
@@ -56,5 +60,5 @@ For doses specifically: remove EVERY amount of a supplement or medication, inclu
     if (cut !== reply) { reply = cut; revised = true; scrubbed = true; }
     problem = breaks(reply);
   }
-  return { reply, clean: !problem, revised, scrubbed, problem };
+  return { reply, clean: !problem, revised, scrubbed, problem, found };
 }

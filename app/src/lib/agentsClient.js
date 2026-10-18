@@ -8,6 +8,10 @@
  *
  * The service streams the same events the browser team emits, so the care-team
  * card animates either one the same way.
+ *
+ * The reply event also carries the routing lanes (agents/lib/escalation.mjs). They
+ * are returned to the chat, which opens a provider follow-up for each marker in
+ * "Bring this to your provider" (followUpStore.js).
  */
 import { supabase } from "./supabase";
 import { buildFactSections } from "./healthContext";
@@ -27,9 +31,10 @@ const ROUND_TIMEOUT_MS = 180000;
  * @param {object}  [opts.healthHistory]
  * @param {boolean} [opts.testModeEnabled]
  * @param {Function} opts.onEvent       each care-team event as it arrives
- * @returns {Promise<{reply, citations, sources, events, cost}>}
+ * @param {string}  [opts.messageId]    the stored question, so the service's logs can point at it
+ * @returns {Promise<{reply, citations, sources, lanes, events, cost}>}
  */
-export async function runAgentTeam({ question, history, userProfile, healthData, healthHistory, testModeEnabled, onEvent }) {
+export async function runAgentTeam({ question, history, userProfile, healthData, healthHistory, testModeEnabled, onEvent, messageId = null }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("Not signed in.");
 
@@ -45,12 +50,13 @@ export async function runAgentTeam({ question, history, userProfile, healthData,
   const events = [];
   let reply = null;
   let sources = [];
+  let lanes = [];
   let cost = null;
   try {
     const res = await fetch(`${AGENTS_URL}/chat`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ question, history, facts, healthData: slim }),
+      body: JSON.stringify({ question, history, facts, healthData: slim, messageId }),
       signal: controller.signal,
     });
     if (!res.ok || !res.body) {
@@ -72,7 +78,7 @@ export async function runAgentTeam({ question, history, userProfile, healthData,
         if (!line) continue; // keep-alive comment
         const e = JSON.parse(line.slice(6));
         if (e.type === "error") throw new Error(e.message);
-        if (e.type === "reply") { reply = e.text; sources = e.sources || []; continue; }
+        if (e.type === "reply") { reply = e.text; sources = e.sources || []; lanes = e.lanes || []; continue; }
         if (e.type === "cost") { cost = e; continue; }
         if (e.type === "done") continue;
         events.push(e);
@@ -86,5 +92,5 @@ export async function runAgentTeam({ question, history, userProfile, healthData,
   // The service reads no web pages (the Oct 14 spec: curated sources, no open search
   // at answer time), so there are no link citations. Its sources are the member's
   // record and the library, returned in `sources`.
-  return { reply, citations: [], sources, events, cost };
+  return { reply, citations: [], sources, lanes, events, cost };
 }

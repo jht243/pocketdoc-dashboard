@@ -13,6 +13,7 @@ The roster follows Adam's Oct 14 build spec, section 3.
 | **Hormone & Thyroid** | Bond Expert | Male and female modules: perimenopause and menopause, testosterone, estradiol, SHBG, progesterone, thyroid and antibodies; peptide education and FDA status only | Recommend a specific hormone, peptide or dose |
 | **Medication & Interactions** | Contract Expert | Current meds, supplements, drug-supplement interactions, pharmacogenomics (CPIC A/B) once a report is on file | Start, stop or change a dose; it flags and explains only |
 | **Lifestyle** | Construction Generalist | Nutrition, sleep, activity, wearable trends, check-in follow-up | Give medical advice |
+| **General** (scope-limited, added Oct 18) | none | Only: the preventive screening schedule from the record, how the app works, preparing for an appointment, wellness questions the record already answers. Everything else (a rash, an injury, a new symptom) gets "let's bring this to your clinician" with what to raise | Answer anything off its approved list; diagnose; name a condition |
 
 **Not counted in the five:**
 - **Safety:** the Fact-Checker. It runs as code before and after the model, plus a model check.
@@ -48,8 +49,11 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
    - stale-reading claims
    - every number traced to the facts
 
-   If anything fails: one revision, then a deterministic scrub. Blocked outputs are logged for weekly medical director review.
+   If anything fails: one revision, then a deterministic scrub. Blocked outputs are logged for weekly medical director review: every fact-check flag, rule rewrite, rule scrub, crisis and Section 9 bypass is a row in `ghai.safety_events`, and `ghai.safety_review_last_week` is the list Adam reads (migration `20261018_care_team_logs.sql`).
 8. **Finish.** Sources list, routing log, cost ledger, answer.
+   - The routing log is `ghai.agent_runs`: which specialists ran, whether General took the question, and whether it fell back to the clinician, with General's one-line topic. `ghai.fallback_topics_last_30_days` counts the fallbacks by topic: the most common decides which agent is built next.
+   - Both logs are written after the reply, as the member (their JWT through PostgREST; the service has no service-role key), and never fail the round (`lib/logs.mjs`).
+   - Each provider-lane marker in the reply's lanes opens a follow-up (`ghai.follow_ups`, written by the app from the `reply` event). The morning check-in asks about it at 30 days and again at 60 (`src/lib/followUps.js`).
 
 ## What carries over unchanged from Monitus
 
@@ -103,11 +107,12 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 
 | File | What it is |
 |---|---|
-| `briefs/` | Who each agent is: `shared/rules.md`, `advocate`, `advocate-answer`, `bloodwork`, `hormones`, `medications`, `lifestyle`, `safety` |
+| `briefs/` | Who each agent is: `shared/rules.md`, `advocate`, `advocate-answer`, `bloodwork`, `hormones`, `medications`, `lifestyle`, `general`, `safety` |
 | `lib/team.mjs` | The roster (facts slice + library sections per agent) and the pipeline |
 | `lib/safety.mjs` | Code checks before and after the model, from `src/lib/clinicalRules.js` |
 | `lib/escalation.mjs` | Step 5: lab names → matrix markers, one lane card per marker, Section 9 emergency overrides, and the block compose reads |
 | `lib/knowledge.mjs` | Library search: keyword overlap weighted by rarity, title words count double |
 | `library/` | Step 2: 294 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All awaiting medical-director approval. `npm run library:readme` rebuilds the README |
 | `lib/llm.mjs` | Model calls and the per-question cost ledger |
+| `lib/logs.mjs` | The safety and routing logs, written with the member's JWT |
 | `server.mjs` | `POST /chat` (SSE), `GET /health` |

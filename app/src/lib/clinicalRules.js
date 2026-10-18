@@ -897,3 +897,19 @@ export function scrubForbidden(text, breaks) {
   }
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+/**
+ * The sentences that break a rule, as the model wrote them: what the safety log
+ * records for the medical director, so the weekly review shows the words that were
+ * blocked rather than the whole reply. Splits the way scrubForbidden does. Falls
+ * back to the whole text when the break only shows across sentences.
+ */
+export function offendingSentences(text, breaks) {
+  const hits = [];
+  for (const line of String(text || "").split("\n")) {
+    if (!breaks(line)) continue;
+    const parts = line.split(/(?<=[.!?])\s+/).filter((s) => breaks(s));
+    hits.push(...(parts.length ? parts : [line]));
+  }
+  return (hits.length ? hits.join(" ") : String(text || "")).trim();
+}
