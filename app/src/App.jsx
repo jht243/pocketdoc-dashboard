@@ -258,7 +258,8 @@ function App() {
     // the member was writing about fatigue.
     loadMessages(user.id)
       .catch(() => [])
-      .then((messages) => generateAIInsights(healthData, userProfile, healthHistory, messages))
+      // Test-mode-era messages were about the demo profile, not this member.
+      .then((messages) => generateAIInsights(healthData, userProfile, healthHistory, messages.filter((m) => !m.fromTestMode)))
       .then((res) => { if (!cancelled) setAiInsights(res); });
     return () => { cancelled = true; };
     // userProfile included: a medication or screening change alters what the cards

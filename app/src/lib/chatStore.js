@@ -29,6 +29,9 @@ function fromRow(row) {
     team: row.team || null,
     error: row.is_error,
     createdAt: row.created_at,
+    // Written while Test mode showed a demo profile (removed Oct 18 2026): kept for
+    // the member to read, never used as context by the AI.
+    fromTestMode: row.from_test_mode === true,
   };
 }
 

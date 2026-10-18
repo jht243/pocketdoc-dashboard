@@ -85,6 +85,9 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
   const [listening, setListening] = useState(false);
   const [apptPrompt, setApptPrompt] = useState(null); // detected appointment info
   const [clearing, setClearing] = useState(false);
+  // Test-mode-era messages fold away behind a note; the member can still open them.
+  const [showTestMode, setShowTestMode] = useState(false);
+  const testModeCount = messages.filter((m) => m.fromTestMode).length;
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -261,7 +264,8 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
   // an earlier session are no longer in memory, so they are pulled back out of
   // storage — the whole point of storing them rather than holding base64 in state.
   const buildApiMessages = async (thread) => {
-    const windowed = thread.slice(-MAX_CONTEXT_MESSAGES).filter(m => !m.error);
+    // Test-mode-era turns quote the removed demo profile, so they never reach the team.
+    const windowed = thread.filter(m => !m.fromTestMode).slice(-MAX_CONTEXT_MESSAGES).filter(m => !m.error);
     const withImages = windowed.filter(m => m.imageBase64 || m.imagePath).slice(-MAX_CONTEXT_IMAGES);
     const out = [];
     for (const m of windowed) {
@@ -485,7 +489,20 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
           </div>
         )}
 
-        {messages.map((m, i) => (
+        {testModeCount > 0 && (
+          <div style={{
+            alignSelf: "stretch", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
+            borderRadius: 12, padding: "10px 12px", fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5,
+          }}>
+            {testModeCount} earlier message{testModeCount === 1 ? "" : "s"} came from Test mode, which showed a sample profile instead of your own records. It was removed on Oct 18, and your advocate no longer reads them.
+            <button onClick={() => setShowTestMode((v) => !v)} style={{
+              display: "block", marginTop: 6, background: "none", border: "none", padding: 0,
+              color: COLORS.tealLight, fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}>{showTestMode ? "Hide them" : "Show them"}</button>
+          </div>
+        )}
+
+        {messages.map((m, i) => (showTestMode || !m.fromTestMode) && (
           <div key={i} data-msg={i} style={{
             scrollMarginTop: 12,
             display: "flex", flexDirection: "column",
