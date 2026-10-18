@@ -26,7 +26,7 @@
     "ESC-06": "The marker is never self-managed (provider-only category)."
   },
   "emergency": {
-    "about": "Critical values, decided Oct 19 2026 (Adam Locker). Any of these bypasses the lanes and the agents and shows the hard-coded message. 'today' = contact your provider today; 'this_week' = book a visit this week. Either way, red-flag symptoms (chest pain, trouble breathing, confusion, fainting, persistent vomiting, fever) mean urgent care or the ER now. The potassium, sodium, hemoglobin, platelet and calcium cut-offs are the ones in Dr. Locker's Aug 2026 clinical rules spec, Section 7; INR is new and awaiting medical-director sign-off.",
+    "about": "Critical values, decided Oct 19 2026 (Adam Locker). Any of these bypasses the lanes and the agents and shows the hard-coded message. 'today' = contact your provider today; 'this_week' = book a visit this week. Either way, red-flag symptoms (chest pain, trouble breathing, confusion, fainting, persistent vomiting, fever) mean urgent care or the ER now. The potassium, sodium, hemoglobin, platelet and calcium cut-offs are the ones in Dr. Locker's Aug 2026 clinical rules spec, Section 7; INR over 4.5 confirmed by Dr. Locker on Oct 18 2026 (hospital conventions sit at 4.5 to 5.0). It applies to every member, with no blood-thinner gate: members upload reports from any lab, and an elevated INR in someone not on an anticoagulant is the bigger red flag.",
     "rules": [
       {
         "marker": "alt",
@@ -98,8 +98,7 @@
         "marker": "inr",
         "gt": 4.5,
         "unit": "",
-        "tier": "today",
-        "pending": true
+        "tier": "today"
       },
       {
         "marker": "egfr",

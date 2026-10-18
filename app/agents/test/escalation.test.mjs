@@ -423,3 +423,17 @@ test('critical values split by urgency and cover potassium, sodium, hemoglobin, 
   assert.doesNotMatch(weekOnly, /today/);
   assert.match(weekOnly, /this week/);
 });
+
+// Dr. Locker, Oct 18 2026: INR over 4.5 is right, and it must not depend on the member
+// being on a blood thinner; an elevated INR without one is the bigger red flag.
+test('INR over 4.5 is critical for every member, with no blood-thinner gate', async () => {
+  const { emergencyFor } = await import('../lib/escalation.mjs');
+  const rule = MATRIX.emergency.rules.find((r) => r.marker === 'inr');
+  assert.equal(rule.gt, 4.5);
+  assert.equal(rule.pending, undefined, 'signed off, no longer pending');
+  const now = Date.parse('2026-10-19');
+  const hit = emergencyFor([{ name: 'PT/INR', value: '4.8', unit: 'ratio', date: '2026-10-15', drawnOn: '2026-10-15' }], { now });
+  assert.equal(hit.length, 1);
+  assert.equal(hit[0].tier, 'today');
+  assert.equal(emergencyFor([{ name: 'INR', value: '4.5', unit: '', date: '2026-10-15', drawnOn: '2026-10-15' }], { now }).length, 0);
+});
