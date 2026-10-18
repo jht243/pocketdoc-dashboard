@@ -263,7 +263,7 @@ function ScoreBreakdownModal({ onClose, nutritionEnabled, healthData, userProfil
           <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5 }}>
             {bloodwork.unavailableReason} {bloodwork.confidence.note} Until then it isn't
             counted for or against you, and your labs are still read by your advocate and
-            shown on the Labs screen.
+            shown on the Biology tab.
           </div>
         </Card>
       )}
