@@ -11,7 +11,7 @@
 import { INTAKE_SECTIONS, bloodPressureProblem, hiddenAnswerKeys, isBlankAnswer, INTAKE_PROGRESS_KEY } from "./intakeContent";
 import { MONTH_OPTIONS } from "./screeningDates";
 import { checkInContextLines } from "./checkInContent";
-import { describeLabAge } from "./clinicalRules";
+import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules";
 
 /* ---------------- value formatting ---------------- */
 
@@ -109,8 +109,12 @@ export function intakeLines(intake = {}, profile = {}) {
 
 /* ---------------- labs ---------------- */
 
-/** Sortable draw date — `date` is a display string ("Jun 2026") and sorts wrongly as text. */
-const drawnAt = (lab) => String(lab?.drawnOn || lab?.created_at || lab?.date || "");
+/**
+ * Sortable draw date, the draw or test date ahead of the upload time. One shared
+ * definition (clinicalRules.labDay) so this block, the urgency check and the score
+ * all agree on which reading is the newest.
+ */
+const drawnAt = (lab) => labDay(lab);
 
 /**
  * The member's current bloodwork: one line per marker, newest reading only, newest
@@ -128,10 +132,10 @@ function labLines(labs = [], now = Date.now()) {
   for (const l of labs || []) {
     const key = String(l?.name || "").toLowerCase().trim();
     const held = latest.get(key);
-    if (!held || drawnAt(l).localeCompare(drawnAt(held)) > 0) latest.set(key, l);
+    if (!held || compareLabsNewestFirst(l, held) < 0) latest.set(key, l);
   }
   return [...latest.values()]
-    .sort((a, b) => drawnAt(b).localeCompare(drawnAt(a)))
+    .sort(compareLabsNewestFirst)
     .map((l) => {
       const age = describeLabAge(l, now);
       const detail = [
@@ -177,7 +181,9 @@ export function documentLines(records = []) {
   let budget = MAX_DOCS_TOTAL_CHARS;
   return records
     .map((r) => {
-      const head = `${r.name}${r.type ? ` (${r.type})` : ""}${r.uploadedAt ? `, uploaded ${String(r.uploadedAt).slice(0, 10)}` : ""}`;
+      // The test date is stated apart from the upload date: names no longer carry a
+      // date, and the day a file was uploaded says nothing about when the test was done.
+      const head = `${r.name}${r.type ? ` (${r.type})` : ""}${r.collectedOn ? `, test date ${String(r.collectedOn).slice(0, 10)}` : ""}${r.uploadedAt ? `, uploaded ${String(r.uploadedAt).slice(0, 10)}` : ""}`;
       if (!r.text) {
         const why = r.textError
           ? `could not be read (${r.textError}) — you cannot see this file's contents`

@@ -13,6 +13,9 @@
  */
 import { callAI, firstText } from "./api";
 import { renameDocument } from "./profileStore";
+import { cleanName, needsContentName, needsNaming, parseNameReply } from "./documentNames";
+
+export { needsContentName, needsNaming } from "./documentNames";
 
 /**
  * How much of one document we keep.
@@ -120,56 +123,40 @@ export async function extractDocumentText(base64, mediaType = "") {
   }
 }
 
-const NAME_PROMPT = `You name health documents for a member's records list, based on what the document says.
+const NAME_PROMPT = `You name health documents for a member's records list, and read off the date the test was done.
 
-Return ONE short title, 3 to 8 words, and nothing else. Shape it as:
-  [Lab or company] [Document type] — [Mon YYYY]
-e.g. "Quest Diagnostics Lipid Panel — Mar 2024", "Function Health Biomarker Report — Jan 2025",
-"23andMe Raw Genotype Data", "Chest X-Ray Report — Aug 2023", "Cardiology Visit Note — Feb 2025".
+Return ONLY JSON, no other text, no markdown, in exactly this shape:
+{"title": "...", "collected_on": "YYYY-MM-DD" or null}
 
-Rules:
-- Name the specific test or document type ("Comprehensive Metabolic Panel", not "Lab Report") when the document says it. If it covers many panels, use a broader name ("Annual Blood Panel").
-- Use the collection or visit date, not a print or report date, when both are given. Omit the date if there is none.
-- Omit the lab or company if the document doesn't name one.
+"title" is short — it has to fit one line on a phone. Shape it as:
+  [Company] [short type]
+with NO date in it. Examples:
+  "Quest Bloodwork", "Labcorp Bloodwork", "Rhythm Bloodwork", "Function Health Bloodwork",
+  "Cardiology Visit Note", "Chest X-Ray Report", "AncestryDNA Longevity Report",
+  "23andMe Raw Genotype Data", "Prenuvo MRI Report".
+
+Title rules:
+- Any blood test or lab panel — one panel or many, annual or not — is "[Company] Bloodwork". Never "Annual", never "Blood Panel", never a list of the panels it covers.
+- Use the short name the company goes by ("Quest", not "Quest Diagnostics Nichols Institute"; "Labcorp", not "Laboratory Corporation of America").
+- Other documents get a short type of two or three words ("Visit Note", "X-Ray Report", "Genotype Data").
+- Omit the company if the document doesn't name one.
 - Never include the patient's name, date of birth, account, accession, claim or order numbers, or any other identifier.
-- No quotes, no file extension, no trailing punctuation.
-- If you can't tell what the document is, output exactly: UNKNOWN`;
+- No date, no file extension, no trailing punctuation.
+- If you can't tell what the document is, use "UNKNOWN".
+
+"collected_on" is the day the test was done: the specimen collection or draw date for labs, the exam date for imaging, the visit date for a clinical note. Use it over a report, received or print date when both are given; use the report date only if it is the only date. Never use a date of birth. null if the document gives no such date, and null for one-time genetic or DNA reports. Never invent a date.`;
 
 /** How much of a transcription the namer sees — the header holds everything a name needs. */
 const NAME_SOURCE_CHARS = 4000;
 
 /**
- * Has this document never been given a content-based name?
- *
- * Every file a browser hands over carries an extension (.pdf, .jpg, .HEIC, .txt) and a
- * generated name never does, so the extension is the marker — it lets the Records list
- * name files stored before naming existed, exactly once, without a column to track it.
- */
-export function needsContentName(fileName) {
-  return !fileName || /\.[a-z0-9]{2,5}$/i.test(String(fileName).trim());
-}
-
-/** Clean the model's title into something safe to show and store, or null. */
-function cleanName(raw) {
-  const name = String(raw || "")
-    .split("\n")[0]
-    .replace(/^["'`*\s]+|["'`*\s]+$/g, "")
-    .replace(/^title:\s*/i, "")
-    // A period anywhere could end up looking like an extension, which would mark the
-    // document as unnamed and have it renamed on every visit.
-    .replace(/\./g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!name || /^unknown$/i.test(name) || name.length > 90) return null;
-  return name;
-}
-
-/**
  * A human name for a document, read from its transcription — what the member would
- * call it, instead of "IMG_4821.HEIC" or "R0034492_final(2).pdf".
+ * call it, instead of "IMG_4821.HEIC" or "R0034492_final(2).pdf" — plus the day its
+ * test was done, read in the same call.
  *
- * @returns {Promise<string|null>} null when the document can't be named; the caller
- *   keeps whatever name it already has
+ * @returns {Promise<{title: string|null, collectedOn: string|null}|null>} null when
+ *   the call failed (worth trying again on another visit); a null `title` when the
+ *   model read the document and couldn't say what it is
  */
 export async function nameDocument(text) {
   const source = String(text || "").trim().slice(0, NAME_SOURCE_CHARS);
@@ -178,9 +165,9 @@ export async function nameDocument(text) {
     const data = await callAI({
       system: NAME_PROMPT,
       messages: [{ role: "user", content: [{ type: "text", text: `Document transcription:\n\n${source}` }] }],
-      maxTokens: 40,
+      maxTokens: 80,
     });
-    return cleanName(firstText(data, ""));
+    return parseNameReply(firstText(data, ""));
   } catch (err) {
     // A document keeping its upload name is a cosmetic miss, never a reason to fail
     // the read that produced the text.
@@ -190,14 +177,25 @@ export async function nameDocument(text) {
 }
 
 /**
- * Name a stored document from its transcription and save the name.
+ * Name a stored document from its transcription and save the name and test date.
  *
- * @returns {Promise<string|null>} the new name, or null if it kept its old one
+ * @returns {Promise<{name: string, collectedOn: string|null}|null>} what was saved,
+ *   or null if the document kept the name it had
  */
 export async function nameStoredDocument(document, text) {
-  if (!document?.id || !text || !needsContentName(document.file_name)) return null;
-  const name = await nameDocument(text);
-  if (!name) return null;
-  const { error } = await renameDocument(document.id, name);
-  return error ? null : name;
+  if (!document?.id || !text || !needsNaming(document)) return null;
+  const redo = !needsContentName(document.file_name);
+  const read = await nameDocument(text);
+  if (!read) return null;
+  let name = read.title;
+  if (!name) {
+    // An upload name stays until a later read can do better. An old dated name has
+    // already said what the document is, so it keeps that minus the date — otherwise
+    // a document the model can't place would be re-read on every visit.
+    if (!redo) return null;
+    name = cleanName(document.file_name);
+    if (!name) return null;
+  }
+  const { error } = await renameDocument(document.id, name, { collectedOn: read.collectedOn });
+  return error ? null : { name, collectedOn: read.collectedOn };
 }

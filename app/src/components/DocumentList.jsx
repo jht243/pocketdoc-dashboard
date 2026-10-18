@@ -3,7 +3,7 @@ import { FileText, Camera, Dna, Trash2, ChevronRight, Sparkles, AlertCircle } fr
 import { COLORS, RADIUS } from "../theme/tokens";
 import { useAuth } from "../lib/AuthContext";
 import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds, countDocumentData, markDocumentNoLabData, NO_LAB_DATA_VERDICT } from "../lib/profileStore";
-import { extractDocumentText, fetchAsBase64, nameStoredDocument, needsContentName } from "../lib/documentText";
+import { extractDocumentText, fetchAsBase64, nameStoredDocument, needsNaming } from "../lib/documentText";
 import { ingestLabResults } from "../lib/labIngest";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
@@ -49,11 +49,34 @@ function iconFor(doc) {
 
 function formatDate(iso) {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString(undefined, {
+  // A bare YYYY-MM-DD parses as UTC midnight, which renders as the day before
+  // anywhere west of Greenwich — pin it to local midnight instead.
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? `${iso}T00:00:00` : iso;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+}
+
+/**
+ * A report you only ever get once — a DNA test. Its date tells the member nothing:
+ * there's no earlier or later one to tell it apart from.
+ */
+const ONE_TIME_REPORT = /\b(?:ancestry\s?dna|23andme|genotype|genetic|genome|dna)\b/i;
+
+/**
+ * The date a row shows: the day the test was done when the document said, and the
+ * upload day — labelled as that — when it didn't. Four Quest panels drawn months
+ * apart used to all read as the afternoon they were uploaded.
+ */
+function documentDateLabel(doc) {
+  if (doc.kind === "genetic" || ONE_TIME_REPORT.test(String(doc.file_name || ""))) return "";
+  if (doc.collected_on) return formatDate(doc.collected_on);
+  const uploaded = formatDate(doc.created_at);
+  return uploaded ? `Uploaded ${uploaded}` : "";
 }
 
 /**
@@ -183,7 +206,9 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
         && doc.extract_error !== NO_LAB_DATA_VERDICT) {
         work.push({ doc, job: "file" });
       }
-      if (doc.extracted_text && needsContentName(doc.file_name)) unnamed.push(doc);
+      // Never named, or named under the old "— Aug 2026" scheme before test dates were
+      // read. Either way it is renamed once, which also gives it its test date.
+      if (doc.extracted_text && needsNaming(doc)) unnamed.push(doc);
     }
 
     work.forEach(({ doc }) => setStage(doc.id, "queued"));
@@ -200,9 +225,11 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
 
   /** Swap an upload's file name for one read from its contents, in the list and the database. */
   const applyContentName = async (doc, text) => {
-    const name = await nameStoredDocument(doc, text);
-    if (!name) return;
-    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, file_name: name } : d)));
+    const named = await nameStoredDocument(doc, text);
+    if (!named) return;
+    setDocs((prev) => prev.map((d) => (d.id === doc.id
+      ? { ...d, file_name: named.name, ...(named.collectedOn ? { collected_on: named.collectedOn } : {}) }
+      : d)));
     onDocumentsChange?.();
   };
 
@@ -396,8 +423,8 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
                 {doc.file_name || "Untitled document"}
               </div>
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 1 }}>
-                {formatDate(doc.created_at)}
-                {doc.kind === "genetic" ? " · Genetic data" : " · Lab report"}
+                {[documentDateLabel(doc), doc.kind === "genetic" ? "Genetic data" : "Lab report"]
+                  .filter(Boolean).join(" · ")}
               </div>
               {/* Whether the AI can actually read this file — the one thing about a
                   stored document the member can't otherwise tell. */}

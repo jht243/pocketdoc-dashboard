@@ -253,7 +253,7 @@ function LabsScreen({ setActive, goToMarket, healthData, aiInsights, testModeEna
           <span style={{ fontSize: 13, fontWeight: 600 }}>TPO antibodies rising</span>
         </div>
         <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>
-          Apr 2025: 64 IU/mL &rarr; Oct 2025: 91 IU/mL &rarr; Jan 2026: 118 IU/mL.
+          Oct 2025: 64 IU/mL &rarr; Jan 2026: 91 IU/mL &rarr; Jun 2026: 118 IU/mL.
           Each result alone was within range. The trend across all three is what matters.
         </div>
       </Card></>}

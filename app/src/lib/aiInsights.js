@@ -50,6 +50,11 @@ ${URGENCY_RULES}
 
 ${FORBIDDEN_OUTPUT_RULES}
 
+WHAT TO RAISE, NOT WHAT MIGHT CHANGE
+- Never suggest that a dose, a dosage, a supplement amount or a medication might be adjusted, increased, lowered, started, stopped or switched — not even as something to "explore" or "discuss". Not "dosage adjustments", not "treatment options", not "whether your dose is right".
+- Instead, tell the member exactly what to raise: the result, its value and date, and the question. Correct: "Bring your vitamin D of 28 ng/mL from Jun 2026 to your next visit and ask what is keeping it below 30 and when it should be rechecked." Incorrect, always: "Consider discussing your vitamin D with your doctor to explore treatment options or dosage adjustments."
+- What happens to a medication or a supplement amount is the clinician's decision, made with them. The card's job is to make sure the right result reaches that conversation.
+
 HOUSE STYLE
 - Use only the data provided. Never invent a value, a date, or a fact.
 - Quote the actual numbers, with their units and their dates.
@@ -89,13 +94,24 @@ function sanitizeAction(action) {
 }
 
 /**
+ * Talk of a dose or a medication changing, with no number in it.
+ *
+ * Section 9's dosing check needs an amount ("5,000 IU"), so a card that told a
+ * member to "explore possible treatment options or dosage adjustments" for their
+ * vitamin D passed it — and put the idea of a dose change in front of them as the
+ * takeaway. Kept to the cards (rather than added to the shared Section 9 list the
+ * agents also run) because it is a rule about what an unprompted card may suggest.
+ */
+const DOSE_CHANGE_TALK = /\b(?:dos(?:e|age|ing)s?|medications?|prescriptions?)\s+(?:\w+\s+)?(?:adjust|chang|increas|decreas|tweak|modif|titrat)\w*|\b(?:adjust|chang|increas|decreas|rais|lower|tweak|modif|titrat|optimi[sz])\w*\s+(?:(?:your|the|their|a|any)\s+)?(?:\w+\s+)?(?:dos(?:e|age|ing)s?|medications?|prescriptions?)\b/i;
+
+/**
  * Section 9, enforced. A card whose copy trips a forbidden pattern is dropped
  * rather than repaired: a card that reached for a diagnosis or a dose is not one
  * sentence away from being right, and the screens all have a fallback.
  */
 function publishable(card, fields, guard) {
   const text = fields.map((f) => card?.[f]).filter(Boolean).join("\n");
-  const why = violatesForbiddenOutput(text, guard);
+  const why = violatesForbiddenOutput(text, guard) || (DOSE_CHANGE_TALK.test(text) ? "a hint that a dose or medication may change" : null);
   if (why) {
     console.warn(`Insight card suppressed — ${why}:`, card?.title);
     return false;
@@ -223,7 +239,7 @@ What each card is for:
 
 - "labs": 0-3 individual findings, most important first — and where two findings are comparably important, the one measured most recently goes first. Use each marker's NEWEST reading; an earlier reading of the same marker belongs in the sentence only as direction of travel ("down from 14.1 in Jan 2025"). Never open a finding with a superseded value, and give the date of the reading you are reading. A marker inside the lab range but outside the functional range is a legitimate finding on a single panel — the functional range does not need history to be useful. A marker moving steadily the wrong way across panels is a finding when panels exist. Say which of the three reference points made it one. Empty array when there is no bloodwork, rather than findings invented from another domain.
 
-"basis" on every card: one short line naming the reference point you used and where the numbers came from. Examples: "Lab range 0.5-4.5 mIU/L; functional target 1.0-2.0. TSH 3.1, Jun 2026 panel." — "Trend across 3 panels, Apr 2025 to Jan 2026." — "7-day wearable trend against this member's own 20-day baseline."
+"basis" on every card: one short line naming the reference point you used and where the numbers came from. Examples: "Lab range 0.5-4.5 mIU/L; functional target 1.0-2.0. TSH 3.1, Jun 2026 panel." — "Trend across 3 panels, Oct 2025 to Jun 2026." — "7-day wearable trend against this member's own 20-day baseline."
 
 Only write a card the data actually supports. Every number must trace to the data above. Return JSON only.`;
 

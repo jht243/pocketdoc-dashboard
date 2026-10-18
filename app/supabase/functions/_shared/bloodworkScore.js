@@ -468,18 +468,41 @@ function nameMatches(normalized, aliases) {
 }
 
 /**
- * When a lab row was drawn, as something sortable.
+ * When a lab row was drawn, as a sortable "YYYY-MM-DD" ("" when undated).
  *
- * `date` is a DISPLAY string ("Jun 2026") and must never be the sort key: compared
- * as text, "Mar 2025" beats "Jun 2026" and the rubric scores a year-old panel as the
- * member's current one. Prefer the real dates and fall back to `date` only for the
- * test-mode snapshot, which carries nothing else.
+ * Draw date first, then the test date of the document it came from, then the display
+ * date, and the upload time last — so a two-year-old panel uploaded this morning is
+ * not scored as the member's current one. Every source is reduced to one format
+ * before anything compares it: as raw text, "Mar 2025" beats "Jun 2026" and a bare
+ * "2026-03-01" loses to any upload timestamp from later in the year.
+ *
+ * Mirrors labDay() in src/lib/clinicalRules.js; this file is shared with the edge
+ * functions, which can't import from the app, so the two are kept in step by hand.
  */
-const measuredOn = (lab) => String(lab.drawnOn || lab.created_at || lab.date || "");
+const pad2 = (n) => String(n).padStart(2, "0");
+function toDay(raw) {
+  if (raw == null || raw === "") return "";
+  const s = String(raw).trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return Number(iso[2]) >= 1 && Number(iso[2]) <= 12 ? iso[0].slice(0, 10) : "";
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+const measuredOn = (lab) => {
+  for (const raw of [lab?.drawnOn, lab?.collectedOn, lab?.date, lab?.created_at]) {
+    const day = toDay(raw);
+    if (day) return day;
+  }
+  return "";
+};
 
 /** Most recent lab row matching a marker, with its value converted to our unit. */
 function findMarkerRow(labs, marker) {
-  const sorted = [...labs].sort((a, b) => measuredOn(b).localeCompare(measuredOn(a)));
+  // Same day: the later upload wins, the same tie-break the rest of the app uses.
+  const sorted = [...labs].sort((a, b) => measuredOn(b).localeCompare(measuredOn(a))
+    || String(b?.created_at || "").localeCompare(String(a?.created_at || "")));
   for (const lab of sorted) {
     const normalized = normalizeName(lab.name);
     if (!nameMatches(normalized, marker.aliases)) continue;

@@ -120,6 +120,8 @@ function buildLiveHealthData(stored, documents = [], labMarkers = [], wearable =
       name: document.file_name || "Untitled upload",
       type: document.kind === "lab" ? "Lab result" : document.kind,
       uploadedAt: document.created_at,
+      // The day the test was done, read off the document; null until it has been named.
+      collectedOn: document.collected_on || null,
       text: document.extracted_text || "",
       textError: document.extract_error || null,
     })),

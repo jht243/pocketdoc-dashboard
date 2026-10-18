@@ -209,9 +209,9 @@ function ImportLabsScreen({ setActive, onImported }) {
       // Name it from what it says. Not awaited: a name is a small text call and the
       // member is waiting on their results, not on the label.
       if (text) {
-        nameStoredDocument(document, text).then((name) => {
-          if (!name || storedDocRef.current?.id !== document.id) return;
-          rememberDoc({ ...storedDocRef.current, file_name: name });
+        nameStoredDocument(document, text).then((named) => {
+          if (!named || storedDocRef.current?.id !== document.id) return;
+          rememberDoc({ ...storedDocRef.current, file_name: named.name, collected_on: named.collectedOn });
           onImported?.();
         });
       }
