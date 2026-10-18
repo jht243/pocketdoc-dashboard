@@ -52,7 +52,7 @@ export const SAFETY = {
  */
 export const SPECIALISTS = [
   { id: "bloodwork", label: "Blood Work", short: "Labs", icon: "TestTubeDiagonal", color: "#C2410C",
-    lens: "labs: CBC, CMP, lipids and ApoB, A1c and fasting insulin, liver, kidney, iron, vitamins, hs-CRP; reference vs functional ranges, trends across draws, what to retest and when" },
+    lens: "labs: CBC, CMP, lipids and ApoB, A1c and fasting insulin, liver, kidney, iron, vitamins, hs-CRP; each value against the lab range on the report and the Thumbprint target, trends across draws, what to retest and when" },
   { id: "hormones", label: "Hormone & Thyroid", short: "Hormones", icon: "Flame", color: "#D97706",
     lens: "hormones and thyroid, male and female: perimenopause and menopause, testosterone, estradiol, SHBG, progesterone, TSH, free T4/T3 and antibodies; peptide education and FDA status only" },
   { id: "medications", label: "Medication & Interactions", short: "Meds", icon: "Pill", color: "#7C3AED",

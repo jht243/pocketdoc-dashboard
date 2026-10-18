@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { track } from "../lib/analytics";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { COLORS } from "../theme/tokens";
 import { formatTarget } from "../lib/markerTargets";
@@ -151,7 +152,10 @@ function MarkerRow({ m, history, ctx, expanded, onToggle, sourceLabel, withRange
 
           {a.target && (
             <div style={{ marginTop: 6 }}>
-              <button onClick={() => setWhyOpen((v) => !v)} style={{
+              <button onClick={() => {
+                if (!whyOpen) track("target_why_opened", { marker: m.name, evidence: a.target?.evidence_level || null });
+                setWhyOpen((v) => !v);
+              }} style={{
                 background: "none", border: "none", padding: 0, cursor: "pointer",
                 color: COLORS.tealLight, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 2
               }}>

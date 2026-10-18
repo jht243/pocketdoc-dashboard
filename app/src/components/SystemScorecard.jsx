@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { track } from "../lib/analytics";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card } from "./Card";
 import { RangeAndTarget } from "./MarkerResult";
@@ -46,7 +47,10 @@ function SystemScorecard({ markers, ctx }) {
         const tone = ratingTone(s);
         return (
           <div key={s.id} style={{ borderTop: i === 0 ? "none" : `1px solid ${COLORS.border}` }}>
-            <div onClick={() => setOpenId(open ? null : s.id)} style={{
+            <div onClick={() => {
+              if (!open) track("scorecard_system_opened", { system: s.id, rating: s.label });
+              setOpenId(open ? null : s.id);
+            }} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", cursor: "pointer"
             }}>
               <div>

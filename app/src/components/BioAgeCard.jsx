@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { track, useTrackOnce } from "../lib/analytics";
 import { ChevronRight, X } from "lucide-react";
 import { Card } from "./Card";
 import { SectionLabel } from "./SectionLabel";
@@ -132,6 +133,8 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
   const labs = healthData?.labs;
   const dob = userProfile?.profile?.dob || null;
   const out = useMemo(() => bioAgeFromLabs(labs || [], { dob }), [labs, dob]);
+  useTrackOnce("score_viewed", { score: "biological" }, out.status === "ok");
+  useTrackOnce("score_missing_prompt_shown", { score: "biological", status: out.status }, out.status !== "ok");
 
   if (out.status !== "ok") {
     const step = nextStep(out);
@@ -158,6 +161,11 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
     if (!canSimulate) return;
     scrollPhoneToTop();
     setOpen(true);
+    // The simulator shows every lever's effect at once, so opening it is also the
+    // member trying the levers.
+    const levers = simulator.levers.filter((l) => l.applicable).map((l) => l.key);
+    track("simulator_opened", { score: "biological", levers });
+    track("simulator_lever_tried", { score: "biological", levers, combined: Boolean(simulator.combined) });
   };
 
   return (

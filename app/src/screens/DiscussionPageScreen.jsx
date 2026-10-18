@@ -4,6 +4,7 @@ import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
+import { track } from "../lib/analytics";
 import { buildHealthContext } from "../lib/healthContext";
 
 // ---- DISCUSSION PAGE (for next doctor appointment) ----
@@ -210,7 +211,7 @@ function DiscussionPageScreen({ setActive, userProfile, healthData, healthHistor
         </div>
       </>)}
 
-      <button onClick={() => setShared(true)} style={{
+      <button onClick={() => { if (!shared) track("discussion_export"); setShared(true); }} style={{
         width: "100%", background: shared ? COLORS.bgCardAlt : COLORS.teal,
         border: shared ? `1px solid ${COLORS.tealLight}` : "none",
         color: shared ? COLORS.tealLight : COLORS.onAccent,
