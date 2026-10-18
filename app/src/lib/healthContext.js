@@ -8,7 +8,8 @@
  *
  * Pure — no network, no Supabase, no DOM.
  */
-import { INTAKE_SECTIONS, hiddenAnswerKeys, isBlankAnswer, INTAKE_PROGRESS_KEY } from "./intakeContent";
+import { INTAKE_SECTIONS, bloodPressureProblem, hiddenAnswerKeys, isBlankAnswer, INTAKE_PROGRESS_KEY } from "./intakeContent";
+import { MONTH_OPTIONS } from "./screeningDates";
 import { checkInContextLines } from "./checkInContent";
 import { describeLabAge } from "./clinicalRules";
 
@@ -20,13 +21,31 @@ function formatHeight(h) {
   return parts.length ? parts.join(" ") : null;
 }
 
+/**
+ * "128/82 mmHg (taken Sep 2026)". A reading that failed the intake's range check is
+ * still passed on, marked as possibly mistyped, so the model asks rather than
+ * treating "1280" as a real systolic.
+ */
+function formatBloodPressure(bp) {
+  const sys = String(bp.systolic || "").trim();
+  const dia = String(bp.diastolic || "").trim();
+  if (!sys && !dia) return null;
+  const reading = `${sys || "?"}/${dia || "?"} mmHg`;
+  const month = MONTH_OPTIONS.find((m) => m.value === bp.month)?.label.slice(0, 3);
+  const when = bp.year ? ` (taken ${month ? `${month} ` : ""}${bp.year})` : " (date not given)";
+  const problem = bloodPressureProblem(bp);
+  return `${reading}${when}${problem ? ` [looks mistyped: ${problem}]` : ""}`;
+}
+
 /** Any answer value → a readable string, or null when there's nothing to say. */
 export function formatAnswer(value) {
   if (isBlankAnswer(value)) return null;
   if (Array.isArray(value)) return value.map(formatAnswer).filter(Boolean).join(", ") || null;
   if (typeof value === "object") {
-    // The two structured widgets: height (ft/in or cm) and dose (amount/unit/frequency).
+    // The structured widgets: height (ft/in or cm), blood pressure (reading + month),
+    // and dose (amount/unit/frequency).
     if ("feet" in value || "cm" in value) return formatHeight(value);
+    if ("systolic" in value || "diastolic" in value) return formatBloodPressure(value);
     if ("amount" in value) {
       return [value.amount, value.unit, value.frequency].filter(Boolean).join(" ") || null;
     }

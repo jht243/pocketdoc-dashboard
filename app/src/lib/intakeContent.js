@@ -24,6 +24,8 @@
  *   dose     — amount + unit + frequency. value: { amount, unit, frequency }
  *   height   — feet/inches or centimetres, unit-switchable.
  *              value: { unit: "imperial" | "metric", feet, inches, cm }
+ *   bloodPressure — one reading plus when it was taken.
+ *              value: { systolic, diastolic, month: "MM", year: "YYYY" } (all strings)
  *
  * `remindable: true` on a question adds a "Remind me later" action, for values a
  * user may not have to hand (lab results). Deferral is recorded under `<id>__remind`.
@@ -207,6 +209,49 @@ const hctAbove52 = (a) => {
   return Number.isFinite(n) && n > 52;
 };
 
+// ---- blood pressure reading ----
+// Systolic is an input to Heart Age and the AHA PREVENT risk equations, which need the
+// number itself; the "High blood pressure" condition box can't stand in for it.
+// The ranges are wide on purpose: they catch a slipped digit ("1280", or the two
+// numbers swapped), not an unusual but real reading. A reading outside them is still
+// saved; the member just sees a note asking them to check it.
+const BP_RANGE = { systolic: [70, 260], diastolic: [40, 150] };
+const bpNumber = (v) => {
+  const n = parseFloat(String(v ?? "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : null;
+};
+
+/** What looks wrong with a blood pressure answer, in words for the member, or null. */
+export function bloodPressureProblem(bp) {
+  if (!bp || typeof bp !== "object") return null;
+  const sys = bpNumber(bp.systolic);
+  const dia = bpNumber(bp.diastolic);
+  const [sLo, sHi] = BP_RANGE.systolic;
+  const [dLo, dHi] = BP_RANGE.diastolic;
+  if (sys != null && (sys < sLo || sys > sHi)) return `The top number is usually between ${sLo} and ${sHi}. Check it for a typo.`;
+  if (dia != null && (dia < dLo || dia > dHi)) return `The bottom number is usually between ${dLo} and ${dHi}. Check it for a typo.`;
+  if (sys != null && dia != null && sys <= dia) return "The top number is normally higher than the bottom one. Are they swapped?";
+  if (bp.year && bp.month) {
+    const now = new Date();
+    const taken = Number(bp.year) * 12 + Number(bp.month) - 1;
+    if (taken > now.getFullYear() * 12 + now.getMonth()) return "That date is in the future.";
+  } else if (bp.year && Number(bp.year) > new Date().getFullYear()) {
+    return "That date is in the future.";
+  }
+  return null;
+}
+
+// A plausible reading above 180 systolic or 120 diastolic is the guideline's severe
+// range. A typo ("1800") is caught by the range check first and never raises this.
+const bpSevere = (a) => {
+  const bp = a.bloodPressure;
+  if (!bp || typeof bp !== "object") return false;
+  if (bloodPressureProblem({ systolic: bp.systolic, diastolic: bp.diastolic })) return false;
+  const sys = bpNumber(bp.systolic);
+  const dia = bpNumber(bp.diastolic);
+  return (sys != null && sys > 180) || (dia != null && dia > 120);
+};
+
 const sexIs = (p, s) => String(p?.sex || "").toLowerCase() === s;
 const hasFemaleRepro = (a, p) =>
   (sexIs(p, "female") && !has(a, "gahtSurgeries", "Hysterectomy / oophorectomy")) ||
@@ -265,6 +310,11 @@ export const INTAKE_SECTIONS = [
     title: "Medications & supplements",
     questions: [
       { id: "medications", type: "tokens", label: "Current medications, supplements & OTC", help: "Include prescriptions, vitamins, and anything you take regularly. You can manage these in more detail from your medication screen.", placeholder: "e.g. Lisinopril 10mg, Vitamin D3..." },
+      // Asked outright rather than read from the list above: heart-risk estimates (AHA
+      // PREVENT) need a plain yes/no for each, and "Zestoretic" in a free-text list
+      // doesn't say "blood pressure medicine" to anyone who doesn't already know.
+      { id: "bpMedication", type: "single", label: "Do you take medication to lower your blood pressure?", help: "e.g. lisinopril, losartan, amlodipine, hydrochlorothiazide, metoprolol", options: ["No", "Yes", "Not sure"] },
+      { id: "lipidMedication", type: "single", label: "Do you take a statin or other cholesterol-lowering medication?", help: "e.g. atorvastatin, rosuvastatin, simvastatin, ezetimibe, a PCSK9 injection", options: ["No", "Yes", "Not sure"] },
     ],
   },
   {
@@ -419,6 +469,8 @@ export const INTAKE_SECTIONS = [
     questions: [
       { id: "lastPhysical", type: "single", label: "When was your last comprehensive physical / annual wellness visit?", options: ["Within the past year", "1-2 years ago", "2-5 years ago", "More than 5 years ago", "Never"] },
       { id: "lastBloodPanel", type: "single", label: "When was your last blood panel (lipids, glucose, CBC, metabolic)?", options: ["Within the past year", "1-2 years ago", "2-5 years ago", "5+ years ago / never"] },
+      { id: "bloodPressure", type: "bloodPressure", label: "Your most recent blood pressure reading, if you know it", help: "From a doctor's visit, a pharmacy machine, or a home cuff. It helps estimate your heart risk.", remindable: true },
+      { id: "bloodPressureSevereNote", type: "note", tone: "warn", text: "A reading above 180/120 is in the severe range. If your blood pressure is this high now and you have chest pain, shortness of breath, weakness, vision changes, or confusion, call 911. Otherwise, recheck it and contact your clinician soon.", showIf: bpSevere },
       { id: "screeningsCompleted", type: "multi", label: "Which of the following have you completed? (select all that apply)", options: SCREENINGS_COMPLETED },
       { id: "vaccinations", type: "single", label: "Are you up to date on vaccinations?", options: ["Yes", "No / unsure", "Partially — some missing"] },
       { id: "hasPCP", type: "single", label: "Do you have a primary care physician you see regularly?", options: ["Yes", "No — I don't have one", "No — I use urgent care / specialists only"] },
@@ -520,7 +572,7 @@ export const INTAKE_GROUPS = [
     id: "history",
     title: "Medical history",
     sections: ["conditions", "surgical", "allergies", "mental", "preventive"],
-    prep: "Have the approximate year of any diagnoses, surgeries, or hospital stays, and roughly when you last had a physical, a blood panel, and routine screenings.",
+    prep: "Have the approximate year of any diagnoses, surgeries, or hospital stays, and roughly when you last had a physical, a blood panel, and routine screenings. Your latest blood pressure reading helps too, if you have it.",
   },
   {
     id: "medications",

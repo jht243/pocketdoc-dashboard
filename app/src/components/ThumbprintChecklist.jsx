@@ -1,6 +1,7 @@
-import React from "react";
-import { CheckCircle2, ChevronRight, ClipboardList, Dna, Droplet, Pill, Watch } from "lucide-react";
+import React, { useState } from "react";
+import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Dna, Droplet, Pill, Watch } from "lucide-react";
 import { Card } from "./Card";
+import { OrderComingSoon } from "./OrderComingSoon";
 import { COLORS } from "../theme/tokens";
 
 const ICONS = { blood: Droplet, pgx: Pill, cgx: Dna, history: ClipboardList, wearable: Watch };
@@ -17,6 +18,11 @@ function statusPill(item) {
 // with what it tells the platform and where to add it.
 function ThumbprintChecklist({ checklist, setActive }) {
   const { items, done, total } = checklist;
+  const [showDone, setShowDone] = useState(false);
+  const finishedOnce = (i) => i.once && i.status === "done";
+  const doneOnce = items.filter(finishedOnce);
+  const openItems = items.filter((i) => !finishedOnce(i));
+
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "14px 16px 12px" }}>
@@ -34,29 +40,63 @@ function ThumbprintChecklist({ checklist, setActive }) {
         </div>
       </div>
 
-      {items.map((item) => {
-        const Icon = ICONS[item.id];
-        const pill = statusPill(item);
-        const isDone = item.status === "done";
-        return (
-          <button key={item.id} onClick={() => setActive(item.target)} style={{
+      {openItems.map((item) => <ChecklistRow key={item.id} item={item} setActive={setActive} />)}
+
+      {/* Finished one-time tests fold into one line (Oct 7 call). The baseline panel and
+          the genetic panels are done once; keeping them as rows forever buries what's
+          still left to do. Tapping the line opens them back up. */}
+      {doneOnce.length > 0 && (
+        <>
+          <button onClick={() => setShowDone((v) => !v)} aria-expanded={showDone} style={{
             width: "100%", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
             background: "none", border: "none", borderTop: `1px solid ${COLORS.border}`,
-            padding: "12px 16px", cursor: "pointer",
+            padding: "11px 16px", cursor: "pointer",
           }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, display: "grid", placeItems: "center", background: isDone ? COLORS.goodDim : COLORS.bgCardAlt }}>
-              {isDone ? <CheckCircle2 size={17} color={COLORS.good} /> : <Icon size={16} color={COLORS.accent} />}
+            <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, display: "grid", placeItems: "center", background: COLORS.goodDim }}>
+              <CheckCircle2 size={17} color={COLORS.good} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>{item.title}</div>
-              <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.4, marginTop: 1 }}>{item.detail}</div>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.4 }}>
+              <span style={{ fontWeight: 600, color: COLORS.good }}>Done: </span>
+              {doneOnce.map((i) => i.title).join(", ")}
             </div>
-            <span style={{ fontSize: 10.5, fontWeight: 600, padding: "3px 8px", borderRadius: 99, background: pill.bg, color: pill.fg, flexShrink: 0, whiteSpace: "nowrap" }}>{pill.label}</span>
-            <ChevronRight size={14} color={COLORS.textMuted} style={{ flexShrink: 0 }} />
+            <ChevronDown size={14} color={COLORS.textMuted} style={{ flexShrink: 0, transform: showDone ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
           </button>
-        );
-      })}
+          {showDone && doneOnce.map((item) => <ChecklistRow key={item.id} item={item} setActive={setActive} />)}
+        </>
+      )}
     </Card>
+  );
+}
+
+// One piece of the baseline: tap it to go add it. A test that can't be ordered in the
+// app yet carries a placeholder Order button beneath it while nothing is on file. It
+// sits outside the row's own button, since a button inside a button isn't valid HTML.
+function ChecklistRow({ item, setActive }) {
+  const Icon = ICONS[item.id];
+  const pill = statusPill(item);
+  const isDone = item.status === "done";
+  const orderable = Boolean(item.orderName) && item.status === "todo";
+  return (
+    <div style={{ borderTop: `1px solid ${COLORS.border}` }}>
+      <button onClick={() => setActive(item.target)} style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+        background: "none", border: "none",
+        padding: orderable ? "12px 16px 6px" : "12px 16px", cursor: "pointer",
+      }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, display: "grid", placeItems: "center", background: isDone ? COLORS.goodDim : COLORS.bgCardAlt }}>
+          {isDone ? <CheckCircle2 size={17} color={COLORS.good} /> : <Icon size={16} color={COLORS.accent} />}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.textPrimary }}>{item.title}</div>
+          <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.4, marginTop: 1 }}>{item.detail}</div>
+        </div>
+        <span style={{ fontSize: 10.5, fontWeight: 600, padding: "3px 8px", borderRadius: 99, background: pill.bg, color: pill.fg, flexShrink: 0, whiteSpace: "nowrap" }}>{pill.label}</span>
+        <ChevronRight size={14} color={COLORS.textMuted} style={{ flexShrink: 0 }} />
+      </button>
+      {orderable && (
+        <OrderComingSoon testName={item.orderName} label="Order this test" style={{ padding: "0 16px 12px 60px" }} />
+      )}
+    </div>
   );
 }
 
