@@ -4,15 +4,15 @@ import { ChevronRight, X } from "lucide-react";
 import { Card } from "./Card";
 import { SectionLabel } from "./SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { aboutYears, bioAgeEnabled, bioAgeFromLabs, formatYears } from "../lib/phenoAge";
+import { aboutYears, bioAgeFromLabs, formatYears } from "../lib/phenoAge";
 import { scrollPhoneToTop } from "../lib/scroll";
 
 /**
  * Biological age (Levine PhenoAge) — the header card on Home and Biology, and the
  * improvement simulator it opens.
  *
- * Behind a flag until the medical director signs off (see bioAgeEnabled): with the
- * flag off this renders nothing and computes nothing, so members never see it.
+ * Shown to every member: Dr. Locker signed off on the model and the simulator
+ * targets in Oct 2026.
  *
  * Everything shown comes from the member's own lab rows and date of birth. When the
  * number can't be calculated the card says what's missing — never a guess, never a
@@ -217,13 +217,7 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
   );
 }
 
-/**
- * Renders nothing unless the biological-age flag is on. The flag is read once per
- * mount — flipping it in another tab takes effect on the next screen visit.
- */
 function BioAgeCard(props) {
-  const [enabled] = useState(bioAgeEnabled);
-  if (!enabled) return null;
   return <BioAgeCardInner {...props} />;
 }
 

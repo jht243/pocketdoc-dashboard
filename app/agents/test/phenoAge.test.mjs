@@ -245,8 +245,8 @@ test('spec simulator examples: glucose 98→90 ≈ 1 year, hs-CRP 1.8→1.0 ≈ 
   assert.equal(both.effect, 'about 2 years younger');
 });
 
-test('simulator levers at the placeholder targets, plus the combined scenario computed directly', () => {
-  assert.equal(SIMULATOR_TARGETS.approved, false);
+test('simulator levers at the signed-off targets, plus the combined scenario computed directly', () => {
+  assert.equal(SIMULATOR_TARGETS.approved, true);
   const base = calculatePhenoAge(WORKED, FASTING);
   const { levers, combined } = simulateLevers(base);
   assert.deepEqual(levers.map((l) => l.key), ['glucose', 'crp']); // biggest effect first

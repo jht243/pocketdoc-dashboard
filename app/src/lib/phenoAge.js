@@ -29,21 +29,3 @@ export {
   simulateScenario,
   toModelUnits,
 } from "../../supabase/functions/_shared/phenoAge.js";
-
-/**
- * Whether biological age is shown at all.
- *
- * Off for members until the medical director signs off on the model and the
- * simulator targets. Two ways on: `VITE_BIO_AGE=1` at build time (a preview deploy),
- * or `localStorage["tp:bioAge"] = "1"` in one browser — which is how Adam previews it
- * on the live app without any member seeing it. Storage can throw (private mode,
- * blocked site data); that reads as off.
- */
-export function bioAgeEnabled() {
-  if (import.meta.env?.VITE_BIO_AGE === "1") return true;
-  try {
-    return typeof window !== "undefined" && window.localStorage?.getItem("tp:bioAge") === "1";
-  } catch {
-    return false;
-  }
-}

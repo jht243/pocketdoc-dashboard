@@ -120,7 +120,7 @@ function LabsScreen({ setActive, healthData, aiInsights, userProfile }) {
 
       <UrgentBanner items={urgent} />
 
-      {/* Biological age — renders nothing unless the bio-age flag is on. */}
+      {/* Biological age. */}
       <BioAgeCard healthData={healthData} userProfile={userProfile} setActive={setActive} />
 
       {markers.length > 0 && <>

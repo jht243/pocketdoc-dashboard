@@ -95,13 +95,13 @@ export const DEFAULT_CRP_LOWER_LIMIT_MG_L = 0.2;
  * The improvement simulator's levers and their targets.
  *
  * Only fasting glucose and hs-CRP: both are lifestyle-modifiable and both were
- * approved as levers in the spec. The TARGET VALUES are placeholders awaiting the
- * medical director — `approved: false` is read by the display, which says so while
- * it is false. They are US units, as a member reads them on their report.
+ * approved as levers in the spec. Signed off by Dr. Locker in Oct 2026; while
+ * `approved` is false the display labels the targets as placeholders. They are US
+ * units, as a member reads them on their report.
  */
 export const SIMULATOR_TARGETS = Object.freeze({
-  approved: false,
-  approvedBy: "pending",
+  approved: true,
+  approvedBy: "Adam Locker, Oct 2026",
   glucose: Object.freeze({ value: 85, unit: "mg/dL" }),
   crp: Object.freeze({ value: 1.0, unit: "mg/L" }),
 });

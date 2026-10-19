@@ -6,9 +6,6 @@ import { BioAgeCard } from "../components/BioAgeCard";
 import { COLORS } from "../theme/tokens";
 import "../styles/global.css";
 
-// The card is flagged off for members; this page is the one place it's always on.
-try { window.localStorage.setItem("tp:bioAge", "1"); } catch { /* preview only */ }
-
 const row = (name, value, unit, drawnOn) => ({ name, value: String(value), unit, drawnOn });
 
 /** The spec's worked example (53-year-old), as a LabCorp-style panel. */
