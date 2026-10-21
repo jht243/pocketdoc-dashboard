@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Camera, ExternalLink, Mic, Send, Trash2, X } from "lucide-react";
+import { Archive, Camera, ExternalLink, Mic, Send, Trash2, X } from "lucide-react";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText, firstCitations } from "../lib/api";
 import { buildHealthContext } from "../lib/healthContext";
 import { useAuth } from "../lib/AuthContext";
 import { rankCitations, sourceCaveat } from "../lib/sourceQuality";
 import {
-  appendMessage, chatImageBase64, chatImageUrl, clearConversation, loadMessages, uploadChatImage,
+  appendMessage, archiveConversation, chatImageBase64, chatImageUrl, clearConversation, listArchived,
+  loadMessages, restoreConversation, threadTitle, uploadChatImage,
 } from "../lib/chatStore";
+import { ArchivedChats } from "../components/ArchivedChats";
 import { runCareTeam, safetyReview } from "../lib/careTeam";
 import { openFollowUps } from "../lib/followUpStore";
 import { agentsEnabled, runAgentTeam } from "../lib/agentsClient";
@@ -81,6 +83,8 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
   const [listening, setListening] = useState(false);
   const [apptPrompt, setApptPrompt] = useState(null); // detected appointment info
   const [clearing, setClearing] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
+  const [showArchive, setShowArchive] = useState(false);
   // Test-mode-era messages fold away behind a note; the member can still open them.
   const [showTestMode, setShowTestMode] = useState(false);
   const testModeCount = messages.filter((m) => m.fromTestMode).length;
@@ -127,20 +131,25 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
   // The conversation belongs to the member, not the session. Reload the stored
   // thread on mount so leaving the screen — or the app — never costs them the
   // context they were working in.
+  const loadThread = async () => {
+    const stored = await loadMessages(user.id);
+    // Photos sit in a private bucket, so each needs a freshly signed URL to render.
+    return Promise.all(stored.map(async (m) => (
+      m.imagePath ? { ...m, imageUrl: await chatImageUrl(m.imagePath) } : m
+    )));
+  };
+  const countArchived = () => user && listArchived(user.id).then((list) => setArchivedCount(list.length));
   useEffect(() => {
     let cancelled = false;
     if (!user) { setHistoryLoading(false); return; }
     (async () => {
-      const stored = await loadMessages(user.id);
-      // Photos sit in a private bucket, so each needs a freshly signed URL to render.
-      const hydrated = await Promise.all(stored.map(async (m) => (
-        m.imagePath ? { ...m, imageUrl: await chatImageUrl(m.imagePath) } : m
-      )));
+      const hydrated = await loadThread();
       if (!cancelled) {
         setMessages(hydrated);
         setHistoryLoading(false);
       }
     })();
+    countArchived();
     return () => { cancelled = true; };
     // Keyed on the id, not the user object: Supabase hands out a new object on every
     // token refresh and tab refocus, and reloading history then wiped the live
@@ -206,7 +215,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
   const clearThread = async () => {
     if (!user || !messages.length || clearing) return;
     const ok = window.confirm(
-      "Delete this conversation? Your health data stays — only the chat is removed."
+      "Delete this conversation for good? Your health data stays — only the chat is removed. To keep it, archive it instead."
     );
     if (!ok) return;
     setClearing(true);
@@ -214,6 +223,43 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
     setMessages([]);
     setApptPrompt(null);
     setClearing(false);
+  };
+
+  // Archive: the thread leaves the screen and the advocate's replay, but is kept and
+  // can be read or restored from Archived chats. Delete stays for removing it for good.
+  const archiveThread = async ({ ask = true } = {}) => {
+    if (!user || !messages.length || clearing || loading) return false;
+    if (ask && !window.confirm(
+      "Archive this conversation? It's kept under Archived chats, where you can read or restore it any time. Your advocate starts fresh."
+    )) return false;
+    setClearing(true);
+    const { error } = await archiveConversation(user.id, threadTitle(messages));
+    setClearing(false);
+    if (error) {
+      window.alert("Couldn't archive this conversation. Please try again.");
+      return false;
+    }
+    setMessages([]);
+    setApptPrompt(null);
+    countArchived();
+    return true;
+  };
+
+  // The open thread is archived first, so a restore never merges two conversations.
+  const restoreThread = async (conversationId) => {
+    if (!user || loading) return false;
+    if (messages.length) {
+      if (!window.confirm("Restore this conversation? Your current one will be archived so this one can take its place.")) return false;
+      if (!(await archiveThread({ ask: false }))) return false;
+    }
+    const { error } = await restoreConversation(user.id, conversationId);
+    if (error) {
+      window.alert("Couldn't restore this conversation. Please try again.");
+      return false;
+    }
+    setMessages(await loadThread());
+    countArchived();
+    return true;
   };
 
   const handleImage = (e) => {
@@ -443,6 +489,15 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%", background: COLORS.bgDeep }}>
+      {showArchive && user && (
+        <ArchivedChats
+          userId={user.id}
+          onClose={() => setShowArchive(false)}
+          onRestore={restoreThread}
+          onChanged={countArchived}
+          onNavigate={(screen) => { setShowArchive(false); setActive(screen); }}
+        />
+      )}
       {/* Header */}
       <div style={{
         padding: "36px 18px 14px", borderBottom: `1px solid ${COLORS.border}`,
@@ -453,10 +508,25 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
           <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
             My Advocate and a team of specialists, working from your data.
           </div>
+          {archivedCount > 0 && (
+            <button onClick={() => setShowArchive(true)} style={{
+              marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer",
+              color: COLORS.tealLight, fontSize: 12, fontWeight: 600,
+            }}>Archived chats ({archivedCount})</button>
+          )}
         </div>
-        {/* Permanent by default, deleted only on request — the member owns the thread. */}
+        {/* Permanent by default: archived or deleted only on request — the member owns the thread. */}
         {messages.length > 0 && (
-          <button onClick={clearThread} disabled={clearing} aria-label="Delete conversation" style={{
+          <button onClick={() => archiveThread()} disabled={clearing || loading} aria-label="Archive conversation" title="Archive conversation" style={{
+            background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10,
+            width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: clearing || loading ? "default" : "pointer", flexShrink: 0, opacity: clearing || loading ? 0.5 : 1,
+          }}>
+            <Archive size={15} color={COLORS.textSecondary} />
+          </button>
+        )}
+        {messages.length > 0 && (
+          <button onClick={clearThread} disabled={clearing} aria-label="Delete conversation" title="Delete conversation" style={{
             background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 10,
             width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
             cursor: clearing ? "default" : "pointer", flexShrink: 0, opacity: clearing ? 0.5 : 1,

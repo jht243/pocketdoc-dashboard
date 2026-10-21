@@ -273,7 +273,7 @@ function App() {
     // the chat screen: a symptom described three times in six weeks is a finding,
     // and generating insights blind to it produced cards about step counts while
     // the member was writing about fatigue.
-    loadMessages(user.id)
+    loadMessages(user.id, 200, { thread: "all" })
       .catch(() => [])
       // Test-mode-era messages were about the demo profile, not this member.
       .then((messages) => generateAIInsights(healthData, userProfile, healthHistory, messages.filter((m) => !m.fromTestMode)))

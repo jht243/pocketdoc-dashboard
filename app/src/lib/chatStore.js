@@ -10,8 +10,9 @@
  * image has to be re-sendable later, and a data URL in the database would bloat
  * every read of the conversation to fetch bytes most turns don't need.
  *
- * Phase 1 is one continuous conversation per member; `conversation_id` stays null
- * until phase 2 introduces separate threads.
+ * The open conversation is the messages with no `conversation_id`. Archiving moves
+ * it into a `ghai.conversations` row: off the screen and out of the advocate's
+ * replay, but kept, readable and restorable (migration 20261020_chat_archive).
  */
 import { supabase, isConfigured } from "./supabase";
 
@@ -40,12 +41,18 @@ function fromRow(row) {
  * `limit` caps how far back we hydrate — the tail is what a returning member
  * actually reads, and phase 2 replaces this with per-thread paging.
  */
-export async function loadMessages(userId, limit = 200) {
+export async function loadMessages(userId, limit = 200, { thread = "open" } = {}) {
   if (!isConfigured || !userId) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from("conversation_messages")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", userId);
+  // "open": the chat on screen. "all": archived threads too, for the insight cards,
+  // where a symptom the member described still counts after the chat is archived.
+  // Anything else is one archived conversation's id.
+  if (thread === "open") query = query.is("conversation_id", null);
+  else if (thread !== "all") query = query.eq("conversation_id", thread);
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) {
@@ -92,29 +99,123 @@ export async function appendMessage(userId, { role, text = "", citations = [], i
   return fromRow(data);
 }
 
-/** Delete the whole conversation, including any photos it carried. */
-export async function clearConversation(userId) {
-  if (!isConfigured || !userId) return { error: null };
+/** One thread's messages: the open one (`null`) or an archived one, by id. */
+const inThread = (query, conversationId) =>
+  conversationId ? query.eq("conversation_id", conversationId) : query.is("conversation_id", null);
 
-  const { data: rows } = await supabase
-    .from("conversation_messages")
-    .select("image_path")
-    .eq("user_id", userId)
-    .not("image_path", "is", null);
-
+/** Remove the photos a thread carried, before its messages go. */
+async function removeThreadImages(userId, conversationId) {
+  const { data: rows } = await inThread(
+    supabase.from("conversation_messages").select("image_path").eq("user_id", userId).not("image_path", "is", null),
+    conversationId,
+  );
   const paths = (rows || []).map((r) => r.image_path).filter(Boolean);
   if (paths.length) {
     const { error: rmError } = await supabase.storage.from(BUCKET).remove(paths);
     // Orphaned objects are litter, not a reason to keep the messages the member
     // asked to delete — log and carry on.
-    if (rmError) console.error("clearConversation/storage", rmError);
+    if (rmError) console.error("removeThreadImages", rmError);
   }
+}
 
+/** Delete the open conversation, including any photos it carried. Archived ones stay. */
+export async function clearConversation(userId) {
+  if (!isConfigured || !userId) return { error: null };
+  await removeThreadImages(userId, null);
   const { error } = await supabase
     .from("conversation_messages")
     .delete()
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("conversation_id", null);
   if (error) console.error("clearConversation", error);
+  return { error };
+}
+
+/* ---------------- archive ---------------- */
+
+/** The archive's name for a thread: the member's first question, clipped. */
+export function threadTitle(messages = []) {
+  const first = messages.find((m) => m.role === "user" && String(m.text || "").trim());
+  const t = String(first?.text || "Conversation").replace(/\s+/g, " ").trim();
+  return t.length > 70 ? `${t.slice(0, 69).trimEnd()}…` : t;
+}
+
+/**
+ * Move the open conversation into the archive. Its messages keep their dates and
+ * photos; they only stop being the thread on screen and the one the advocate reads.
+ */
+export async function archiveConversation(userId, title) {
+  if (!isConfigured || !userId) return { error: null };
+  const { data: conv, error } = await supabase
+    .from("conversations")
+    .insert({ user_id: userId, title, archived_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) {
+    console.error("archiveConversation", error);
+    return { error };
+  }
+  const { error: moveError } = await supabase
+    .from("conversation_messages")
+    .update({ conversation_id: conv.id })
+    .eq("user_id", userId)
+    .is("conversation_id", null);
+  if (moveError) {
+    // Nothing moved: drop the empty archive entry rather than list a blank thread.
+    console.error("archiveConversation/move", moveError);
+    await supabase.from("conversations").delete().eq("id", conv.id);
+    return { error: moveError };
+  }
+  return { error: null, conversation: conv };
+}
+
+/** Archived conversations, newest first, each with how many messages it holds. */
+export async function listArchived(userId) {
+  if (!isConfigured || !userId) return [];
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, title, archived_at, created_at, conversation_messages(count)")
+    .eq("user_id", userId)
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false });
+  if (error) {
+    console.error("listArchived", error);
+    return [];
+  }
+  return (data || []).map((c) => ({
+    id: c.id,
+    title: c.title || "Conversation",
+    archivedAt: c.archived_at,
+    count: c.conversation_messages?.[0]?.count ?? 0,
+  }));
+}
+
+/**
+ * Bring an archived conversation back as the open one. The caller archives the
+ * current open thread first, so the two are never merged into one.
+ */
+export async function restoreConversation(userId, conversationId) {
+  if (!isConfigured || !userId || !conversationId) return { error: null };
+  const { error } = await supabase
+    .from("conversation_messages")
+    .update({ conversation_id: null })
+    .eq("user_id", userId)
+    .eq("conversation_id", conversationId);
+  if (error) {
+    console.error("restoreConversation", error);
+    return { error };
+  }
+  await supabase.from("conversations").delete().eq("id", conversationId).eq("user_id", userId);
+  return { error: null };
+}
+
+/** Delete an archived conversation for good, photos included. */
+export async function deleteArchived(userId, conversationId) {
+  if (!isConfigured || !userId || !conversationId) return { error: null };
+  await removeThreadImages(userId, conversationId);
+  // Its messages go with it (on delete cascade).
+  const { error } = await supabase.from("conversations").delete().eq("id", conversationId).eq("user_id", userId);
+  if (error) console.error("deleteArchived", error);
   return { error };
 }
 
