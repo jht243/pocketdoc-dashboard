@@ -494,7 +494,13 @@ export function buildFactSections({ userProfile, healthData, healthHistory }) {
       : intake.medications || [];
   const meds = medSource.map(medLine).join("\n");
 
-  const records = documentLines(healthData?.records || []);
+  // DNA reports get their own section and their own budget. In the shared one they
+  // compete with lab PDFs newest-first, and a member's genetics report, usually one
+  // of their first uploads, was the file left out once a few labs came after it.
+  const isGenetic = (r) => r.type === "genetic";
+  const allRecords = healthData?.records || [];
+  const records = documentLines(allRecords.filter((r) => !isGenetic(r)));
+  const geneticRecords = documentLines(allRecords.filter(isGenetic));
 
   const body = healthData?.body
     ? Object.entries(healthData.body)
@@ -554,6 +560,7 @@ Numbers the member self-reported at intake are only worth citing when no lab res
       { key: "wearableRanges", title: "WEARABLE — EACH METRIC vs THEIR OWN RANGE", body: metricRangeLines(healthData?.metrics) },
       { key: "wearableHistory", title: "WEARABLE — RECENT DAYS", body: wearableHistoryLines(healthData?.history) },
       { key: "genetics", title: "GENETICS", body: (healthData?.genetics || []).map(geneticLine).join("\n") },
+      { key: "geneticDocuments", title: "GENETIC REPORTS (the member's uploaded DNA reports, transcribed — the source the GENETICS markers above were read from)", body: geneticRecords },
       { key: "preventive", title: "PREVENTIVE CARE SCHEDULE", body: scheduleLines(userProfile?.schedule, userProfile?.completedItems) },
       { key: "body", title: "BODY COMPOSITION", body },
       { key: "documents", title: "UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", body: records },

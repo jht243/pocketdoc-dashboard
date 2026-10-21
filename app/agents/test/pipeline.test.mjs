@@ -114,6 +114,28 @@ test('a genetics question brings in the Genetics specialist, who reads the DNA r
   assert.match(read.user, /GENETICS\n- APOE/);
 });
 
+// Live, Oct 20: a member's DNA report was their oldest upload, behind seven lab PDFs,
+// and the shared document budget ran out before it. Genetic reports have their own
+// section, and the Genetics specialist always gets it.
+test('the Genetics specialist reads the DNA report however many labs came after it', async () => {
+  // healthContext.js uses the app's extensionless imports, so its side is read as source.
+  const { readFileSync } = await import('node:fs');
+  const ctx = readFileSync(new URL('../../src/lib/healthContext.js', import.meta.url), 'utf8');
+  assert.match(ctx, /const records = documentLines\(allRecords\.filter\(\(r\) => !isGenetic\(r\)\)\)/, 'the shared budget excludes DNA reports');
+  assert.match(ctx, /key: "geneticDocuments"[^\n]*body: geneticRecords/, 'DNA reports have their own section');
+  const built = {
+    preamble: '',
+    sections: [
+      { key: 'documents', title: 'UPLOADED RECORDS & DOCUMENTS', body: '- Quest Bloodwork: stored, but not included here' },
+      { key: 'geneticDocuments', title: 'GENETIC REPORTS', body: '- AncestryDNA Longevity Report — full text follows:\n"""\nFOXO3 rs2802288 AG\n"""' },
+    ],
+  };
+  const slice = factsFor(built, TEAM.genetics.facts);
+  assert.match(slice, /GENETIC REPORTS[\s\S]*FOXO3 rs2802288 AG/);
+  assert.doesNotMatch(slice, /Quest Bloodwork/, 'lab PDFs are not in the Genetics slice');
+  assert.match(factsFor(built, TEAM.medications.facts), /FOXO3 rs2802288 AG/, 'Medication reads it too, for PGx reports');
+});
+
 test('factsFor hands over only the named sections, with the date preamble', () => {
   const text = factsFor(facts, TEAM.medications.facts);
   assert.match(text, /TODAY'S DATE/);

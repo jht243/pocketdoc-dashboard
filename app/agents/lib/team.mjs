@@ -49,14 +49,14 @@ export const TEAM = {
   },
   medications: {
     desc: 'medications and supplements: interactions, timing, nutrient depletion, labs a drug moves, pharmacogenomics',
-    facts: ['profile', 'medications', 'labs', 'genetics', 'intake', 'questionnaires'],
+    facts: ['profile', 'medications', 'labs', 'genetics', 'geneticDocuments', 'intake', 'questionnaires'],
     library: ['medications', 'pharmacogenomics', 'supplements'],
   },
   // Back on the team Oct 20: with only Medication reading the genetics record, "tell me
   // about my DNA report" came back as a pharmacogenomics answer for a member on no drugs.
   genetics: {
     desc: 'the DNA report on file: every health, trait, longevity, nutrition, carrier and pharmacogenomic marker, what each genotype means, how strong the evidence is, and which labs show whether a variant is doing anything',
-    facts: ['profile', 'genetics', 'labs', 'labTrends', 'medications', 'intake', 'questionnaires', 'documents'],
+    facts: ['profile', 'genetics', 'geneticDocuments', 'labs', 'labTrends', 'medications', 'intake', 'questionnaires'],
     library: ['genetics', 'pharmacogenomics'],
   },
   lifestyle: {
