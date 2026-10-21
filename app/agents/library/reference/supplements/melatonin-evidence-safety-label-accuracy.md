@@ -2,7 +2,8 @@
 title: Melatonin supplements - evidence, safety and label accuracy
 source: NCCIH, Melatonin: What You Need To Know, updated 2024; Cohen et al., Quantity of Melatonin and CBD in Melatonin Gummies Sold in the US, JAMA 2023
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-05
 url: https://www.nccih.nih.gov/health/melatonin-what-you-need-to-know
 ---

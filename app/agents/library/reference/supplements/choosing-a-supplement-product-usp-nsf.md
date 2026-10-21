@@ -2,7 +2,8 @@
 title: How to choose a supplement product, USP and NSF seals
 source: NIH Office of Dietary Supplements, Dietary Supplements: What You Need to Know, 2023; FDA Questions and Answers on Dietary Supplements
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-01
 url: https://ods.od.nih.gov/factsheets/WYNTK-Consumer/
 ---

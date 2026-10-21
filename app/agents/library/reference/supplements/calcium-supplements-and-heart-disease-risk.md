@@ -2,7 +2,8 @@
 title: Calcium supplements and heart disease risk - NOF and ASPC 2016
 source: National Osteoporosis Foundation and American Society for Preventive Cardiology clinical guideline, Ann Intern Med 2016; NIH ODS Calcium Health Professional Fact Sheet, updated 2026
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2016-11
 url: https://pubmed.ncbi.nlm.nih.gov/27776362/
 ---

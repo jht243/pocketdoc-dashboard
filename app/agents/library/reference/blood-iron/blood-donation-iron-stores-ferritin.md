@@ -2,7 +2,8 @@
 title: Frequent blood donation, low ferritin and FDA donor hemoglobin rules
 source: FDA donor eligibility rules 21 CFR 630.10 and 630.15; Cable et al. 2012 REDS-II RISE study, Transfusion; Kiss et al. 2015, JAMA
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-02
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC3618489/
 ---

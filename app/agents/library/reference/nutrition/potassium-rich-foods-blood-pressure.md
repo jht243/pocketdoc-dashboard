@@ -2,7 +2,8 @@
 title: Potassium from food, adequate intake and blood pressure
 source: National Academies of Sciences, Engineering, and Medicine 2019 Dietary Reference Intakes for Sodium and Potassium
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-03
 url: https://www.nationalacademies.org/read/25353/chapter/2
 ---

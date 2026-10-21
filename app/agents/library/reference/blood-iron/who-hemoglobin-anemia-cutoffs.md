@@ -2,7 +2,8 @@
 title: WHO hemoglobin cut-offs that define anemia in adults
 source: WHO 2024 Guideline on Haemoglobin Cutoffs to Define Anaemia in Individuals and Populations
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-03
 url: https://www.who.int/publications/i/item/9789240088542
 ---

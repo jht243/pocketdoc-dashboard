@@ -2,7 +2,8 @@
 title: Beta-carotene supplements raised lung cancer risk in smokers
 source: NIH ODS Vitamin A and Carotenoids Fact Sheet summarizing the ATBC and CARET trials; USPSTF 2022 Vitamin, Mineral, and Multivitamin Supplementation recommendation
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-06
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/vitamin-supplementation-to-prevent-cvd-and-cancer-preventive-medication
 ---

@@ -2,7 +2,8 @@
 title: USPSTF depression screening for all adults
 source: USPSTF 2023 Final Recommendation Statement, Depression and Suicide Risk in Adults: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-06
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/screening-depression-suicide-risk-adults
 ---

@@ -2,7 +2,8 @@
 title: Biotin supplements can distort lab test results
 source: FDA Safety Communication on biotin interference with lab tests, 2017, updated 2019
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-11
 url: https://www.fda.gov/medical-devices/in-vitro-diagnostics/biotin-interference-troponin-lab-tests-assays-subject-biotin-interference
 ---

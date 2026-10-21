@@ -2,7 +2,8 @@
 title: USPSTF screening and brief counseling for unhealthy alcohol use
 source: USPSTF 2018 Final Recommendation Statement, Unhealthy Alcohol Use in Adolescents and Adults: Screening and Behavioral Counseling Interventions
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-11
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/unhealthy-alcohol-use-in-adolescents-and-adults-screening-and-behavioral-counseling-interventions
 ---

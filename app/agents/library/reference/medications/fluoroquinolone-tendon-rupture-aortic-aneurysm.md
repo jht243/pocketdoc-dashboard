@@ -2,7 +2,8 @@
 title: Fluoroquinolone antibiotics - tendon rupture and aortic aneurysm
 source: FDA Drug Safety Communications on fluoroquinolones, July 2016 and December 2018; ciprofloxacin prescribing information
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-12
 url: https://web.archive.org/web/20240101072354/https://www.fda.gov/drugs/drug-safety-and-availability/fda-warns-about-increased-risk-ruptures-or-tears-aorta-blood-vessel-fluoroquinolone-antibiotics
 ---

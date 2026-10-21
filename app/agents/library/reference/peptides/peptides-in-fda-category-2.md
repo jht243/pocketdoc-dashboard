@@ -2,7 +2,8 @@
 title: Peptides FDA still lists in Category 2 for safety concerns
 source: FDA Certain Bulk Drug Substances for Use in Compounding that May Present Significant Safety Risks, page current April 22, 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-04
 url: https://www.fda.gov/drugs/human-drug-compounding/certain-bulk-drug-substances-use-compounding-may-present-significant-safety-risks
 ---

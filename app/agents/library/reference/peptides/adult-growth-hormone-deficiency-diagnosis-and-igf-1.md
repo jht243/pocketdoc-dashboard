@@ -2,7 +2,8 @@
 title: Adult growth hormone deficiency diagnosis and what IGF-1 shows
 source: AACE/ACE 2019 Guidelines for Management of Growth Hormone Deficiency in Adults and Patients Transitioning from Pediatric to Adult Care, Endocrine Practice
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-11
 url: https://pro.aace.com/clinical-guidance/2019-clinical-practice-guideline-management-growth-hormone-deficiency-adults
 ---

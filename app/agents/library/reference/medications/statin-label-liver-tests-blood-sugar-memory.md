@@ -2,7 +2,8 @@
 title: Statin label changes - liver tests, blood sugar and memory reports
 source: FDA Drug Safety Communication on statin label changes, February 2012; FDA prescribing information for Lipitor atorvastatin, revised 2024; CTT Collaboration, Lancet Diabetes and Endocrinology 2024
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-04
 url: https://web.archive.org/web/20240110074713/https://www.fda.gov/drugs/drug-safety-and-availability/fda-drug-safety-communication-important-safety-label-changes-cholesterol-lowering-statin-drugs
 ---

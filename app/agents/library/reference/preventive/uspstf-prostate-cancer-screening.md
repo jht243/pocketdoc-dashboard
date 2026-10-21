@@ -2,7 +2,8 @@
 title: USPSTF prostate cancer PSA screening as an individual decision
 source: USPSTF 2018 Final Recommendation Statement, Prostate Cancer: Screening
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-05
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/prostate-cancer-screening
 ---

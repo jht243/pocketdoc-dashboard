@@ -2,7 +2,8 @@
 title: TSH above 10 mIU/L and when guidelines consider thyroid treatment
 source: AACE/ATA 2012 Clinical Practice Guidelines for Hypothyroidism in Adults
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2012
 url: https://pubmed.ncbi.nlm.nih.gov/23246686/
 ---

@@ -33,7 +33,9 @@ function render(passages) {
   const lines = [
     '# Knowledge library',
     '',
-    `The passages the agents search and cite as (per "Title"). **All ${pending} of ${passages.length} passages are awaiting medical-director approval** (\`approved_by: pending\`). Agents may read them during development, and each one is labelled "medical-director approval pending" in the prompt. None of them is a Thumbprint target, and none goes in front of a live member until the medical director signs it off.`,
+    pending
+      ? `The passages the agents search and cite as (per "Title"). **${pending} of ${passages.length} passages are awaiting medical-director approval** (\`approved_by: pending\`); each of those is labelled "medical-director approval pending" in the prompt. None of them is a Thumbprint target.`
+      : `The passages the agents search and cite as (per "Title"). **All ${passages.length} passages are approved by the medical director**; each one's \`approved_by\` and \`reviewed\` lines say who and when. None of them is a Thumbprint target.`,
     '',
     'Each passage is one rule or fact (80 to 250 words). The first set was drafted from the guidelines named in the Oct 14 build spec, section 5; later passages come from other primary sources of the same standing: society guidelines and position statements (KDIGO, AASLD, ACG, AGA, ACR, AASM, ATA, ACOG, AUA, NLA, CPIC, USPSTF, NICE, WHO), NIH, CDC and FDA material, Cochrane reviews, and landmark trials or meta-analyses in major journals. None contradicts another passage. Numbers were checked against the source named in its `url`. Adam\'s documents are guidance, not spec: where a guideline and a "functional" range disagree, the passage states the guideline and labels the tighter target Emerging.',
     '',

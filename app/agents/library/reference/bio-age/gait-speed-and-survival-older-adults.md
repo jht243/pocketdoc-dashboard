@@ -2,7 +2,8 @@
 title: Walking speed and survival in adults 65 and older
 source: Studenski et al. 2011, Gait speed and survival in older adults, JAMA
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2011-01
 url: https://pubmed.ncbi.nlm.nih.gov/21205966/
 ---

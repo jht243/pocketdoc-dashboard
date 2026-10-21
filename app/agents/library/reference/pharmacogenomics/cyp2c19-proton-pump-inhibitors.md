@@ -2,7 +2,8 @@
 title: CYP2C19 and proton pump inhibitors
 source: CPIC Guideline for CYP2C19 and Proton Pump Inhibitor Dosing, 2020
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-08
 url: https://files.cpicpgx.org/data/guideline/publication/PPI/2020/CYP2C19_proton_pump_inhibitors_guideline_revised.pdf
 ---

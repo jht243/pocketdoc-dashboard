@@ -2,7 +2,8 @@
 title: CBT-I is the first-line treatment for chronic insomnia
 source: ACP 2016 Clinical Practice Guideline on Chronic Insomnia Disorder; AASM 2021 Behavioral and Psychological Treatments Guideline
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-02
 url: https://aasm.org/new-guideline-supports-behavioral-psychological-treatments-for-insomnia/
 ---

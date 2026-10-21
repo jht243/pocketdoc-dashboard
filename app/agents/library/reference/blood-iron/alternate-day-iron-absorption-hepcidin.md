@@ -2,7 +2,8 @@
 title: Alternate-day iron dosing, hepcidin and iron absorption research
 source: Stoffel et al. 2017, Iron absorption from oral iron supplements given on consecutive versus alternate days, Lancet Haematology; NIH ODS Iron Fact Sheet
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-11
 url: https://doi.org/10.1016/S2352-3026(17)30182-5
 ---

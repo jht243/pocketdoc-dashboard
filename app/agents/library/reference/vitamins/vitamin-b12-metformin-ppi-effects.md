@@ -2,7 +2,8 @@
 title: Metformin and acid reducers can lower vitamin B12
 source: NIH Office of Dietary Supplements, Vitamin B12 Fact Sheet for Health Professionals
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-07
 url: https://ods.od.nih.gov/factsheets/VitaminB12-HealthProfessional/
 ---

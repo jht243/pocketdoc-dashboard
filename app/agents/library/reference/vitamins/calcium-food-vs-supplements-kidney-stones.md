@@ -2,7 +2,8 @@
 title: Calcium from food versus supplements and kidney stone risk
 source: NIH ODS Calcium Fact Sheet updated 2026; Jackson et al. 2006 Women's Health Initiative, NEJM; Curhan et al. 1993, NEJM
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-06
 url: https://ods.od.nih.gov/factsheets/Calcium-HealthProfessional/
 ---

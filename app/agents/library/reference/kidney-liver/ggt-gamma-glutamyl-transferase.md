@@ -2,7 +2,8 @@
 title: GGT liver enzyme - what raises it and why it is not a screening test
 source: ACG Clinical Guideline Evaluation of Abnormal Liver Chemistries 2017, American Journal of Gastroenterology
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-01
 url: https://bpb-us-w2.wpmucdn.com/u.osu.edu/dist/0/123048/files/2023/07/AJG-Kwo-et-al-ACG-Liver-Chemistries-Guideline-2017.pdf
 ---

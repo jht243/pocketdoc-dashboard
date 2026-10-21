@@ -2,7 +2,8 @@
 title: How to measure blood pressure correctly at home
 source: Shimbo et al. 2020, Self-Measured Blood Pressure Monitoring at Home, AHA/AMA Joint Policy Statement, Circulation; summarized in Weinfeld et al. 2021, Home Blood Pressure Monitoring, American Family Physician
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-07
 url: https://www.aafp.org/pubs/afp/issues/2021/0900/p237.pdf
 ---

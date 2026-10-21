@@ -2,7 +2,8 @@
 title: Omega-3 index blood test - the 8 percent target is not guideline-based
 source: Harris and von Schacky 2004, The Omega-3 Index - a new risk factor for death from coronary heart disease, Preventive Medicine; NIH ODS Omega-3 Fact Sheet
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2004-07
 url: https://doi.org/10.1016/j.ypmed.2004.02.030
 ---

@@ -2,7 +2,8 @@
 title: USPSTF blood pressure screening for adults 18 and older
 source: USPSTF 2021 Final Recommendation Statement, Hypertension in Adults: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-04
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/hypertension-in-adults-screening
 ---

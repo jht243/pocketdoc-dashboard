@@ -2,7 +2,8 @@
 title: The nine blood markers in PhenoAge and the tests they come from
 source: Levine et al. 2018, An epigenetic biomarker of aging for lifespan and healthspan, Aging (Albany NY)
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-04
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5940111/table/t1
 ---

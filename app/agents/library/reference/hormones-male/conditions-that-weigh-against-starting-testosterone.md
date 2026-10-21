@@ -2,7 +2,8 @@
 title: Conditions where guidelines advise against starting testosterone
 source: Endocrine Society 2018 Testosterone Therapy in Men With Hypogonadism Clinical Practice Guideline, recommendation 2.2
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-03
 url: https://www.endocrine.org/clinical-practice-guidelines/testosterone-therapy
 ---

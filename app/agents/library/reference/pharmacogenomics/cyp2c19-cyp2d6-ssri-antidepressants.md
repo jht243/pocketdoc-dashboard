@@ -2,7 +2,8 @@
 title: CYP2C19 and CYP2D6 with SSRI antidepressants
 source: CPIC Guideline for CYP2D6, CYP2C19, CYP2B6, SLC6A4 and HTR2A Genotypes and Serotonin Reuptake Inhibitor Antidepressants, 2023
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-07
 url: https://files.cpicpgx.org/data/guideline/publication/serotonin_reuptake_inhibitor_antidepressants/2023/37032427.pdf
 ---

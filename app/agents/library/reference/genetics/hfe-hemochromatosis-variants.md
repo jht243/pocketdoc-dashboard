@@ -2,7 +2,8 @@
 title: HFE variants - C282Y, H63D and iron overload risk
 source: ACG Clinical Guideline, Hereditary Hemochromatosis, American Journal of Gastroenterology 2019
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019
 ---
 

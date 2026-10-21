@@ -2,7 +2,8 @@
 title: MTHFR gene variants and why testing is not recommended
 source: ACMG Practice Guideline, Lack of evidence for MTHFR polymorphism testing, 2013, reaffirmed 2020
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020
 url: https://pubmed.ncbi.nlm.nih.gov/23288205/
 ---

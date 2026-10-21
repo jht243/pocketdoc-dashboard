@@ -2,7 +2,8 @@
 title: DunedinPACE pace of aging epigenetic test is a research tool
 source: Belsky et al. 2022, DunedinPACE, a DNA methylation biomarker of the pace of aging, eLife
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-01
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC8853656/
 ---

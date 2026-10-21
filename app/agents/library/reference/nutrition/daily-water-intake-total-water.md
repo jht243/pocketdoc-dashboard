@@ -2,7 +2,8 @@
 title: Daily water needs - National Academies total water intake
 source: National Academies 2004 Dietary Reference Intakes for Water, Potassium, Sodium, Chloride, and Sulfate; Dietary Guidelines for Americans 2025-2030
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2004-02
 url: https://www.nationalacademies.org/news/2004/02/report-sets-dietary-intake-levels-for-water-salt-and-potassium-to-maintain-health-and-reduce-chronic-disease-risk
 ---

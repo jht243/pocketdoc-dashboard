@@ -2,7 +2,8 @@
 title: Eating seafood one to two times a week for heart health
 source: Rimm et al. 2018 AHA Science Advisory on Seafood Long-Chain n-3 Fatty Acids and Cardiovascular Disease, Circulation; FDA and EPA Advice about Eating Fish 2021
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-05
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6903778/
 ---

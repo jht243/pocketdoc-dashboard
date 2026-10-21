@@ -2,7 +2,8 @@
 title: BPC-157 benefits - human evidence is limited
 source: FDA Category 2 safety evaluation of BPC-157, 2023; FDA Pharmacy Compounding Advisory Committee July 2026
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-07
 url: https://www.fda.gov/drugs/human-drug-compounding/certain-bulk-drug-substances-use-compounding-may-present-significant-safety-risks
 ---

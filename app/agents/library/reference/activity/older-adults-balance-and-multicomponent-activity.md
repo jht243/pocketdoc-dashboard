@@ -2,7 +2,8 @@
 title: Balance and multicomponent activity for older adults
 source: HHS 2018 Physical Activity Guidelines for Americans, 2nd edition; WHO 2020 Guidelines; ADA Standards of Care in Diabetes 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-11
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7719906/
 ---

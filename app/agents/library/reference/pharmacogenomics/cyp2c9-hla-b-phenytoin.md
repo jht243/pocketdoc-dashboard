@@ -2,7 +2,8 @@
 title: CYP2C9 and HLA-B*15:02 with phenytoin and fosphenytoin
 source: CPIC Guideline for CYP2C9 and HLA-B Genotypes and Phenytoin Dosing, 2020 Update
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7831382/
 ---

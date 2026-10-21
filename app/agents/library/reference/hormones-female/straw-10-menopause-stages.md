@@ -2,7 +2,8 @@
 title: STRAW+10 stages of the menopause transition
 source: Harlow et al. 2012 Executive Summary of the Stages of Reproductive Aging Workshop + 10, Menopause
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2012-04
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC3340903/
 ---

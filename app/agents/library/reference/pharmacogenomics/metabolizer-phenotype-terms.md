@@ -2,7 +2,8 @@
 title: Poor, intermediate, normal, rapid and ultrarapid metabolizer
 source: CPIC consensus terms for pharmacogenetic test results, Caudle et al., Genetics in Medicine 2017
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-02
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5253119/
 ---

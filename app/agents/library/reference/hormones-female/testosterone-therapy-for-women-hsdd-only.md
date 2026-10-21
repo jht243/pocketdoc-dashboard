@@ -2,7 +2,8 @@
 title: Testosterone for women - low sexual desire after menopause only
 source: Davis et al. 2019, Global Consensus Position Statement on the Use of Testosterone Therapy for Women, J Clin Endocrinol Metab
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-10
 url: https://academic.oup.com/jcem/article/104/10/4660/5556104
 ---

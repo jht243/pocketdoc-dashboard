@@ -2,7 +2,8 @@
 title: ACE inhibitors and ARBs - cough, potassium and kidney labs
 source: FDA prescribing information for Zestril lisinopril, revised 2024, and Cozaar losartan, revised 2021
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-11
 url: https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=838c2d78-d2d8-4981-9ec9-e50ef9e1a5d8
 ---

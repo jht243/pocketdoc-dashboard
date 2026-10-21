@@ -2,7 +2,8 @@
 title: Exercise lowers A1C and improves blood sugar control
 source: ADA Standards of Care in Diabetes 2026, Section 5 Physical Activity
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC12690188/
 ---

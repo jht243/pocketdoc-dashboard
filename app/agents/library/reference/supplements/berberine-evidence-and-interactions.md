@@ -2,7 +2,8 @@
 title: Berberine for blood sugar and weight, evidence and interactions
 source: NCCIH, Berberine and Weight Loss: What You Need To Know, 2023
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-11
 url: https://www.nccih.nih.gov/health/berberine-and-weight-loss-what-you-need-to-know
 ---

@@ -2,7 +2,8 @@
 title: Lowering homocysteine with B vitamins and heart attack risk
 source: Marti-Carvajal et al. 2017, Homocysteine-lowering interventions for preventing cardiovascular events, Cochrane Database of Systematic Reviews
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-08
 url: https://www.cochrane.org/CD006612/VASC_homocysteine-lowering-interventions-preventing-cardiovascular-events
 ---

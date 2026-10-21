@@ -2,7 +2,8 @@
 title: Erectile dysfunction as an early warning sign of heart disease
 source: American Urological Association 2018 Erectile Dysfunction Guideline, Burnett et al., J Urol
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018
 url: https://www.auanet.org/guidelines-and-quality/guidelines/erectile-dysfunction-(ed)-guideline
 ---

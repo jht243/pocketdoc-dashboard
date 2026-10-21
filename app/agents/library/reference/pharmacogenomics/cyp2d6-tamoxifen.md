@@ -2,7 +2,8 @@
 title: CYP2D6 and tamoxifen
 source: CPIC Guideline for CYP2D6 and Tamoxifen Therapy, 2018
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5931215/
 ---

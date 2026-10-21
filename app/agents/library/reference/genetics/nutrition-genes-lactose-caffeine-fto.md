@@ -2,7 +2,8 @@
 title: Nutrition genes - lactase, caffeine, FTO and gene-based diets
 source: Celis-Morales et al., Effect of personalized nutrition on health-related behaviour change, the Food4Me randomized trial, International Journal of Epidemiology 2017; MedlinePlus Genetics, Lactose intolerance
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017
 ---
 

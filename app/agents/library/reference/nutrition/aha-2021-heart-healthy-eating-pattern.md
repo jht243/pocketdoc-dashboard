@@ -2,7 +2,8 @@
 title: AHA 2021 dietary guidance for heart health
 source: American Heart Association 2021 Dietary Guidance to Improve Cardiovascular Health, Circulation
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-11
 url: https://www.acc.org/latest-in-cardiology/ten-points-to-remember/2021/11/23/19/45/2021-dietary-guidance-to-improve
 ---

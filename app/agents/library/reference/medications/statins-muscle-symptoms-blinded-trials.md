@@ -2,7 +2,8 @@
 title: Statins and muscle pain in blinded trials
 source: Cholesterol Treatment Trialists' Collaboration, Lancet 2022, Effect of statin therapy on muscle symptoms
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-08
 url: https://www.ox.ac.uk/news/2022-08-30-new-study-shows-muscle-pain-not-due-statins-over-90-those-taking-treatment
 ---

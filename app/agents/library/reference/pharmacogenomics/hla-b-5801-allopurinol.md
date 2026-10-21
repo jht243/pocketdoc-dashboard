@@ -2,7 +2,8 @@
 title: HLA-B*58:01 and allopurinol
 source: CPIC Guideline for HLA-B Genotype and Allopurinol Dosing, 2013, 2015 update; 2020 American College of Rheumatology Gout Guideline
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC4675696/
 ---

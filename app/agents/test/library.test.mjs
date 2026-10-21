@@ -1,4 +1,4 @@
-// The knowledge library: every passage is well-formed and still awaiting the medical
+// The knowledge library: every passage is well-formed and approved by the medical
 // director, none of them would trip the app's own safety net if an agent quoted it,
 // the escalation matrix is usable as data, and each specialist's sample questions
 // find passages in its own sections.
@@ -30,7 +30,7 @@ test('no passage sits outside a section some specialist searches', () => {
   for (const d of dirs) assert.ok(SECTIONS.includes(d), `library/reference/${d} is searched by no specialist`);
 });
 
-test('every passage has valid frontmatter and is awaiting the medical director', () => {
+test('every passage has valid frontmatter and a dated medical-director approval', () => {
   const titles = new Map();
   for (const p of passages) {
     const at = p.path;
@@ -39,7 +39,9 @@ test('every passage has valid frontmatter and is awaiting the medical director',
     assert.doesNotMatch(p.title, /["()]/, `${at}: a title is cited as (per "Title"), so it holds no quotes or brackets`);
     assert.ok(p.source, `${at}: source`);
     assert.ok(['Strong', 'Moderate', 'Emerging'].includes(p.evidence), `${at}: evidence is "${p.evidence}"`);
-    assert.equal(p.approved_by, 'pending', `${at}: approved_by`);
+    // Dr. Adam Locker, acting medical director, approved the whole library Oct 21 2026.
+    assert.match(p.approved_by || '', /^.+, \d{4}-\d{2}-\d{2}$/, `${at}: approved_by is "<name>, <date>"`);
+    assert.match(p.reviewed || '', /^\d{4}-\d{2}-\d{2}$/, `${at}: reviewed date`);
     assert.match(p.as_of || '', /^\d{4}(-\d{2})?$/, `${at}: as_of`);
     const key = p.title.toLowerCase();
     assert.ok(!titles.has(key), `${at}: title also used by ${titles.get(key)}`);
@@ -71,9 +73,9 @@ test('any vitamin D level target is labelled Emerging and states the Endocrine S
   }
 });
 
-test('the README lists every passage as awaiting approval', () => {
+test('the README lists every passage and its approval', () => {
   const readme = readFileSync(join(LIB, 'README.md'), 'utf8');
-  assert.match(readme, /awaiting medical-director approval/i);
+  assert.match(readme, /approved by the medical director|awaiting medical-director approval/i);
   for (const p of passages) assert.ok(readme.includes(p.path), `README is missing ${p.path}; run npm run library:readme`);
 });
 
@@ -157,7 +159,7 @@ for (const [id, samples] of Object.entries(SAMPLES)) {
       assert.ok(got.length > 0, `"${q}" found nothing`);
       for (const p of got) assert.ok(TEAM[id].library.includes(p.section), `"${q}" returned ${p.path}, outside ${id}'s sections`);
       assert.equal(got[0].section, want, `"${q}" ranked ${got[0].path} first`);
-      assert.ok(got.every((p) => p.approved === false), 'every passage is still pending approval');
+      assert.ok(got.every((p) => p.approved === true), 'every passage is approved');
     }
   });
 }

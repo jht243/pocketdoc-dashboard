@@ -2,7 +2,8 @@
 title: GLP-1 drugs, muscle loss and other oral medications
 source: FDA prescribing information for Zepbound tirzepatide and Wegovy semaglutide, revised 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-02
 url: https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/217806s042lbl.pdf
 ---

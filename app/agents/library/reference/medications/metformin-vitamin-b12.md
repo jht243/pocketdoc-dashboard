@@ -2,7 +2,8 @@
 title: Metformin and vitamin B12 deficiency
 source: American Diabetes Association Standards of Care in Diabetes 2025, Section 9 Pharmacologic Approaches to Glycemic Treatment
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-01
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC11635045/
 ---

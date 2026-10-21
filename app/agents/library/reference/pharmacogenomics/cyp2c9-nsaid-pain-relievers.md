@@ -2,7 +2,8 @@
 title: CYP2C9 and NSAID pain relievers
 source: CPIC Guideline for CYP2C9 and Nonsteroidal Anti-Inflammatory Drugs, 2020
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-03
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC8080882/
 ---

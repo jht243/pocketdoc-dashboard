@@ -2,7 +2,8 @@
 title: Vitamin D with vitamin K2, what the evidence shows
 source: NIH Office of Dietary Supplements, Vitamin K Health Professional Fact Sheet, updated 2021
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-03
 url: https://ods.od.nih.gov/factsheets/VitaminK-HealthProfessional/
 ---

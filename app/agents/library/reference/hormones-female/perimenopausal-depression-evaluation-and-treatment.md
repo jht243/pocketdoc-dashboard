@@ -2,7 +2,8 @@
 title: Perimenopausal depression - evaluation and first-line treatment
 source: Maki et al. 2018, Guidelines for the Evaluation and Treatment of Perimenopausal Depression, The North American Menopause Society and National Network of Depression Centers, Menopause
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-10
 url: https://pubmed.ncbi.nlm.nih.gov/30179986/
 ---

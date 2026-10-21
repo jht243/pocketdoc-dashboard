@@ -2,7 +2,8 @@
 title: High uric acid without gout - asymptomatic hyperuricemia
 source: 2020 American College of Rheumatology Guideline for the Management of Gout, Arthritis Care and Research; MedlinePlus Uric Acid Test
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-06
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10563586/
 ---

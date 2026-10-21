@@ -2,7 +2,8 @@
 title: Higher protein needs in adults over 65
 source: Bauer et al. 2013 PROT-AGE Study Group position paper, JAMDA
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2013-08
 url: https://researchexperts.utmb.edu/en/publications/evidence-based-recommendations-for-optimal-dietary-protein-intake/
 ---

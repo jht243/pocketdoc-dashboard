@@ -2,7 +2,8 @@
 title: White blood cell count normal range and leukocytosis
 source: Riley and Rupert 2015, Evaluation of Patients with Leukocytosis, American Family Physician
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-12
 url: https://www.aafp.org/pubs/afp/issues/2015/1201/p1004.html
 ---

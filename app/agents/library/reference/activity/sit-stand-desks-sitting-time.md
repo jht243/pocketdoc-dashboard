@@ -2,7 +2,8 @@
 title: Sit-stand desks cut sitting time but health benefits are unproven
 source: Shrestha et al. 2018 Cochrane Review, Workplace interventions for reducing sitting at work
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-12
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6517221/
 ---

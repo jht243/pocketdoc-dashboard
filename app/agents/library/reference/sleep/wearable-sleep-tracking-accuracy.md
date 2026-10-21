@@ -2,7 +2,8 @@
 title: How accurate wearable sleep tracking and sleep stages are
 source: Chinoy et al. 2021 Sleep, seven consumer sleep-tracking devices vs polysomnography; AASM 2018 Consumer Sleep Technology Position Statement
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-05
 url: https://www.neurologylive.com/view/consumer-sleep-tracking-devices-perform-equally-or-better-than-actigraphy
 ---

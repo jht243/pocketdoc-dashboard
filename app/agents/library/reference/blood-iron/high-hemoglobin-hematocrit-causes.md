@@ -2,7 +2,8 @@
 title: High hemoglobin or hematocrit - common causes of erythrocytosis
 source: MedlinePlus Lab Tests, Hematocrit Test, 2024; Endocrine Society 2018 Testosterone Therapy Guideline; MedlinePlus Polycythemia Vera, 2025
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-11
 url: https://medlineplus.gov/lab-tests/hematocrit-test/
 ---

@@ -2,7 +2,8 @@
 title: CYP2C9, VKORC1 and CYP4F2 with warfarin
 source: CPIC Guideline for Pharmacogenetics-Guided Warfarin Dosing, 2017 Update
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5546947/
 ---

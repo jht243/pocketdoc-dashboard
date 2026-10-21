@@ -2,7 +2,8 @@
 title: USPSTF aspirin for primary prevention of heart disease by age
 source: USPSTF 2022 Final Recommendation Statement, Aspirin Use to Prevent Cardiovascular Disease: Preventive Medication
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-04
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/aspirin-to-prevent-cardiovascular-disease-preventive-medication
 ---

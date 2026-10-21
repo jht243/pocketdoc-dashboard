@@ -2,7 +2,8 @@
 title: Estradiol testing in men with low testosterone and breast symptoms
 source: AUA 2018 Evaluation and Management of Testosterone Deficiency Guideline, validity confirmed 2024
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024
 url: https://www.auanet.org/guidelines-and-quality/guidelines/testosterone-deficiency-guideline
 ---

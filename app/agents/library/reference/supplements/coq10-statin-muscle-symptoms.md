@@ -2,7 +2,8 @@
 title: Coenzyme Q10 for statin muscle symptoms - mixed evidence
 source: NCCIH Coenzyme Q10 fact sheet, 2019; meta-analyses in Mayo Clinic Proceedings 2015, J Am Heart Assoc 2018 and Atherosclerosis 2020
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-04
 url: https://www.nccih.nih.gov/health/coenzyme-q10
 ---

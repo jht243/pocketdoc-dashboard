@@ -2,7 +2,8 @@
 title: GLP-1 drugs before surgery or endoscopy - 2024 multisociety guidance
 source: Multisociety clinical practice guidance on GLP-1 receptor agonists in the perioperative period, ASMBS, ASA, AGA, ISPCOP and SAGES, October 2024
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-10
 url: https://gastro.org/?p=89282
 ---

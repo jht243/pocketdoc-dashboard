@@ -2,7 +2,8 @@
 title: Iodine sources, iodized salt and who runs low
 source: NIH Office of Dietary Supplements, Iodine Fact Sheet for Health Professionals, updated 2024
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-11
 url: https://ods.od.nih.gov/factsheets/Iodine-HealthProfessional/
 ---

@@ -2,7 +2,8 @@
 title: Consumer pharmacogenetic test results need clinical confirmation
 source: FDA Safety Communication on genetic tests with unapproved claims to predict medication response, 2018; FDA Table of Pharmacogenetic Associations, updated 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-09
 url: https://www.fda.gov/medical-devices/precision-medicine/table-pharmacogenetic-associations
 ---

@@ -2,7 +2,8 @@
 title: Kava supplements and severe liver injury
 source: NIH LiverTox, Kava Kava monograph, updated 2018; FDA consumer advisory on kava-containing dietary supplements, March 2002
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-04
 url: https://www.ncbi.nlm.nih.gov/books/NBK548637/
 ---

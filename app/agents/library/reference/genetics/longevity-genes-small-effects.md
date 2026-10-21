@@ -2,7 +2,8 @@
 title: Longevity genes - FOXO3, APOE and how much lifespan is inherited
 source: Ruby et al., Estimates of the heritability of human longevity are substantially inflated due to assortative mating, Genetics 2018; Willcox et al., FOXO3A genotype is strongly associated with human longevity, PNAS 2008
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018
 ---
 

@@ -2,7 +2,8 @@
 title: Coronary artery calcium score bands and what a zero score means
 source: 2026 ACC/AHA/multisociety Guideline on the Management of Dyslipidemia; Nasir et al. 2015, MESA statin eligibility and CAC, JACC
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-03
 url: https://www.valleymed.org/globalassets/valley-medical/media/files/vmc-staff/clinician-news/2026-updated-lipid-guidelines.pdf
 ---

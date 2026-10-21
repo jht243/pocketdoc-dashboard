@@ -2,7 +2,8 @@
 title: FDA-approved peptide drugs versus unapproved research peptides
 source: FDA Concerns with Unapproved GLP-1 Drugs Used for Weight Loss, updated 2026; FDA 2010 approval of Egrifta tesamorelin
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-10
 url: https://www.fda.gov/drugs/drug-alerts-and-statements/fdas-concerns-unapproved-glp-1-drugs-used-weight-loss
 ---

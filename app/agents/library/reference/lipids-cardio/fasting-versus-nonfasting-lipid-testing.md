@@ -2,7 +2,8 @@
 title: Fasting versus nonfasting cholesterol tests in NLA guidance
 source: National Lipid Association 2021 Scientific Statement, Lipid measurements in the management of cardiovascular diseases, Journal of Clinical Lipidology
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-09
 url: https://www.healio.com/news/cardiology/20210924/nla-issues-new-recommendations-on-lipid-measurements-in-the-management-of-cvd
 ---

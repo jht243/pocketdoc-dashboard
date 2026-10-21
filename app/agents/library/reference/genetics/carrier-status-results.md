@@ -2,7 +2,8 @@
 title: Carrier status results and family planning
 source: ACMG practice resource, Screening for autosomal recessive and X-linked conditions during pregnancy and preconception, Genetics in Medicine 2021; ACOG Committee Opinion 690, Carrier Screening in the Age of Genomic Medicine, 2017
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021
 ---
 

@@ -2,7 +2,8 @@
 title: KDIGO blood pressure target in CKD - systolic under 120 when tolerated
 source: KDIGO 2024 CKD Guideline Recommendation 3.4.1, concurring with the KDIGO 2021 Clinical Practice Guideline for the Management of Blood Pressure in CKD
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-03
 url: https://kdigo.org/wp-content/uploads/2024/03/KDIGO-2024-CKD-Guideline.pdf
 ---

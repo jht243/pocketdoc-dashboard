@@ -2,7 +2,8 @@
 title: Cardiorespiratory fitness, VO2 max, and long-term mortality
 source: Mandsager et al. 2018 JAMA Network Open, Cardiorespiratory fitness and long-term mortality among adults undergoing exercise treadmill testing
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-10
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6324439/
 ---

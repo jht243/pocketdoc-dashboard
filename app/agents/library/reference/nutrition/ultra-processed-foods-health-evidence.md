@@ -2,7 +2,8 @@
 title: Ultra-processed and highly processed foods and health risks
 source: Lane et al. 2024 BMJ umbrella review of ultra-processed food and adverse health outcomes; Dietary Guidelines for Americans 2025-2030
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-02
 url: https://bmj.com/content/384/bmj-2023-077310
 ---

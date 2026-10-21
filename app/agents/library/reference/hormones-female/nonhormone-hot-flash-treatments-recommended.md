@@ -2,7 +2,8 @@
 title: Nonhormone hot flash treatments the Menopause Society recommends
 source: The North American Menopause Society 2023 Nonhormone Therapy Position Statement
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-06
 url: https://depts.washington.edu/mbwc/content/page-files/NAMS_2023-nonhormone-therapy-position-statement_(1)22.pdf
 ---

@@ -2,7 +2,8 @@
 title: Resting heart rate from wearables varies widely between people
 source: Quer et al. 2020 PLOS ONE, inter- and intraindividual variability in daily resting heart rate in 92,457 adults
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-02
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7001906/
 ---

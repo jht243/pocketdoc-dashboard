@@ -2,7 +2,8 @@
 title: Normal CGM glucose patterns in healthy people without diabetes
 source: Shah et al. 2019, Continuous Glucose Monitoring Profiles in Healthy Nondiabetic Participants, Journal of Clinical Endocrinology and Metabolism; Shah et al. 2023, Diabetes Technology and Therapeutics
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-04
 url: https://doi.org/10.1210/jc.2018-02763
 ---

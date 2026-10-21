@@ -2,7 +2,8 @@
 title: AHA PREVENT equations, what they estimate and what goes in
 source: Khan et al. 2024, Development and Validation of the American Heart Association PREVENT Equations, Circulation; AHA PREVENT calculator
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-02
 url: https://www.aafp.org/afp/2025/0200/editorial-aha-prevent-equations
 ---

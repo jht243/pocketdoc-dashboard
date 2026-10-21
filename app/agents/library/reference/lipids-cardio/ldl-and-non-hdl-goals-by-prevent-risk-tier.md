@@ -2,7 +2,8 @@
 title: LDL cholesterol and non-HDL goals by PREVENT risk tier
 source: 2026 ACC/AHA/multisociety Guideline on the Management of Dyslipidemia
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-03
 url: https://www.labcorp.com/education-events/articles/2026-accaha-dyslipidemia-guideline-update
 ---

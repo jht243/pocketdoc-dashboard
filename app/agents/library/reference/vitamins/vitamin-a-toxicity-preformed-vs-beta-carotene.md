@@ -2,7 +2,8 @@
 title: Vitamin A toxicity - preformed retinol versus beta-carotene
 source: NIH Office of Dietary Supplements, Vitamin A and Carotenoids Fact Sheet for Health Professionals, updated 2025
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-03
 url: https://ods.od.nih.gov/factsheets/VitaminA-HealthProfessional/
 ---

@@ -2,7 +2,8 @@
 title: What reduces levothyroxine absorption
 source: FDA prescribing information for Synthroid levothyroxine sodium tablets, revised 2024
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-02
 url: https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1e11ad30-1041-4520-10b0-8f9d30d30fcc
 ---

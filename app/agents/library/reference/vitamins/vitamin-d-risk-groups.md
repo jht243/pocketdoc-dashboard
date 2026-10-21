@@ -2,7 +2,8 @@
 title: Who is at higher risk of low vitamin D
 source: NIH Office of Dietary Supplements, Vitamin D Fact Sheet for Health Professionals
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-06
 url: https://ods.od.nih.gov/factsheets/VitaminD-HealthProfessional/
 ---

@@ -2,7 +2,8 @@
 title: How LDL is calculated - Friedewald, Martin-Hopkins and Sampson
 source: National Lipid Association 2021 Scientific Statement on lipid measurements; 2026 ACC/AHA/multisociety Guideline on the Management of Dyslipidemia
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-03
 url: https://www.lipid.org/resource/lipid-measurements-in-the-management-of-cardiovascular-diseases-practical-recommendations-a-scientific-statement-from-the-national-lipid-association-writing-group/
 ---

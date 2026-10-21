@@ -2,7 +2,8 @@
 title: Magnesium supplement forms and caution with kidney disease
 source: NIH Office of Dietary Supplements, Magnesium Health Professional Fact Sheet, updated 2026; IOM Dietary Reference Intakes
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://ods.od.nih.gov/factsheets/Magnesium-HealthProfessional/
 ---

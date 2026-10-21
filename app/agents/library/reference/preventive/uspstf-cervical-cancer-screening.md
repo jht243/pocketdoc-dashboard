@@ -2,7 +2,8 @@
 title: USPSTF cervical cancer screening by age and test
 source: USPSTF 2018 Final Recommendation Statement, Cervical Cancer: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-08
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/cervical-cancer-screening
 ---

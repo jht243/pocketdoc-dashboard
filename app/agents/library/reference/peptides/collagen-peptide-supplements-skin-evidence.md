@@ -2,7 +2,8 @@
 title: Collagen peptide supplements for skin aging - what trials show
 source: Myung and Park 2025, Effects of Collagen Supplements on Skin Aging, Systematic Review and Meta-Analysis of Randomized Controlled Trials, American Journal of Medicine
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-09
 url: https://pubmed.ncbi.nlm.nih.gov/40324552/
 ---

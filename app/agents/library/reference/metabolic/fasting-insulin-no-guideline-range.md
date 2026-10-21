@@ -2,7 +2,8 @@
 title: Fasting insulin has no guideline reference range or target
 source: American Diabetes Association Standards of Care in Diabetes 2026, Section 2; 2017 population-based inter-laboratory HOMA-IR study
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-12
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC12690183/
 ---

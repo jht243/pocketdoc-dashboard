@@ -2,7 +2,8 @@
 title: Long-term PPIs, low magnesium and vitamin B12
 source: FDA Drug Safety Communication 2011 on PPIs and low magnesium; FDA prescribing information for omeprazole
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2011-03
 url: https://www.fda.gov/Drugs/DrugSafety/ucm245011.htm
 ---

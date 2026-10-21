@@ -2,7 +2,8 @@
 title: Grapefruit juice with simvastatin, lovastatin and atorvastatin
 source: FDA prescribing information for Zocor simvastatin, revised 2023
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-08
 url: https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8f55d5de-5a4f-4a39-8c84-c53976dd6af9
 ---

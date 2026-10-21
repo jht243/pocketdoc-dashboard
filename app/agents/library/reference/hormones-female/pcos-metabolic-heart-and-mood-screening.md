@@ -2,7 +2,8 @@
 title: PCOS and diabetes, heart risk, sleep apnea and depression screening
 source: Teede et al. 2023, Recommendations from the 2023 International Evidence-based Guideline for the Assessment and Management of Polycystic Ovary Syndrome, J Clin Endocrinol Metab
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-09
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10505534/
 ---

@@ -2,7 +2,8 @@
 title: The 50 to 80 ng/mL functional vitamin D target is not guideline-based
 source: Endocrine Society 2024 Vitamin D for the Prevention of Disease; NIH ODS Vitamin D Fact Sheet citing NASEM
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-06
 url: https://www.endocrine.org/clinical-practice-guidelines/vitamin-d-for-prevention-of-disease
 ---

@@ -2,7 +2,8 @@
 title: Over-the-counter CGMs for people who do not use insulin
 source: US FDA news release, FDA Clears First Over-the-Counter Continuous Glucose Monitor, March 2024
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-03
 url: https://www.fda.gov/news-events/press-announcements/fda-clears-first-over-counter-continuous-glucose-monitor
 ---

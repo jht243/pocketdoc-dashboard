@@ -2,7 +2,8 @@
 title: Long-term zinc supplements can cause copper deficiency
 source: NIH Office of Dietary Supplements, Zinc Fact Sheet updated 2026 and Copper Fact Sheet for Health Professionals
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://ods.od.nih.gov/factsheets/Copper-HealthProfessional/
 ---

@@ -2,7 +2,8 @@
 title: PSA testing before and during testosterone therapy
 source: AUA 2018 Evaluation and Management of Testosterone Deficiency Guideline, validity confirmed 2024; Endocrine Society 2018 Testosterone Therapy Guideline
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024
 url: https://www.endocrine.org/clinical-practice-guidelines/testosterone-therapy
 ---

@@ -2,7 +2,8 @@
 title: AHA Life's Essential 8 - the eight measures of heart health
 source: Lloyd-Jones et al. 2022, Life's Essential 8, American Heart Association Presidential Advisory, Circulation
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-06
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10503546/
 ---

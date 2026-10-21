@@ -2,7 +2,8 @@
 title: White blood cell count and lymphocyte percent as inflammation context
 source: Pearson et al. 2003, Markers of Inflammation and Cardiovascular Disease, AHA/CDC Scientific Statement, Circulation; Levine et al. 2018 PhenoAge, Aging
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-04
 url: https://www.ahajournals.org/doi/10.1161/01.CIR.0000052939.59093.45
 ---

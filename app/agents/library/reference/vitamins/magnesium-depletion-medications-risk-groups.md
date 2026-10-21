@@ -2,7 +2,8 @@
 title: Magnesium depletion from PPIs, diuretics and diabetes
 source: NIH Office of Dietary Supplements, Magnesium Fact Sheet for Health Professionals
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://ods.od.nih.gov/factsheets/Magnesium-HealthProfessional/
 ---

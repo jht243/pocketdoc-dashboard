@@ -2,7 +2,8 @@
 title: SHBG and free testosterone - when total testosterone misleads
 source: Endocrine Society 2018 Testosterone Therapy in Men With Hypogonadism Guideline
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018
 url: https://www.endocrine.org/clinical-practice-guidelines/testosterone-therapy
 ---

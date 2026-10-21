@@ -2,7 +2,8 @@
 title: Homocysteine levels and common causes of elevation
 source: MedlinePlus Homocysteine Test, NIH National Library of Medicine; Marroncini et al. 2024, Hyperhomocysteinemia and Disease, International Journal of Molecular Sciences
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-11
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC11594664/
 ---

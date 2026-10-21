@@ -2,7 +2,8 @@
 title: Daytime naps - short naps versus naps of an hour or more
 source: Yamada et al. 2015 Sleep, Daytime napping and the risk of cardiovascular disease and all-cause mortality, dose-response meta-analysis
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-12
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC4667384/
 ---

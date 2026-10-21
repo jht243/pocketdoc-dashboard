@@ -2,7 +2,8 @@
 title: JUPITER trial - statin therapy for high hs-CRP with normal LDL
 source: Ridker et al. 2008, Rosuvastatin to Prevent Vascular Events in Men and Women with Elevated C-Reactive Protein, JUPITER trial, New England Journal of Medicine
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2008-11
 url: https://pubmed.ncbi.nlm.nih.gov/18997196/
 ---

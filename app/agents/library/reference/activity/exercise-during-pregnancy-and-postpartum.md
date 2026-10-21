@@ -2,7 +2,8 @@
 title: Exercise during pregnancy and postpartum - ACOG and HHS guidance
 source: ACOG Committee Opinion No. 804, Physical Activity and Exercise During Pregnancy and the Postpartum Period, 2020; HHS 2018 Physical Activity Guidelines; ACOG FAQ119
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-04
 url: https://www.acog.org/womens-health/faqs/exercise-during-pregnancy
 ---

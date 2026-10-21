@@ -2,7 +2,8 @@
 title: Thyroid testing before and during pregnancy - ATA 2017 guideline
 source: 2017 Guidelines of the American Thyroid Association for the Diagnosis and Management of Thyroid Disease During Pregnancy and the Postpartum, as summarized in ATA Clinical Thyroidology for the Public 2017
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-05
 url: https://thyroid.org/patient-thyroid-information/ct-for-patients/may-2017/vol-10-issue-5-p-3-7
 ---

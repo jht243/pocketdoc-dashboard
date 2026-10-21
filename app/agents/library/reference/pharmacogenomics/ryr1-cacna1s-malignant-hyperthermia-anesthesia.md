@@ -2,7 +2,8 @@
 title: RYR1 and CACNA1S - malignant hyperthermia and anesthesia
 source: CPIC Guideline for Potent Volatile Anesthetic Agents and Succinylcholine in the Context of RYR1 or CACNA1S Genotypes, 2018, Clin Pharmacol Ther 2019
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-12
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6513720/
 ---

@@ -2,7 +2,8 @@
 title: AGS Beers Criteria 2023 - medicines often best avoided after 65
 source: American Geriatrics Society 2023 Updated AGS Beers Criteria for Potentially Inappropriate Medication Use in Older Adults, J Am Geriatr Soc 2023
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-05
 url: https://pubmed.ncbi.nlm.nih.gov/37139824/
 ---

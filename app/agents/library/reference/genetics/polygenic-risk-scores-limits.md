@@ -2,7 +2,8 @@
 title: Polygenic risk scores - what they add and their limits
 source: AHA Scientific Statement, Polygenic Risk Scores for Cardiovascular Disease, Circulation 2022
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022
 ---
 

@@ -2,7 +2,8 @@
 title: Warfarin, vitamin K foods and supplements
 source: FDA prescribing information for Coumadin warfarin sodium; NIH Office of Dietary Supplements Vitamin K Fact Sheet 2021
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019
 url: https://www.drugs.com/pro/coumadin.html
 ---

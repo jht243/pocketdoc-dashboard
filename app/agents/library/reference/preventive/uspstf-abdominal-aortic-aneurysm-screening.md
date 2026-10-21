@@ -2,7 +2,8 @@
 title: USPSTF abdominal aortic aneurysm screening by sex and smoking
 source: USPSTF 2019 Final Recommendation Statement, Abdominal Aortic Aneurysm: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-12
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/abdominal-aortic-aneurysm-screening
 ---

@@ -2,7 +2,8 @@
 title: Heart age from PREVENT risk, the 2025 Northwestern method
 source: Khan and colleagues, Northwestern University, PREVENT risk age research letter, JAMA Cardiology 2025
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-07
 url: https://news.northwestern.edu/stories/2025/07/most-u-s-adults-have-hearts-older-than-their-actual-age-how-old-is-yours
 ---

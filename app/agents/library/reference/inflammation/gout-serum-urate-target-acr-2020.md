@@ -2,7 +2,8 @@
 title: Gout treat-to-target - serum urate below 6 mg/dL in the ACR guideline
 source: 2020 American College of Rheumatology Guideline for the Management of Gout, Arthritis Care and Research
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-06
 url: https://pubmed.ncbi.nlm.nih.gov/32391934/
 ---

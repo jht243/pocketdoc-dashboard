@@ -2,7 +2,8 @@
 title: USPSTF statin use for primary prevention of heart disease
 source: USPSTF 2022 Final Recommendation Statement, Statin Use for the Primary Prevention of Cardiovascular Disease in Adults
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-08
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/statin-use-in-adults-preventive-medication
 ---

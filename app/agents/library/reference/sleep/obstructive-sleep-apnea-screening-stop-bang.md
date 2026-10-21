@@ -2,7 +2,8 @@
 title: Sleep apnea screening with STOP-Bang and how OSA is diagnosed
 source: AASM 2017 Clinical Practice Guideline for Diagnostic Testing for Adult Obstructive Sleep Apnea; Chung STOP-Bang questionnaire
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-03
 url: https://aasm.org/wp-content/uploads/2017/07/diagnostic-testing-OSA.pdf
 ---

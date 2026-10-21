@@ -2,7 +2,8 @@
 title: Liver stiffness on FibroScan - the AASLD 8 and 12 kPa thresholds
 source: AASLD 2023 Practice Guidance on the Clinical Assessment and Management of Nonalcoholic Fatty Liver Disease, Hepatology
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-05
 url: https://doi.org/10.1097/HEP.0000000000000323
 ---

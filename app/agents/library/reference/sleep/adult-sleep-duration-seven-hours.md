@@ -2,7 +2,8 @@
 title: Adults need 7 or more hours of sleep per night
 source: AASM and Sleep Research Society 2015 Joint Consensus Statement on Adult Sleep Duration; CDC
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-06
 url: https://aasm.org/seven-or-more-hours-of-sleep-per-night-a-health-necessity-for-adults/
 ---

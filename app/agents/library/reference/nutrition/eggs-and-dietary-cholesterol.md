@@ -2,7 +2,8 @@
 title: Eggs and dietary cholesterol - AHA 2019 science advisory
 source: Carson et al. 2019 Dietary Cholesterol and Cardiovascular Risk, AHA Science Advisory, Circulation
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-12
 url: https://europepmc.org/article/MED/31838890
 ---

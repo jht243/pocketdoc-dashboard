@@ -2,7 +2,8 @@
 title: BRCA and hereditary cancer variants on consumer DNA tests
 source: USPSTF, Risk Assessment, Genetic Counseling, and Genetic Testing for BRCA-Related Cancer, 2019; FDA authorization of 23andMe BRCA1/BRCA2 Selected Variants report, 2018
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/brca-related-cancer-risk-assessment-genetic-counseling-and-genetic-testing
 ---

@@ -2,7 +2,8 @@
 title: Platelet count range 150,000 to 450,000 and causes of high or low
 source: NHLBI Thrombocytopenia and Thrombocythemia and Thrombocytosis health topics; MedlinePlus Platelet Tests, 2024
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-02
 url: https://www.nhlbi.nih.gov/health/thrombocytopenia
 ---

@@ -2,7 +2,8 @@
 title: The ACMG list of medically actionable genes
 source: ACMG SF v3.2 list for reporting of secondary findings in clinical exome and genome sequencing, Genetics in Medicine 2023
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023
 url: https://pubmed.ncbi.nlm.nih.gov/37347242/
 ---

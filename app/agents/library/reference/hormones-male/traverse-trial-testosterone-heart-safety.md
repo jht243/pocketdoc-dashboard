@@ -2,7 +2,8 @@
 title: TRAVERSE trial - testosterone therapy and heart attack and stroke risk
 source: Lincoff et al. 2023 TRAVERSE trial, New England Journal of Medicine; AAFP POEM summary 2023
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023
 url: https://www.aafp.org/afp/2023/1100/poems-testosterone
 ---

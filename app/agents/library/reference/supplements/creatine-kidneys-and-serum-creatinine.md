@@ -2,7 +2,8 @@
 title: Creatine supplements, kidney safety and serum creatinine
 source: International Society of Sports Nutrition position stand on creatine, 2017; NIH ODS Exercise and Athletic Performance Fact Sheet 2024; KDIGO 2024 CKD Guideline
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-06
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5469049/
 ---

@@ -2,7 +2,8 @@
 title: Consistent sleep and wake times support health
 source: National Sleep Foundation 2023 Sleep Timing and Variability Consensus Statement, Sleep Health
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-09
 url: https://www.thensf.org/sleep-schedules-sleep-timing-guideline/
 ---

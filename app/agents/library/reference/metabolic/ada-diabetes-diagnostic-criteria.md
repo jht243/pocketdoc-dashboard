@@ -2,7 +2,8 @@
 title: ADA diagnostic criteria for diabetes by A1c, fasting glucose and OGTT
 source: American Diabetes Association Standards of Care in Diabetes 2026, Section 2 Diagnosis and Classification
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-12
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC12690183/
 ---

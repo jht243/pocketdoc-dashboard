@@ -2,7 +2,8 @@
 title: Growth hormone for anti-aging is not approved and is illegal in the US
 source: 21 U.S.C. 333(e) Federal Food, Drug, and Cosmetic Act; AACE/ACE 2019 Guidelines for Management of Growth Hormone Deficiency in Adults; DEA Human Growth Hormone drug fact sheet, July 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-07
 url: https://www.law.cornell.edu/uscode/text/21/333
 ---

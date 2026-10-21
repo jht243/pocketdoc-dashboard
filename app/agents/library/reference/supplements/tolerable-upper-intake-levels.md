@@ -2,7 +2,8 @@
 title: Tolerable upper intake levels for vitamins and minerals
 source: NIH Office of Dietary Supplements, Frequently Asked Questions, upper limits for vitamins and minerals; National Academies Dietary Reference Intakes
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-03
 url: https://ods.od.nih.gov/HealthInformation/ODS_Frequently_Asked_Questions.aspx
 ---

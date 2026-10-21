@@ -2,7 +2,8 @@
 title: Grip strength and mortality risk - the PURE study
 source: Leong et al. 2015, Prognostic value of grip strength, Prospective Urban Rural Epidemiology PURE study, The Lancet
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-07
 url: https://pubmed.ncbi.nlm.nih.gov/25982160/
 ---

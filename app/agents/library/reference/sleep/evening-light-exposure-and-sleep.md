@@ -2,7 +2,8 @@
 title: Evening and nighttime light exposure and sleep
 source: Brown et al. 2022 PLOS Biology, Recommendations for daytime, evening, and nighttime indoor light exposure, expert scientific consensus
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-03
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC8929548/
 ---

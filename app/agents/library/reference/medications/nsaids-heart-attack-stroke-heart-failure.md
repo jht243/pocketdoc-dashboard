@@ -2,7 +2,8 @@
 title: NSAIDs and heart attack, stroke and heart failure risk
 source: FDA Drug Safety Communication strengthening the NSAID heart attack and stroke warning, July 2015
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-07
 url: https://web.archive.org/web/20240124104113/https://www.fda.gov/drugs/drug-safety-and-availability/fda-drug-safety-communication-fda-strengthens-warning-non-aspirin-nonsteroidal-anti-inflammatory
 ---

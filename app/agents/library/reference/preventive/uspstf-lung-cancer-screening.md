@@ -2,7 +2,8 @@
 title: USPSTF lung cancer screening for adults 50 to 80 who smoked
 source: USPSTF 2021 Final Recommendation Statement, Lung Cancer: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-03
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/lung-cancer-screening
 ---

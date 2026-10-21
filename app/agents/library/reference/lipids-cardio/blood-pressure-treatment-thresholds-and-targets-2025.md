@@ -2,7 +2,8 @@
 title: Blood pressure treatment thresholds and targets in the 2025 guideline
 source: 2025 AHA/ACC/multisociety Guideline for the Prevention, Detection, Evaluation and Management of High Blood Pressure in Adults
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-08
 url: https://www.healio.com/news/nephrology/20250903/top-10-prevention-takeaways-from-the-2025-high-blood-pressure-guideline
 ---

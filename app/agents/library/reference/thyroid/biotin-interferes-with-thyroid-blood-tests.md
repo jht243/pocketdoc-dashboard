@@ -2,7 +2,8 @@
 title: Biotin supplements can distort thyroid blood test results
 source: American Thyroid Association Clinical Thyroidology for the Public 2018; FDA biotin safety communication 2017, updated 2019
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019
 url: https://www.thyroid.org/patient-thyroid-information/ct-for-patients/december-2018/vol-11-issue-12-p-3-4/
 ---

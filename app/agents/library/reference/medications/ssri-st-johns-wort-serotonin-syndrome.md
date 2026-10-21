@@ -2,7 +2,8 @@
 title: SSRIs with St John's wort and serotonin syndrome
 source: FDA prescribing information for Zoloft sertraline 2023; NCCIH St. John's Wort fact sheet 2025
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-08
 url: https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/019839s108%2C20990s062lbl.pdf
 ---

@@ -2,7 +2,8 @@
 title: Cystatin C to confirm eGFR when creatinine may mislead
 source: KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-03
 url: https://kdigo.org/wp-content/uploads/2024/03/KDIGO-2024-CKD-Guideline.pdf
 ---

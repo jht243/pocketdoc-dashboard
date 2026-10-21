@@ -2,7 +2,8 @@
 title: Reading HRV - heart rate variability against personal baseline
 source: Shaffer and Ginsberg 2017 An Overview of Heart Rate Variability Metrics and Norms, Frontiers in Public Health
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-09
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5624990/
 ---

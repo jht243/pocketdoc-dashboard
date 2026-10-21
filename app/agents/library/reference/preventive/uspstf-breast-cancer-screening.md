@@ -2,7 +2,8 @@
 title: USPSTF breast cancer screening every 2 years from 40 to 74
 source: USPSTF 2024 Final Recommendation Statement, Breast Cancer: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-04
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/breast-cancer-screening
 ---

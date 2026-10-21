@@ -2,7 +2,8 @@
 title: APOE e4 - Alzheimer risk, cholesterol and when testing helps
 source: ACMG and NSGC joint practice guideline, Genetic counseling and testing for Alzheimer disease, Genetics in Medicine 2011; Alzheimer's Association
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2011
 url: https://pubmed.ncbi.nlm.nih.gov/21577118/
 ---

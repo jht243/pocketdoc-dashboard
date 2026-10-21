@@ -2,7 +2,8 @@
 title: BMI categories, lower Asian cut-offs and waist-to-height ratio 0.5
 source: NICE Guideline NG246 Overweight and Obesity Management, 2025, last updated January 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://www.nice.org.uk/guidance/ng246/chapter/Identifying-and-assessing-overweight-obesity-and-central-adiposity
 ---

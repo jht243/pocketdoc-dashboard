@@ -2,7 +2,8 @@
 title: Mediterranean diet and heart disease - the PREDIMED trial
 source: Estruch et al. 2018 NEJM PREDIMED republication; ADA Standards of Care in Diabetes 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-06
 url: https://nutritionsource.hsph.harvard.edu/2018/06/22/predimed-retraction-republication
 ---

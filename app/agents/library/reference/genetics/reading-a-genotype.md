@@ -2,7 +2,8 @@
 title: Reading a genotype - rsID, alleles, one copy or two
 source: NIH National Human Genome Research Institute, Talking Glossary of Genomic and Genetic Terms; MedlinePlus Genetics, Help Me Understand Genetics
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025
 url: https://medlineplus.gov/genetics/understanding/
 ---

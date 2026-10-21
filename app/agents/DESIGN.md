@@ -115,7 +115,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 | `lib/safety.mjs` | Code checks before and after the model, from `src/lib/clinicalRules.js` |
 | `lib/escalation.mjs` | Step 5: lab names → matrix markers, one lane card per marker, Section 9 emergency overrides, and the block compose reads |
 | `lib/knowledge.mjs` | Library search: keyword overlap weighted by rarity, title words count double |
-| `library/` | Step 2: 305 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All awaiting medical-director approval. `npm run library:readme` rebuilds the README |
+| `library/` | Step 2: 305 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All approved by Dr. Adam Locker, acting medical director, on Oct 21 2026; next quarterly review by Jan 19 2027. `npm run library:readme` rebuilds the README |
 | `lib/llm.mjs` | Model calls and the per-question cost ledger |
 | `lib/logs.mjs` | The safety and routing logs, written with the member's JWT |
 | `server.mjs` | `POST /chat` (SSE), `GET /health` |

@@ -2,7 +2,8 @@
 title: MTHFR variants, homocysteine and why routine testing is not advised
 source: ACMG 2013 Practice Guideline, Lack of evidence for MTHFR polymorphism testing, Genetics in Medicine
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2013-02
 url: https://pubmed.ncbi.nlm.nih.gov/23288205/
 ---

@@ -2,7 +2,8 @@
 title: USPSTF position on thyroid screening in adults without symptoms
 source: USPSTF 2015 Final Recommendation Statement - Thyroid Dysfunction Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-03
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/thyroid-dysfunction-screening
 ---

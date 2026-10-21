@@ -2,7 +2,8 @@
 title: Triglyceride thresholds in the 2026 lipid guideline
 source: 2026 ACC/AHA/multisociety Guideline on the Management of Dyslipidemia
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-03
 url: https://www.acc.org/Latest-in-Cardiology/Journal-Scans/2026/03/13/15/20/ACC-AHA-Release-New-Clinical-Guideline-For-Managing-Dyslipidemia
 ---

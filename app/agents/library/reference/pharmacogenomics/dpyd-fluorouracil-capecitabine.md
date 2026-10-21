@@ -2,7 +2,8 @@
 title: DPYD testing before fluorouracil or capecitabine
 source: FDA Safety Labeling Update for capecitabine and fluorouracil, 2026; CPIC DPYD and Fluoropyrimidine Guideline
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-02
 url: https://www.fda.gov/drugs/resources-information-approved-drugs/safety-labeling-update-capecitabine-and-fluorouracil-5-fu-risks-associated-dihydropyrimidine
 ---

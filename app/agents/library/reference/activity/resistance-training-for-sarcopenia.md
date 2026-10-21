@@ -2,7 +2,8 @@
 title: Resistance training as first-line treatment for sarcopenia
 source: Dent et al. 2018 International Clinical Practice Guidelines for Sarcopenia, ICFSR, Journal of Nutrition, Health and Aging
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018
 url: https://researchnow.flinders.edu.au/en/publications/international-clinical-practice-guidelines-for-sarcopenia-icfsr-s/
 ---

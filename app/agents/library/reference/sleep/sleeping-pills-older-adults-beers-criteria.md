@@ -2,7 +2,8 @@
 title: Sleeping pills in older adults - 2023 AGS Beers Criteria
 source: American Geriatrics Society 2023 Updated AGS Beers Criteria for Potentially Inappropriate Medication Use in Older Adults, Journal of the American Geriatrics Society
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-05
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC12478568/
 ---

@@ -2,7 +2,8 @@
 title: How Thumbprint shows cholesterol and blood pressure changes as Heart Age
 source: Thumbprint Health Developer Build Spec, Oct 2026
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-10
 url: https://www.aafp.org/afp/2025/0200/editorial-aha-prevent-equations
 ---

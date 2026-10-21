@@ -2,7 +2,8 @@
 title: NMN and nicotinamide riboside NAD boosters - FDA status and evidence
 source: FDA response letters on NMN, September 29, 2025, as reported in Niagen Bioscience Form 10-Q for the quarter ended June 30, 2026; Damgaard and Treebak 2023, Science Advances review of nicotinamide riboside trials
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-06
 url: https://www.sec.gov/Archives/edgar/data/0001386570/000138657026000043/cdcx-20260630.htm
 ---

@@ -2,7 +2,8 @@
 title: Endocrine Society 2024 advises against routine vitamin D testing
 source: Endocrine Society 2024 Clinical Practice Guideline, Vitamin D for the Prevention of Disease
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-06
 url: https://www.endocrine.org/clinical-practice-guidelines/vitamin-d-for-prevention-of-disease
 ---

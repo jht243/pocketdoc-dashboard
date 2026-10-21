@@ -2,7 +2,8 @@
 title: FDA 503A compounding rules and Category 1, 2 and 3 substances
 source: FDA Bulk Drug Substances Used in Compounding Under Section 503A of the FD&C Act, page current May 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-05
 url: https://www.fda.gov/drugs/human-drug-compounding/bulk-drug-substances-used-compounding-under-section-503a-fdc-act
 ---

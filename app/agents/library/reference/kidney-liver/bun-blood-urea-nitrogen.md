@@ -2,7 +2,8 @@
 title: BUN blood urea nitrogen - what raises and lowers it
 source: MedlinePlus Lab Tests, BUN Blood Urea Nitrogen, National Library of Medicine, 2024
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-10
 url: https://medlineplus.gov/lab-tests/bun-blood-urea-nitrogen/
 ---

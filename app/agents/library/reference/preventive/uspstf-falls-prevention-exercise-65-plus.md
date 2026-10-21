@@ -2,7 +2,8 @@
 title: USPSTF exercise to prevent falls in adults 65 and older
 source: USPSTF 2024 Final Recommendation Statement, Falls Prevention in Community-Dwelling Older Adults: Interventions
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-06
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/falls-prevention-community-dwelling-older-adults-interventions
 ---

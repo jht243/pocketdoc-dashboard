@@ -2,7 +2,8 @@
 title: Alcohol and cancer risk - 2025 Surgeon General advisory
 source: US Surgeon General 2025 Advisory on Alcohol and Cancer Risk; Dietary Guidelines for Americans 2025-2030
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-01
 url: https://www.ncbi.nlm.nih.gov/books/NBK614465/
 ---

@@ -2,7 +2,8 @@
 title: Time-restricted eating and intermittent fasting evidence
 source: Liu et al. 2022 NEJM calorie restriction with or without time-restricted eating; ADA Standards of Care in Diabetes 2026
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-04
 url: https://ce.massmed.nejm.org/nejm-weekly-cme/content/calorie-restriction-or-without-time-restricted-eating-weight-loss
 ---

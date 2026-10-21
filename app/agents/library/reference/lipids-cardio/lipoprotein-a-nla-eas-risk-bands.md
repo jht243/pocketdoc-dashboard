@@ -2,7 +2,8 @@
 title: Lipoprotein a risk bands in NLA and EAS consensus statements
 source: National Lipid Association 2024 Focused Update on Lipoprotein(a); European Atherosclerosis Society Lp(a) consensus statement
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024
 url: https://pubmed.ncbi.nlm.nih.gov/38565461/
 ---

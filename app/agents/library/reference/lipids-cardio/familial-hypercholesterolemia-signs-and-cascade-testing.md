@@ -2,7 +2,8 @@
 title: Familial hypercholesterolemia warning signs and family cascade testing
 source: CDC, Familial Hypercholesterolemia; NICE Clinical Guideline CG71, Familial hypercholesterolaemia: identification and management
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-10
 url: https://www.nice.org.uk/guidance/cg71/chapter/Recommendations
 ---

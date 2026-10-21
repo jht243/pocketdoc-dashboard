@@ -2,7 +2,8 @@
 title: Restless legs syndrome and iron testing - AASM 2024 guideline
 source: Winkelman et al. 2024 AASM Clinical Practice Guideline, Treatment of restless legs syndrome and periodic limb movement disorder, Journal of Clinical Sleep Medicine 2025
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-11
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC11701286/
 ---

@@ -2,7 +2,8 @@
 title: USPSTF osteoporosis screening for women 65 and older
 source: USPSTF 2025 Final Recommendation Statement, Osteoporosis to Prevent Fractures: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-01
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/osteoporosis-screening
 ---

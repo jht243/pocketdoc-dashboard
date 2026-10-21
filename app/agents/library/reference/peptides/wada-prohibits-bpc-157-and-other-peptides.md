@@ -2,7 +2,8 @@
 title: WADA anti-doping rules prohibit BPC-157 and many peptides
 source: World Anti-Doping Agency 2026 Prohibited List, sections S0 and S2
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://www.segas.gr/wp-content/uploads/2025/11/2026list_en_final_clean_september_2025.pdf
 ---

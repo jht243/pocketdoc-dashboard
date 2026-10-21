@@ -2,7 +2,8 @@
 title: DXA T-scores - osteopenia, osteoporosis and treatment thresholds
 source: Bone Health and Osteoporosis Foundation 2022 Clinician's Guide to Prevention and Treatment of Osteoporosis, Osteoporosis International
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-04
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC9546973/
 ---

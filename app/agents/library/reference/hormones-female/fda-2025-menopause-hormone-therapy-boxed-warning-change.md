@@ -2,7 +2,8 @@
 title: FDA 2025 removal of most boxed warnings on menopause hormone therapy
 source: FDA 2025 request for labeling changes to menopausal hormone therapy; FDA February 2026 label approvals
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-02
 url: https://www.fda.gov/drugs/drug-alerts-and-statements/fda-requests-labeling-changes-related-safety-information-clarify-benefitrisk-considerations
 ---

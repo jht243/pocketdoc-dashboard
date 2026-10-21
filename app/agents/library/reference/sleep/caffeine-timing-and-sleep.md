@@ -2,7 +2,8 @@
 title: Caffeine taken 6 hours before bed can still disrupt sleep
 source: Drake et al. 2013 Journal of Clinical Sleep Medicine, Caffeine effects on sleep taken 0, 3, or 6 hours before going to bed
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2013-11
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC3805807/
 ---

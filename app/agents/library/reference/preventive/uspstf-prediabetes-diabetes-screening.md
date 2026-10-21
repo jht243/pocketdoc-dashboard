@@ -2,7 +2,8 @@
 title: USPSTF prediabetes and type 2 diabetes screening ages 35 to 70
 source: USPSTF 2021 Final Recommendation Statement, Prediabetes and Type 2 Diabetes: Screening
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2021-08
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/screening-for-prediabetes-and-type-2-diabetes
 ---

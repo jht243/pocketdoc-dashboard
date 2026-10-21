@@ -2,7 +2,8 @@
 title: Consumer DNA health results need clinical confirmation
 source: Tandy-Connor et al., False-positive results released by direct-to-consumer genetic tests, Genetics in Medicine 2018; National Society of Genetic Counselors position statement on direct-to-access genetic testing, 2019
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019
 url: https://pubmed.ncbi.nlm.nih.gov/29565420/
 ---

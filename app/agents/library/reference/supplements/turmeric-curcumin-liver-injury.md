@@ -2,7 +2,8 @@
 title: Turmeric and curcumin supplements and liver injury
 source: NIH LiverTox, Turmeric monograph, updated 2025
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-06
 url: https://www.ncbi.nlm.nih.gov/books/NBK548561/
 ---

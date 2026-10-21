@@ -2,7 +2,8 @@
 title: Thumbprint rules for calculating and displaying biological age
 source: Thumbprint Health Developer Build Spec, Oct 2026
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-10
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5940111/
 ---

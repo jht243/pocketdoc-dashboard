@@ -2,7 +2,8 @@
 title: Red yeast rice contains monacolin K, the same molecule as lovastatin
 source: NCCIH, Red Yeast Rice fact sheet, updated 2022
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-11
 url: https://www.nccih.nih.gov/health/red-yeast-rice
 ---

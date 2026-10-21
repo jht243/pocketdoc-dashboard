@@ -2,7 +2,8 @@
 title: NAFLD renamed MASLD - the 2023 steatotic liver disease nomenclature
 source: 2023 multisociety Delphi consensus on steatotic liver disease nomenclature, AASLD with EASL and ALEH
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-06
 url: https://www.aasld.org/new-masld-nomenclature
 ---

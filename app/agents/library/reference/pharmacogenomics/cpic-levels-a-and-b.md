@@ -2,7 +2,8 @@
 title: What CPIC level A and level B gene-drug pairs mean
 source: Clinical Pharmacogenetics Implementation Consortium, Assignment of CPIC Levels for Genes and Drugs
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2016
 url: https://cpicpgx.org/?p=53
 ---

@@ -2,7 +2,8 @@
 title: NAC, N-acetylcysteine - drug status and supplement sales
 source: FDA response to citizen petitions on NAC, March 2022, and final guidance on enforcement discretion for NAC products, August 2022; NIH LiverTox Acetaminophen monograph
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-08
 url: https://www.fda.gov/food/cfsan-constituent-updates/fda-issues-response-two-citizen-petitions-nac-dietary-supplements
 ---

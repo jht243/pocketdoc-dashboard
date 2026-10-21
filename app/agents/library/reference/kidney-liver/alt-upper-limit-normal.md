@@ -2,7 +2,8 @@
 title: Healthy ALT upper limits - 33 U/L men and 25 U/L women
 source: ACG Clinical Guideline Evaluation of Abnormal Liver Chemistries 2017; AASLD 2023 Practice Guidance on NAFLD
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017-01
 url: https://www.aasld.org/new-masld-nomenclature
 ---

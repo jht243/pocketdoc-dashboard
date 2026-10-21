@@ -2,7 +2,8 @@
 title: Physical activity and lower risk of eight cancers
 source: HHS 2018 Physical Activity Guidelines for Americans, 2nd edition; McTiernan et al. 2019 Medicine and Science in Sports and Exercise, 2018 Advisory Committee cancer review
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-06
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6527123/
 ---

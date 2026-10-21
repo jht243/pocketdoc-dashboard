@@ -5,7 +5,8 @@
 //   title: LDL-C targets by risk tier
 //   source: 2026 ACC/AHA Dyslipidemia Guideline
 //   evidence: Strong | Moderate | Emerging
-//   approved_by: pending
+//   approved_by: Dr. Adam Locker, 2026-10-21   (or `pending` until signed off)
+//   reviewed: 2026-10-21
 //   as_of: 2026
 //   ---
 //

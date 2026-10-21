@@ -2,7 +2,8 @@
 title: Thyroid nodules - ultrasound patterns and when biopsy is considered
 source: 2015 American Thyroid Association Management Guidelines for Adult Patients with Thyroid Nodules and Differentiated Thyroid Cancer
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2016-01
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC4739132/
 ---

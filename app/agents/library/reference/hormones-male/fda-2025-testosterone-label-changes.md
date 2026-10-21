@@ -2,7 +2,8 @@
 title: FDA 2025 testosterone label changes - heart warning, blood pressure
 source: FDA Issues Class-Wide Labeling Changes for Testosterone Products, February 28, 2025; AndroGel 1% prescribing information
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-02
 url: https://www.fda.gov/drugs/drug-alerts-and-statements/fda-issues-class-wide-labeling-changes-testosterone-products
 ---

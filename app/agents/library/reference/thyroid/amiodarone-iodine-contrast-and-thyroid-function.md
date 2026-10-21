@@ -2,7 +2,8 @@
 title: Amiodarone, iodine contrast dye and changes in thyroid function
 source: 2016 American Thyroid Association Guidelines for Diagnosis and Management of Hyperthyroidism and Other Causes of Thyrotoxicosis
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2016-10
 url: https://pubmed.ncbi.nlm.nih.gov/27521067/
 ---

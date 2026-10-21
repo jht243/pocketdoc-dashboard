@@ -2,7 +2,8 @@
 title: Ferritin rises with inflammation - reading iron stores in context
 source: Van Vranken 2010, Evaluation of Microcytosis, American Family Physician; AGA 2020 Iron Deficiency Anemia Guideline
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2010-11
 url: https://www.aafp.org/pubs/afp/issues/2010/1101/p1117.html
 ---

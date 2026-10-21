@@ -2,7 +2,8 @@
 title: Exercise for bone density - weight-bearing and resistance training
 source: LeBoff et al. 2022 BHOF Clinician's Guide to Prevention and Treatment of Osteoporosis; Watson et al. 2018 LIFTMOR trial, Journal of Bone and Mineral Research; HHS 2018 Physical Activity Guidelines
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-04
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC9546973/
 ---

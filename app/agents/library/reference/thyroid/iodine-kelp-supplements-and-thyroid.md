@@ -2,7 +2,8 @@
 title: Iodine and kelp supplements and thyroid supplements - ATA cautions
 source: ATA Statement on the Potential Risks of Excess Iodine Ingestion and Exposure, 2013, updated 2024; ATA 2014 Guidelines for the Treatment of Hypothyroidism
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-03
 url: https://www.thyroid.org/ata-statement-on-the-potential-risks-of-excess-iodine-ingestion-and-exposure
 ---

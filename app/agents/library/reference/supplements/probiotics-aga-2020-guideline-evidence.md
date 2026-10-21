@@ -2,7 +2,8 @@
 title: Probiotics - AGA 2020 guideline and NIH evidence summary
 source: AGA Clinical Practice Guidelines on the Role of Probiotics in the Management of Gastrointestinal Disorders, Gastroenterology 2020; NCCIH Probiotics: What You Need To Know
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-06
 url: https://www.nccih.nih.gov/health/probiotics-what-you-need-to-know
 ---

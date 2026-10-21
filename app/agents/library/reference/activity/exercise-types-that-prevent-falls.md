@@ -2,7 +2,8 @@
 title: Exercise types that prevent falls - Cochrane 2019 review
 source: Sherrington et al. 2019 Cochrane Review, Exercise for preventing falls in older people living in the community
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-01
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6360922/
 ---

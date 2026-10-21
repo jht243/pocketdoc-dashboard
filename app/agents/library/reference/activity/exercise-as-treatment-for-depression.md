@@ -2,7 +2,8 @@
 title: Exercise as a treatment for depression - 2024 BMJ meta-analysis
 source: Noetel et al. 2024 BMJ, Effect of exercise for depression, systematic review and network meta-analysis of randomised controlled trials; HHS 2018 Physical Activity Guidelines
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-02
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10870815/
 ---

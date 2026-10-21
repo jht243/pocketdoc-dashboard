@@ -2,7 +2,8 @@
 title: When TSH is rechecked after starting or changing thyroid medication
 source: AACE/ATA 2012 Hypothyroidism Guidelines; ATA 2014 Guidelines for the Treatment of Hypothyroidism
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2014
 url: https://pubmed.ncbi.nlm.nih.gov/23246686/
 ---

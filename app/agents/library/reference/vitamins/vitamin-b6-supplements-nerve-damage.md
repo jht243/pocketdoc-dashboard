@@ -2,7 +2,8 @@
 title: Vitamin B6 supplements and peripheral neuropathy - nerve damage
 source: NIH Office of Dietary Supplements, Vitamin B6 Fact Sheet for Health Professionals; Australia TGA Medicines Safety Update on peripheral neuropathy with vitamin B6, updated 2026
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-02
 url: https://www.tga.gov.au/news/safety-updates/peripheral-neuropathy-supplementary-vitamin-b6-pyridoxine
 ---

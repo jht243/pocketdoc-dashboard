@@ -2,7 +2,8 @@
 title: TPMT and NUDT15 with azathioprine and mercaptopurine
 source: CPIC Guideline for Thiopurine Dosing Based on TPMT and NUDT15 Genotypes, 2018 Update
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6576267/
 ---

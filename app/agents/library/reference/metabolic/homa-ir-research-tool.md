@@ -2,7 +2,8 @@
 title: HOMA-IR is a research index without a guideline cut-off
 source: Wallace, Levy and Matthews 2004, Use and Abuse of HOMA Modeling, Diabetes Care
 evidence: Emerging
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2004
 url: https://doi.org/10.2337/diacare.27.6.1487
 ---

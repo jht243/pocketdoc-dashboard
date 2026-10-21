@@ -2,7 +2,8 @@
 title: PhenoAge validation population and age range
 source: Liu, Kuo, Horvath, Crimmins, Ferrucci, Levine 2018, A new aging measure captures morbidity and mortality risk across diverse subpopulations from NHANES IV, PLOS Medicine
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-12
 url: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6312200/
 ---

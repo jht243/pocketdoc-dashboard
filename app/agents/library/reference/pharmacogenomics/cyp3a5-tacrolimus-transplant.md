@@ -2,7 +2,8 @@
 title: CYP3A5 and tacrolimus after organ transplant
 source: CPIC Guideline for CYP3A5 Genotype and Tacrolimus Dosing, 2015
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC4481158/
 ---

@@ -2,7 +2,8 @@
 title: Early menopause and POI - hormone therapy until about age 52
 source: The North American Menopause Society 2022 Hormone Therapy Position Statement
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-07
 url: https://menopause.org/wp-content/uploads/professional/nams-2022-hormone-therapy-position-statement.pdf
 ---

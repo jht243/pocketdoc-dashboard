@@ -2,7 +2,8 @@
 title: Ferritin cut-off for iron deficiency - AGA 45 ng/mL
 source: AGA 2020 Clinical Practice Guidelines on the Gastrointestinal Evaluation of Iron Deficiency Anemia; NIH ODS Iron Fact Sheet for Health Professionals, Sep 2025
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-08
 url: https://www.aafp.org/pubs/afp/issues/2021/0800/p211.html
 ---

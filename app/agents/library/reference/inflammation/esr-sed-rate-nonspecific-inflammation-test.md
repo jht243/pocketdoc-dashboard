@@ -2,7 +2,8 @@
 title: ESR sed rate - a nonspecific blood test for inflammation
 source: MedlinePlus Erythrocyte Sedimentation Rate ESR Test, NIH National Library of Medicine
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024
 url: https://medlineplus.gov/lab-tests/erythrocyte-sedimentation-rate-esr/
 ---

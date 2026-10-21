@@ -2,7 +2,8 @@
 title: SLCO1B1, ABCG2 and CYP2C9 with statins
 source: CPIC Guideline for SLCO1B1, ABCG2 and CYP2C9 Genotypes and Statin-Associated Musculoskeletal Symptoms, 2022
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC9035072/
 ---

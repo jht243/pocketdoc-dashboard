@@ -2,7 +2,8 @@
 title: Colchicine as an anti-inflammatory heart drug - LoDoCo2 and CLEAR
 source: Nidorf et al. 2020, LoDoCo2, NEJM; Jolly et al. 2025, CLEAR SYNERGY, NEJM; FDA label for LODOCO colchicine tablets, DailyMed
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-02
 url: https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ff06d68f-d65f-d097-e053-6294a90a7e5f
 ---

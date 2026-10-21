@@ -2,7 +2,8 @@
 title: Metabolic syndrome criteria - the 2009 harmonized definition
 source: Alberti et al. 2009, Harmonizing the Metabolic Syndrome, joint IDF, NHLBI, AHA, WHF, IAS and IASO statement, Circulation
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2009-10
 url: https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.109.192644
 ---

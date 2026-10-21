@@ -2,7 +2,8 @@
 title: Transferrin saturation of 45 percent and HFE hemochromatosis testing
 source: ACG Clinical Guideline Hereditary Hemochromatosis 2019, American Journal of Gastroenterology
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-08
 url: https://doi.org/10.14309/ajg.0000000000000315
 ---

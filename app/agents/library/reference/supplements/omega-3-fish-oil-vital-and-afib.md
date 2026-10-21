@@ -2,7 +2,8 @@
 title: Fish oil supplements, the VITAL trial and atrial fibrillation
 source: NIH Office of Dietary Supplements, Omega-3 Fatty Acids Health Professional Fact Sheet, updated 2025
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-08
 url: https://ods.od.nih.gov/factsheets/Omega3FattyAcids-HealthProfessional/
 ---

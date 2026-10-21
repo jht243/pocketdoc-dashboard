@@ -2,7 +2,8 @@
 title: Acetaminophen and liver damage - hidden sources and alcohol
 source: FDA OTC labeling rule 21 CFR 201.326; FDA 2011 action on prescription acetaminophen combinations; NIH LiverTox Acetaminophen monograph
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2024-04
 url: https://www.ncbi.nlm.nih.gov/books/NBK548162/
 ---

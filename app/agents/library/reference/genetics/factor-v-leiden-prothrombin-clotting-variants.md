@@ -2,7 +2,8 @@
 title: Factor V Leiden and prothrombin variants - inherited clotting risk
 source: American Society of Hematology 2023 guidelines for management of venous thromboembolism - thrombophilia testing, Blood Advances 2023
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023
 ---
 

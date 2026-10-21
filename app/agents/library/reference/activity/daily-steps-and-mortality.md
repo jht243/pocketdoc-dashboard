@@ -2,7 +2,8 @@
 title: Daily step counts and lower mortality - where benefits level off
 source: Paluch et al. 2022 Lancet Public Health, Daily steps and all-cause mortality, meta-analysis of 15 international cohorts
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2022-03
 url: https://discovery.ucl.ac.uk/id/eprint/10170017/1/1-s2.0-S2468266721003029-main.pdf
 ---

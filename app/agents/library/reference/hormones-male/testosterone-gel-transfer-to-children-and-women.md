@@ -2,7 +2,8 @@
 title: Testosterone gel transfer to children and women - FDA boxed warning
 source: FDA 2009 boxed warning for testosterone gels; AndroGel 1% prescribing information, revised 2016
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2016-10
 url: https://www.accessdata.fda.gov/drugsatfda_docs/label/2016/021015s043lbl.pdf
 ---

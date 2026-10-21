@@ -2,7 +2,8 @@
 title: Alcohol before bed reduces and delays REM sleep
 source: Gardiner et al. 2025 Sleep Medicine Reviews, The effect of alcohol on subsequent sleep in healthy adults, systematic review and meta-analysis
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-04
 url: https://europepmc.org/article/MED/39631226
 ---

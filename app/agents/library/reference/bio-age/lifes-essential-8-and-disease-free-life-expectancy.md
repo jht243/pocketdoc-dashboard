@@ -2,7 +2,8 @@
 title: Life's Essential 8 score and years lived free of chronic disease
 source: Wang et al. 2023, Association of Cardiovascular Health With Life Expectancy Free of Cardiovascular Disease, Diabetes, Cancer, and Dementia in UK Adults, JAMA Internal Medicine
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2023-04
 url: https://pubmed.ncbi.nlm.nih.gov/36848126/
 ---

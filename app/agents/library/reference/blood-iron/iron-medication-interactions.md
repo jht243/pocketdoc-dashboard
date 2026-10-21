@@ -2,7 +2,8 @@
 title: Iron interactions with levothyroxine, levodopa and acid reducers
 source: NIH Office of Dietary Supplements, Iron Fact Sheet for Health Professionals, Sep 2025; FDA levothyroxine and carbidopa-levodopa prescribing information
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2025-09
 url: https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/
 ---

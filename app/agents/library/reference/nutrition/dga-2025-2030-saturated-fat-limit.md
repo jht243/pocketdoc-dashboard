@@ -2,7 +2,8 @@
 title: Saturated fat limit of 10 percent of daily calories
 source: USDA and HHS 2026 Dietary Guidelines for Americans, 2025-2030
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-01
 url: https://cdn.realfood.gov/DGA.pdf
 ---

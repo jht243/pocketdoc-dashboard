@@ -2,7 +2,8 @@
 title: FSH blood tests are not needed to diagnose perimenopause after 45
 source: NICE Guideline NG23 Menopause - identification and management
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2026-04
 url: https://www.nice.org.uk/guidance/ng23/chapter/recommendations
 ---

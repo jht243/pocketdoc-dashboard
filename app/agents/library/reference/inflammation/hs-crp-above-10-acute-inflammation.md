@@ -2,7 +2,8 @@
 title: hs-CRP above 10 mg/L suggests acute inflammation and a repeat test
 source: Pearson et al. 2003, Markers of Inflammation and Cardiovascular Disease, AHA/CDC Scientific Statement, Circulation
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2003-01
 url: https://www.ahajournals.org/doi/10.1161/01.CIR.0000052939.59093.45
 ---

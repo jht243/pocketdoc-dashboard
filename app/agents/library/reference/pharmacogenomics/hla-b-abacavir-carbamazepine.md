@@ -2,7 +2,8 @@
 title: HLA-B*57:01 with abacavir and HLA-B*15:02 with carbamazepine
 source: CPIC Guidelines for HLA-B and Abacavir, 2014 Update, and for HLA-B, HLA-A and Carbamazepine or Oxcarbazepine, 2017 Update
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2017
 url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5847474/
 ---

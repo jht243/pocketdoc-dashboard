@@ -2,7 +2,8 @@
 title: Green tea extract supplements and liver injury
 source: NIH LiverTox, Green Tea monograph, updated 2020; US Pharmacopeia comprehensive review of green tea extract hepatotoxicity, Toxicology Reports 2020
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2020-11
 url: https://www.ncbi.nlm.nih.gov/books/NBK547925/
 ---

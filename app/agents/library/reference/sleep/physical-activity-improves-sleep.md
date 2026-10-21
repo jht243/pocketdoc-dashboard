@@ -2,7 +2,8 @@
 title: Regular exercise improves sleep and evening workouts are fine
 source: HHS 2018 Physical Activity Guidelines for Americans, 2nd edition, Chapter 2 Physical Activity and Health
 evidence: Moderate
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2018-11
 url: https://odphp.health.gov/sites/default/files/2019-09/Physical_Activity_Guidelines_2nd_edition.pdf
 ---

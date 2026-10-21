@@ -2,7 +2,8 @@
 title: USPSTF BRCA risk assessment, genetic counseling and testing
 source: USPSTF 2019 Final Recommendation Statement, BRCA-Related Cancer: Risk Assessment, Genetic Counseling, and Genetic Testing
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2019-08
 url: https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/brca-related-cancer-risk-assessment-genetic-counseling-and-genetic-testing
 ---

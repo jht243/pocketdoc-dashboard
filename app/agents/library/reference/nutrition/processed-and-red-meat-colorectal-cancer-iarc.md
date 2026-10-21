@@ -2,7 +2,8 @@
 title: Processed and red meat and colorectal cancer - IARC classification
 source: International Agency for Research on Cancer 2015 Monographs Volume 114 evaluation, Press Release No. 240
 evidence: Strong
-approved_by: pending
+approved_by: Dr. Adam Locker, 2026-10-21
+reviewed: 2026-10-21
 as_of: 2015-10
 url: https://www.iarc.who.int/wp-content/uploads/2018/07/pr240_E.pdf
 ---
