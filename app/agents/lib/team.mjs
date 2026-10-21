@@ -1,4 +1,4 @@
-// My Advocate and the four specialists: the Monitus manager pipeline, for medicine.
+// My Advocate and the specialists: the Monitus manager pipeline, for medicine.
 //
 //   1. precheck  code: critical lab values and crisis language, before any model
 //   2. route     the Advocate picks specialists and writes each one an ask (cheap tier)
@@ -52,6 +52,13 @@ export const TEAM = {
     facts: ['profile', 'medications', 'labs', 'genetics', 'intake', 'questionnaires'],
     library: ['medications', 'pharmacogenomics', 'supplements'],
   },
+  // Back on the team Oct 20: with only Medication reading the genetics record, "tell me
+  // about my DNA report" came back as a pharmacogenomics answer for a member on no drugs.
+  genetics: {
+    desc: 'the DNA report on file: every health, trait, longevity, nutrition, carrier and pharmacogenomic marker, what each genotype means, how strong the evidence is, and which labs show whether a variant is doing anything',
+    facts: ['profile', 'genetics', 'labs', 'labTrends', 'medications', 'intake', 'questionnaires', 'documents'],
+    library: ['genetics', 'pharmacogenomics'],
+  },
   lifestyle: {
     desc: 'nutrition, sleep, activity, wearable trends (HRV, resting HR, readiness), stress, check-in follow-up',
     facts: ['profile', 'intake', 'labs', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'questionnaires', 'body'],
@@ -95,6 +102,7 @@ export function factsFor(facts, keys) {
 const FORCE = [
   ['medications', /\b(medication|medicine|meds?|drug|prescri\w*|pill|supplement\w*|statin|metformin|levothyroxine|synthroid|ozempic|wegovy|semaglutide|tirzepatide|ssri|interact\w*|side effects?|can i take)\b/i],
   ['hormones', /\b(hormone\w*|thyroid|tsh|t3|t4|menopaus\w*|perimenopaus\w*|hot flash\w*|testosterone|trt|estrogen|estradiol|progesterone|shbg|libido|period|cycle|peptide\w*|bpc)\b/i],
+  ['genetics', /\b(genetics?|genes?|genetic\w*|genomic\w*|genotype\w*|dna|23andme|ancestry\s?dna|variants?|snps?|rs\d{3,}|apoe|mthfr|brca[12]?|hfe|carrier status)\b/i],
   ['bloodwork', /\b(labs?|bloodwork|blood work|panel|results?|marker\w*|cholesterol|ldl|hdl|apob|a1c|glucose|insulin|ferritin|iron|vitamin|b12|crp|creatinine|egfr|alt|ast|biological age|bio age)\b/i],
 ];
 
@@ -221,7 +229,7 @@ async function consensusOf({ notes, run }) {
 
 /* ---------------- 6–7. compose and check ---------------- */
 
-const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', lifestyle: 'Lifestyle', general: 'General' };
+const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', genetics: 'Genetics', lifestyle: 'Lifestyle', general: 'General' };
 
 /**
  * Who answered, for the routing log: the specialists consulted, whether General was

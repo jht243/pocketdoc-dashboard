@@ -91,6 +91,29 @@ test('crisis language skips the team and answers with 988 at once', async () => 
   assert.equal(events.at(-1).type, 'answer');
 });
 
+// Live, Oct 20: "can you evaluate my genetics report?" went to Medication alone, and a
+// member on no drugs got a pharmacogenomics answer. Genetics is forced in on DNA words
+// and reads the whole genetics record.
+test('a genetics question brings in the Genetics specialist, who reads the DNA report', async () => {
+  const calls = stubModel({ composeText: 'Your report lists **APOE e3/e4**.' });
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.messages[0].content.includes('Agent: My Advocate (the manager)')) {
+      const content = JSON.stringify({ reason: 'r', consult: [{ id: 'medications', ask: 'Any gene-drug flags?' }] });
+      return new Response(JSON.stringify({ model: body.model, choices: [{ message: { content } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), { status: 200 });
+    }
+    return real(url, init);
+  };
+  const withDna = { ...facts, sections: [...facts.sections, { key: 'genetics', title: 'GENETICS', body: '- APOE · genotype e3/e4 · rs429358' }] };
+  const events = [];
+  await runQuestion({ question: 'can you evaluate my genetics report?', facts: withDna, healthData: {}, run: { auth: null, ledger: [] } }, (e) => events.push(e));
+  assert.deepEqual(events.find((e) => e.type === 'route_done').consult.map((c) => c.id), ['medications', 'genetics']);
+  const read = calls.find((c) => c.system.includes('Agent: Genetics'));
+  assert.ok(read, 'the Genetics brief was called');
+  assert.match(read.user, /GENETICS\n- APOE/);
+});
+
 test('factsFor hands over only the named sections, with the date preamble', () => {
   const text = factsFor(facts, TEAM.medications.facts);
   assert.match(text, /TODAY'S DATE/);

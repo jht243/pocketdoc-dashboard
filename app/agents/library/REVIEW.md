@@ -1,10 +1,10 @@
 # Library review
 
-Generated 2026-10-18 by `npm run library:review`. The library is reviewed every quarter (90 days); see the header of `review.mjs` for how to record a review.
+Generated 2026-10-21 by `npm run library:review`. The library is reviewed every quarter (90 days); see the header of `review.mjs` for how to record a review.
 
-294 passages: 294 never approved, 0 approved but overdue for review, 117 with a source more than 5 years old.
+305 passages: 305 never approved, 0 approved but overdue for review, 123 with a source more than 5 years old.
 
-## Never approved (294)
+## Never approved (305)
 
 | Passage | Section | Source date | Last reviewed |
 |---|---|---|---|
@@ -49,6 +49,17 @@ Generated 2026-10-18 by `npm run library:review`. The library is reviewed every 
 | [Transferrin saturation of 45 percent and HFE hemochromatosis testing](reference/blood-iron/transferrin-saturation-hemochromatosis-screen.md) | blood-iron | 2019-08 | never |
 | [White blood cell count normal range and leukocytosis](reference/blood-iron/wbc-count-normal-range.md) | blood-iron | 2015-12 | never |
 | [WHO hemoglobin cut-offs that define anemia in adults](reference/blood-iron/who-hemoglobin-anemia-cutoffs.md) | blood-iron | 2024-03 | never |
+| [The ACMG list of medically actionable genes](reference/genetics/acmg-medically-actionable-genes.md) | genetics | 2023 | never |
+| [APOE e4 - Alzheimer risk, cholesterol and when testing helps](reference/genetics/apoe-e4-alzheimers-and-lipids.md) | genetics | 2011 | never |
+| [BRCA and hereditary cancer variants on consumer DNA tests](reference/genetics/brca-hereditary-cancer-consumer-tests.md) | genetics | 2019 | never |
+| [Carrier status results and family planning](reference/genetics/carrier-status-results.md) | genetics | 2021 | never |
+| [Consumer DNA health results need clinical confirmation](reference/genetics/consumer-dna-results-need-confirmation.md) | genetics | 2019 | never |
+| [Factor V Leiden and prothrombin variants - inherited clotting risk](reference/genetics/factor-v-leiden-prothrombin-clotting-variants.md) | genetics | 2023 | never |
+| [HFE variants - C282Y, H63D and iron overload risk](reference/genetics/hfe-hemochromatosis-variants.md) | genetics | 2019 | never |
+| [Longevity genes - FOXO3, APOE and how much lifespan is inherited](reference/genetics/longevity-genes-small-effects.md) | genetics | 2018 | never |
+| [Nutrition genes - lactase, caffeine, FTO and gene-based diets](reference/genetics/nutrition-genes-lactose-caffeine-fto.md) | genetics | 2017 | never |
+| [Polygenic risk scores - what they add and their limits](reference/genetics/polygenic-risk-scores-limits.md) | genetics | 2022 | never |
+| [Reading a genotype - rsID, alleles, one copy or two](reference/genetics/reading-a-genotype.md) | genetics | 2025 | never |
 | [Compounded versus FDA-approved bioidentical menopause hormones](reference/hormones-female/compounded-bioidentical-hormones-menopause.md) | hormones-female | 2022-07 | never |
 | [DXA T-scores - osteopenia, osteoporosis and treatment thresholds](reference/hormones-female/dxa-t-score-osteopenia-osteoporosis-treatment-thresholds.md) | hormones-female | 2022-04 | never |
 | [Early menopause and POI - hormone therapy until about age 52](reference/hormones-female/early-menopause-poi-hormone-therapy.md) | hormones-female | 2022-07 | never |
@@ -307,7 +318,7 @@ Generated 2026-10-18 by `npm run library:review`. The library is reviewed every 
 
 None.
 
-## Source more than 5 years old (117)
+## Source more than 5 years old (123)
 
 Check whether a newer guideline has replaced it.
 
@@ -338,6 +349,12 @@ Check whether a newer guideline has replaced it.
 | [MCV and RDW - what red blood cell size and size spread mean](reference/blood-iron/mcv-rdw-red-cell-size.md) | blood-iron | 2010-11 | never |
 | [Transferrin saturation of 45 percent and HFE hemochromatosis testing](reference/blood-iron/transferrin-saturation-hemochromatosis-screen.md) | blood-iron | 2019-08 | never |
 | [White blood cell count normal range and leukocytosis](reference/blood-iron/wbc-count-normal-range.md) | blood-iron | 2015-12 | never |
+| [APOE e4 - Alzheimer risk, cholesterol and when testing helps](reference/genetics/apoe-e4-alzheimers-and-lipids.md) | genetics | 2011 | never |
+| [BRCA and hereditary cancer variants on consumer DNA tests](reference/genetics/brca-hereditary-cancer-consumer-tests.md) | genetics | 2019 | never |
+| [Consumer DNA health results need clinical confirmation](reference/genetics/consumer-dna-results-need-confirmation.md) | genetics | 2019 | never |
+| [HFE variants - C282Y, H63D and iron overload risk](reference/genetics/hfe-hemochromatosis-variants.md) | genetics | 2019 | never |
+| [Longevity genes - FOXO3, APOE and how much lifespan is inherited](reference/genetics/longevity-genes-small-effects.md) | genetics | 2018 | never |
+| [Nutrition genes - lactase, caffeine, FTO and gene-based diets](reference/genetics/nutrition-genes-lactose-caffeine-fto.md) | genetics | 2017 | never |
 | [Perimenopausal depression - evaluation and first-line treatment](reference/hormones-female/perimenopausal-depression-evaluation-and-treatment.md) | hormones-female | 2018-10 | never |
 | [STRAW+10 stages of the menopause transition](reference/hormones-female/straw-10-menopause-stages.md) | hormones-female | 2012-04 | never |
 | [Testosterone for women - low sexual desire after menopause only](reference/hormones-female/testosterone-therapy-for-women-hsdd-only.md) | hormones-female | 2019-10 | never |

@@ -1,6 +1,6 @@
 # Knowledge library
 
-The passages the agents search and cite as (per "Title"). **All 294 of 294 passages are awaiting medical-director approval** (`approved_by: pending`). Agents may read them during development, and each one is labelled "medical-director approval pending" in the prompt. None of them is a Thumbprint target, and none goes in front of a live member until the medical director signs it off.
+The passages the agents search and cite as (per "Title"). **All 305 of 305 passages are awaiting medical-director approval** (`approved_by: pending`). Agents may read them during development, and each one is labelled "medical-director approval pending" in the prompt. None of them is a Thumbprint target, and none goes in front of a live member until the medical director signs it off.
 
 Each passage is one rule or fact (80 to 250 words). The first set was drafted from the guidelines named in the Oct 14 build spec, section 5; later passages come from other primary sources of the same standing: society guidelines and position statements (KDIGO, AASLD, ACG, AGA, ACR, AASM, ATA, ACOG, AUA, NLA, CPIC, USPSTF, NICE, WHO), NIH, CDC and FDA material, Cochrane reviews, and landmark trials or meta-analyses in major journals. None contradicts another passage. Numbers were checked against the source named in its `url`. Adam's documents are guidance, not spec: where a guideline and a "functional" range disagree, the passage states the guideline and labels the tighter target Emerging.
 
@@ -64,6 +64,22 @@ Each passage is one rule or fact (80 to 250 words). The first set was drafted fr
 | [Transferrin saturation of 45 percent and HFE hemochromatosis testing](reference/blood-iron/transferrin-saturation-hemochromatosis-screen.md) | ACG Clinical Guideline Hereditary Hemochromatosis 2019, American Journal of Gastroenterology | Strong | Awaiting medical-director approval |
 | [White blood cell count normal range and leukocytosis](reference/blood-iron/wbc-count-normal-range.md) | Riley and Rupert 2015, Evaluation of Patients with Leukocytosis, American Family Physician | Moderate | Awaiting medical-director approval |
 | [WHO hemoglobin cut-offs that define anemia in adults](reference/blood-iron/who-hemoglobin-anemia-cutoffs.md) | WHO 2024 Guideline on Haemoglobin Cutoffs to Define Anaemia in Individuals and Populations | Strong | Awaiting medical-director approval |
+
+## genetics
+
+| Passage | Source | Evidence | Status |
+|---|---|---|---|
+| [The ACMG list of medically actionable genes](reference/genetics/acmg-medically-actionable-genes.md) | ACMG SF v3.2 list for reporting of secondary findings in clinical exome and genome sequencing, Genetics in Medicine 2023 | Strong | Awaiting medical-director approval |
+| [APOE e4 - Alzheimer risk, cholesterol and when testing helps](reference/genetics/apoe-e4-alzheimers-and-lipids.md) | ACMG and NSGC joint practice guideline, Genetic counseling and testing for Alzheimer disease, Genetics in Medicine 2011; Alzheimer's Association | Strong | Awaiting medical-director approval |
+| [BRCA and hereditary cancer variants on consumer DNA tests](reference/genetics/brca-hereditary-cancer-consumer-tests.md) | USPSTF, Risk Assessment, Genetic Counseling, and Genetic Testing for BRCA-Related Cancer, 2019; FDA authorization of 23andMe BRCA1/BRCA2 Selected Variants report, 2018 | Strong | Awaiting medical-director approval |
+| [Carrier status results and family planning](reference/genetics/carrier-status-results.md) | ACMG practice resource, Screening for autosomal recessive and X-linked conditions during pregnancy and preconception, Genetics in Medicine 2021; ACOG Committee Opinion 690, Carrier Screening in the Age of Genomic Medicine, 2017 | Strong | Awaiting medical-director approval |
+| [Consumer DNA health results need clinical confirmation](reference/genetics/consumer-dna-results-need-confirmation.md) | Tandy-Connor et al., False-positive results released by direct-to-consumer genetic tests, Genetics in Medicine 2018; National Society of Genetic Counselors position statement on direct-to-access genetic testing, 2019 | Strong | Awaiting medical-director approval |
+| [Factor V Leiden and prothrombin variants - inherited clotting risk](reference/genetics/factor-v-leiden-prothrombin-clotting-variants.md) | American Society of Hematology 2023 guidelines for management of venous thromboembolism - thrombophilia testing, Blood Advances 2023 | Strong | Awaiting medical-director approval |
+| [HFE variants - C282Y, H63D and iron overload risk](reference/genetics/hfe-hemochromatosis-variants.md) | ACG Clinical Guideline, Hereditary Hemochromatosis, American Journal of Gastroenterology 2019 | Strong | Awaiting medical-director approval |
+| [Longevity genes - FOXO3, APOE and how much lifespan is inherited](reference/genetics/longevity-genes-small-effects.md) | Ruby et al., Estimates of the heritability of human longevity are substantially inflated due to assortative mating, Genetics 2018; Willcox et al., FOXO3A genotype is strongly associated with human longevity, PNAS 2008 | Emerging | Awaiting medical-director approval |
+| [Nutrition genes - lactase, caffeine, FTO and gene-based diets](reference/genetics/nutrition-genes-lactose-caffeine-fto.md) | Celis-Morales et al., Effect of personalized nutrition on health-related behaviour change, the Food4Me randomized trial, International Journal of Epidemiology 2017; MedlinePlus Genetics, Lactose intolerance | Moderate | Awaiting medical-director approval |
+| [Polygenic risk scores - what they add and their limits](reference/genetics/polygenic-risk-scores-limits.md) | AHA Scientific Statement, Polygenic Risk Scores for Cardiovascular Disease, Circulation 2022 | Moderate | Awaiting medical-director approval |
+| [Reading a genotype - rsID, alleles, one copy or two](reference/genetics/reading-a-genotype.md) | NIH National Human Genome Research Institute, Talking Glossary of Genomic and Genetic Terms; MedlinePlus Genetics, Help Me Understand Genetics | Strong | Awaiting medical-director approval |
 
 ## hormones-female
 

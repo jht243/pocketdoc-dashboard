@@ -131,6 +131,14 @@ const SAMPLES = {
     ['I am a CYP2C19 poor metabolizer on clopidogrel', 'pharmacogenomics'],
     ['Is ashwagandha safe for my liver?', 'supplements'],
   ],
+  genetics: [
+    ['What does APOE e4 mean for Alzheimer risk?', 'genetics'],
+    ['My 23andMe report says I carry HFE C282Y for hemochromatosis', 'genetics'],
+    ['I have Factor V Leiden, does that affect clotting?', 'genetics'],
+    ['What do my longevity genes like FOXO3 mean?', 'genetics'],
+    ['Do I need a genetic counselor to confirm my BRCA result?', 'genetics'],
+    ['I am a CYP2C19 poor metabolizer on clopidogrel', 'pharmacogenomics'],
+  ],
   lifestyle: [
     ['How much protein should I eat?', 'nutrition'],
     ['How many hours of sleep do I need?', 'sleep'],

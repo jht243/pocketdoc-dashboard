@@ -2,9 +2,9 @@
 
 This is a copy of the Monitus agent system (Adam Handfinger), adapted for medicine. Same mechanics, different job descriptions, library and facts.
 
-## The team: 1 manager + 4 specialists
+## The team: 1 manager + 6 specialists
 
-The roster follows Adam's Oct 14 build spec, section 3.
+The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18) and Genetics (Oct 20).
 
 | Agent | Monitus counterpart | Covers | Must never |
 |---|---|---|---|
@@ -12,6 +12,7 @@ The roster follows Adam's Oct 14 build spec, section 3.
 | **Bloodwork** | Defaults Expert (the core one) | CBC, CMP, lipids + ApoB, A1c + insulin, liver, kidney, iron, vitamins, hs-CRP; owns the PhenoAge and Heart Age explanations | Diagnose; recommend starting or changing a medication |
 | **Hormone & Thyroid** | Bond Expert | Male and female modules: perimenopause and menopause, testosterone, estradiol, SHBG, progesterone, thyroid and antibodies; peptide education and FDA status only | Recommend a specific hormone, peptide or dose |
 | **Medication & Interactions** | Contract Expert | Current meds, supplements, drug-supplement interactions, pharmacogenomics (CPIC A/B) once a report is on file | Start, stop or change a dose; it flags and explains only |
+| **Genetics** (added Oct 20) | none | The DNA report on file, all of it: health, trait, longevity, nutrition and carrier variants, how strong each association is, and the labs that show whether a variant is doing anything (HFE and ferritin, APOE and LDL). Added after a member's "evaluate my genetics report" went to Medication alone and came back as a PGx answer with no medications on file | Say a variant means the member has or will get a condition; treat a negative consumer result as ruling one out; recommend anything on genotype alone |
 | **Lifestyle** | Construction Generalist | Nutrition, sleep, activity, wearable trends, check-in follow-up | Give medical advice |
 | **General** (scope-limited, added Oct 18) | none | Only: the preventive screening schedule from the record, how the app works, preparing for an appointment, wellness questions the record already answers. Everything else (a rash, an injury, a new symptom) gets "let's bring this to your clinician" with what to raise | Answer anything off its approved list; diagnose; name a condition |
 
@@ -29,6 +30,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
    - A medication or supplement is named → Medication.
    - Hormone or thyroid words → Hormone & Thyroid.
    - Any lab value is in question → Bloodwork.
+   - DNA, gene, variant, 23andMe, APOE, MTHFR, BRCA… → Genetics.
 3. **Research, in parallel (smart tier).** Each specialist prompt contains:
    - its `## Facts` slice: labs **with collection dates, sorted newest first**, meds, intake answers, wearables
    - its `## Knowledge` passages, from its own library sections only
@@ -79,7 +81,7 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 | Facts = liens, suits, UCCs per company | Facts = the member's labs (dated, with lab range), meds, intake, wearables, documents, check-ins, read through the member's JWT and RLS |
 | Governing contract (rule 7: "say whether you had it") | The member's lab report: "No lipid panel on file since Mar 2025" goes in the first sentence when missing |
 | Playbooks matched on a trigger | Escalation matrix and lane templates (spec #25) matched on marker + threshold |
-| Library: 50-state lien law, Bond Default Manual | Library sections: `lipids-cardio/`, `metabolic/`, `kidney-liver/`, `blood-iron/`, `vitamins/`, `inflammation/`, `thyroid/`, `hormones-female/`, `hormones-male/`, `peptides/`, `medications/`, `pharmacogenomics/`, `supplements/`, `nutrition/`, `sleep/`, `activity/`, `preventive/` (USPSTF), `bio-age/` (Levine, PREVENT) |
+| Library: 50-state lien law, Bond Default Manual | Library sections: `lipids-cardio/`, `metabolic/`, `kidney-liver/`, `blood-iron/`, `vitamins/`, `inflammation/`, `thyroid/`, `hormones-female/`, `hormones-male/`, `peptides/`, `medications/`, `pharmacogenomics/`, `genetics/`, `supplements/`, `nutrition/`, `sleep/`, `activity/`, `preventive/` (USPSTF), `bio-age/` (Levine, PREVENT) |
 | Fact-Checker codes GATE/RECORD/CITE… | DOSE, MED-CHANGE, DIAGNOSIS, STALE, UNSOURCED, NUMBER, ESCALATE |
 | `carryCheck` writes counts in code | Code writes the "latest values" table and the bio-age numbers; the model never computes them |
 
@@ -108,12 +110,12 @@ It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent e
 
 | File | What it is |
 |---|---|
-| `briefs/` | Who each agent is: `shared/rules.md`, `advocate`, `advocate-answer`, `bloodwork`, `hormones`, `medications`, `lifestyle`, `general`, `safety` |
+| `briefs/` | Who each agent is: `shared/rules.md`, `advocate`, `advocate-answer`, `bloodwork`, `hormones`, `medications`, `genetics`, `lifestyle`, `general`, `safety` |
 | `lib/team.mjs` | The roster (facts slice + library sections per agent) and the pipeline |
 | `lib/safety.mjs` | Code checks before and after the model, from `src/lib/clinicalRules.js` |
 | `lib/escalation.mjs` | Step 5: lab names → matrix markers, one lane card per marker, Section 9 emergency overrides, and the block compose reads |
 | `lib/knowledge.mjs` | Library search: keyword overlap weighted by rarity, title words count double |
-| `library/` | Step 2: 294 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All awaiting medical-director approval. `npm run library:readme` rebuilds the README |
+| `library/` | Step 2: 305 starter passages in `reference/<section>/`, the escalation matrix (`escalation.json`, spec #25), and a README listing every passage. All awaiting medical-director approval. `npm run library:readme` rebuilds the README |
 | `lib/llm.mjs` | Model calls and the per-question cost ledger |
 | `lib/logs.mjs` | The safety and routing logs, written with the member's JWT |
 | `server.mjs` | `POST /chat` (SSE), `GET /health` |

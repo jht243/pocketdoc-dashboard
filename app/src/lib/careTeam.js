@@ -57,6 +57,8 @@ export const SPECIALISTS = [
     lens: "hormones and thyroid, male and female: perimenopause and menopause, testosterone, estradiol, SHBG, progesterone, TSH, free T4/T3 and antibodies; peptide education and FDA status only" },
   { id: "medications", label: "Medication & Interactions", short: "Meds", icon: "Pill", color: "#7C3AED",
     lens: "medications and supplements: interactions, timing, nutrient depletions caused by medications, labs a medication moves, pharmacogenomics when on file, and what to confirm with the prescriber (never a dose)" },
+  { id: "genetics", label: "Genetics", short: "Genetics", icon: "Dna", color: "#9333EA",
+    lens: "the DNA report on file, all of it: health and trait variants, longevity, nutrition and fitness markers, carrier status and pharmacogenomic markers; what each genotype means, how strong the evidence is, which labs show whether a variant is doing anything, and what a consumer test cannot rule out" },
   { id: "lifestyle", label: "Lifestyle", short: "Lifestyle", icon: "Salad", color: "#16A34A",
     lens: "nutrition, sleep, activity and training, wearable trends (HRV, resting heart rate, readiness) against their own baseline, stress, and check-in patterns" },
   { id: "general", label: "General", short: "General", icon: "Compass", color: "#475569", scoped: true,
@@ -65,7 +67,7 @@ export const SPECIALISTS = [
 
 /**
  * The browser team's old roster, retired when the fallback moved to the service's
- * five. Kept only so a stored conversation that consulted one of them still draws
+ * roster. Kept only so a stored conversation that consulted one of them still draws
  * its card (stored turns replay through readTeam and look members up by id).
  * Never offered for routing.
  */
@@ -78,7 +80,6 @@ const RETIRED = [
   { id: "pharmacy", label: "Pharmacist", short: "Pharmacist", icon: "Pill", color: "#7C3AED" },
   { id: "nutrition", label: "Nutrition", short: "Nutrition", icon: "Salad", color: "#16A34A" },
   { id: "sleep", label: "Sleep & Recovery", short: "Sleep", icon: "Moon", color: "#4F46E5" },
-  { id: "genetics", label: "Genetics", short: "Genetics", icon: "Dna", color: "#9333EA" },
   { id: "gastro", label: "Gastroenterology", short: "Gut", icon: "Soup", color: "#A16207" },
   { id: "neurology", label: "Brain & Mood", short: "Brain", icon: "Brain", color: "#BE185D" },
   { id: "dermatology", label: "Dermatology", short: "Skin", icon: "Sparkles", color: "#E11D48" },
@@ -177,7 +178,7 @@ async function route({ question, recentTurns, roster, healthContext }) {
 Available specialists:
 ${list}
 
-Pick only the specialists THIS question needs: one for a narrow question, two or three when it crosses areas. Screening schedule, how the app works, or preparing for an appointment → general. A question outside every clinical lens (a rash, an injury, pain, a new symptom, a diagnosis question) → general alone; do not stretch the closest specialist to cover it. For each, write the specific thing you want them to look at, phrased as a direct ask that names the member's actual markers, values, medications or symptoms where relevant (max 22 words). You are the member's own advocate speaking to a colleague on their behalf, so refer to them as "my member" (e.g. "Is my member's TSH trend…"), never "he", "she" or "the patient".
+Pick only the specialists THIS question needs: one for a narrow question, two or three when it crosses areas. A genetics or DNA report question → genetics (add medications only if the member takes something or asks about a drug). Screening schedule, how the app works, or preparing for an appointment → general. A question outside every clinical lens (a rash, an injury, pain, a new symptom, a diagnosis question) → general alone; do not stretch the closest specialist to cover it. For each, write the specific thing you want them to look at, phrased as a direct ask that names the member's actual markers, values, medications or symptoms where relevant (max 22 words). You are the member's own advocate speaking to a colleague on their behalf, so refer to them as "my member" (e.g. "Is my member's TSH trend…"), never "he", "she" or "the patient".
 
 Reply with JSON only:
 {"reason":"one sentence, max 20 words, on why this team, written TO the member in the second person (\"your fatigue touches thyroid and iron\"), never \"this member\" or \"the patient\"","consult":[{"id":"<specialist id>","ask":"<the ask>"}]}

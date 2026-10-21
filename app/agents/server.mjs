@@ -1,4 +1,4 @@
-// The agents service: My Advocate and the four specialist advocates behind the chat.
+// The agents service: My Advocate and the specialist advocates behind the chat.
 //
 //   POST /chat    { question, history, facts, healthData, messageId? }  → text/event-stream
 //   GET  /health  → { ok, model, cheap, via }
