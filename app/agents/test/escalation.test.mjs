@@ -26,7 +26,7 @@ const NOW = ['provider', 'immediate'];
 test('the matrix is the file on disk, unchanged by the code', () => {
   const disk = JSON.parse(readFileSync(new URL('../library/escalation.json', import.meta.url), 'utf8'));
   assert.deepEqual(MATRIX, disk);
-  assert.equal(MATRIX.approved_by, 'pending');
+  assert.equal(MATRIX.approved_by, 'Dr. Adam Locker, 2026-10-21');
 });
 
 test('fasting glucose: 99 self, 100 and 125 flag, 126 immediate', () => {

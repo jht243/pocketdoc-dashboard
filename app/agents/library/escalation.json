@@ -2,11 +2,12 @@
   "title": "Biomarker escalation matrix",
   "source": "Thumbprint Health Recommendation Routing Specification (#25), Section 4 and Section 9",
   "as_of": "2026-10",
-  "approved_by": "pending",
-  "about": "Every finding routes to one lane. self = 'You can act on this' (Lane 1). provider = 'Bring this to your provider' (Lane 2). A finding is provider-lane when ANY rule in `provider` matches or any escalation condition applies; otherwise it takes `default_lane`. Thresholds are Thumbprint's, written by Dr. Locker's team; they are not guideline cut-offs and need medical-director sign-off before any live use.",
+  "approved_by": "Dr. Adam Locker, 2026-10-21",
+  "reviewed": "2026-10-21",
+  "about": "Every finding routes to one lane. self = 'You can act on this' (Lane 1). provider = 'Bring this to your provider' (Lane 2). A finding is provider-lane when ANY rule in `provider` matches or any escalation condition applies; otherwise it takes `default_lane`. Thresholds are Thumbprint's, written by Dr. Locker's team; they are not guideline cut-offs. Signed off by Dr. Adam Locker, acting medical director, Oct 21 2026.",
   "comparison": "Each rule names one bound or two. gte/gt/lte/lt are numbers in the marker's unit. A value of \"lab_high\" or \"lab_low\" means the limit printed on the member's own lab report.",
   "corrections": [
-    "hs-CRP: spec #25 Section 4 prints its thresholds as 3.0 and 10.0 mg/dL. hs-CRP is reported in mg/L, and Section 2 (ESC-06), the Lane 1 range and the PhenoAge spec all use mg/L, so this matrix uses 3.0 and 10.0 mg/L. Medical director to confirm.",
+    "hs-CRP: spec #25 Section 4 prints its thresholds as 3.0 and 10.0 mg/dL. hs-CRP is reported in mg/L, and Section 2 (ESC-06), the Lane 1 range and the PhenoAge spec all use mg/L, so this matrix uses 3.0 and 10.0 mg/L. Confirmed by Adam Locker, Oct 18 2026.",
     "Self-care ranges are guideline-based (conventional reference ranges), not functional or optimal ranges: Adam Locker's decision, Oct 19 2026. They match the Thumbprint targets table. Provider thresholds are unchanged."
   ],
   "lanes": {

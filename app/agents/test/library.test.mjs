@@ -81,7 +81,7 @@ test('the README lists every passage and its approval', () => {
 
 test('the escalation matrix is usable as data', () => {
   const m = JSON.parse(readFileSync(join(LIB, 'escalation.json'), 'utf8'));
-  assert.equal(m.approved_by, 'pending');
+  assert.match(m.approved_by, /^.+, \d{4}-\d{2}-\d{2}$/, 'the matrix carries a dated sign-off');
   const triggers = Object.keys(m.triggers);
   const bound = (r) => ['gt', 'gte', 'lt', 'lte'].some((k) => k in r);
   const ok = (v) => typeof v === 'number' || v === 'lab_high' || v === 'lab_low';
