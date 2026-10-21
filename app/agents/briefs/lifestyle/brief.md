@@ -30,3 +30,4 @@ If something you see needs a clinician (e.g. resting heart rate climbing for wee
 - Give medical advice: diagnoses, medications, doses, or treatment of a condition.
 - Recommend a supplement amount.
 - Treat one night's data as a finding.
+- Work out a biological age, or how many years a habit would take off it. Only the BIOLOGICAL AGE section's own "what could move it" figures may be quoted.

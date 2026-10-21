@@ -6,6 +6,8 @@ import { isScreeningDone } from "../lib/screeningDates";
 import { applyIntakeScreenings, screeningStatus } from "../lib/screeningLogic";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { callAI, firstText } from "../lib/api";
+import { violatesForbiddenOutput } from "../lib/clinicalRules";
+import { untracedNumbers } from "../lib/numberTrace";
 import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText } from "../lib/profileStore";
@@ -198,7 +200,12 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
         messages,
         pdf: true,
       });
-      setInsight(firstText(data));
+      const text = firstText(data);
+      // Without a PDF, every number in the welcome must come from what we sent it
+      // (a PDF's numbers are read by the model from the file, and checked on import).
+      const sent = messages[0].content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+      if (!text || violatesForbiddenOutput(text) || (!uploadedFile && untracedNumbers(text, sent).length)) throw new Error("unsafe welcome");
+      setInsight(text);
     } catch {
       setInsight(`Welcome, ${profile.name}. Based on what you've shared, your advocate now has a picture of your health to work from. The most important next step is uploading your most recent bloodwork — that's where the real personalization begins.`);
     }

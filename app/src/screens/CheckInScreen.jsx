@@ -7,6 +7,7 @@ import { answerFollowUp, loadFollowUps } from "../lib/followUpStore";
 import { FOLLOW_UP_QUESTION_ID } from "../lib/followUps";
 import { buildHealthContext } from "../lib/healthContext";
 import { detectUrgentPatterns, violatesForbiddenOutput } from "../lib/clinicalRules";
+import { untracedNumbers } from "../lib/numberTrace";
 import {
   NOTE_MAX, SKIPS_PER_14_DAYS, WINDOW_CLOSE_HOUR, WINDOW_OPEN_HOUR,
   answerSummary, checkInContextLines, checkInQuestions, computeStreak, fallbackReply,
@@ -49,17 +50,16 @@ async function generateReply({ answers, note, checkIns, userProfile, healthData,
   const fallback = fallbackReply(answers, checkIns, today);
   try {
     const context = buildHealthContext({ userProfile, healthData, healthHistory });
+    const content = `${context}\n\nRECENT CHECK-INS (newest first):\n${checkInContextLines(checkIns, today) || "(this is their first)"}\n\nTODAY'S CHECK-IN: ${answerSummary(answers, note)}`;
     const request = callAI({
       system: REPLY_SYSTEM,
       maxTokens: 120,
-      messages: [{
-        role: "user",
-        content: `${context}\n\nRECENT CHECK-INS (newest first):\n${checkInContextLines(checkIns, today) || "(this is their first)"}\n\nTODAY'S CHECK-IN: ${answerSummary(answers, note)}`,
-      }],
+      messages: [{ role: "user", content }],
     }).then((data) => firstText(data).trim());
     const timeout = new Promise((resolve) => setTimeout(() => resolve(""), REPLY_BUDGET_MS));
     const text = await Promise.race([request, timeout]);
-    if (!text || violatesForbiddenOutput(text)) return fallback;
+    // A number that is not in the member's data is an invented one: use the plain reply.
+    if (!text || violatesForbiddenOutput(text) || untracedNumbers(text, content).length) return fallback;
     return text;
   } catch {
     return fallback;

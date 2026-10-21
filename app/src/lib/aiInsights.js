@@ -21,6 +21,7 @@
  * malformed JSON, or is unavailable, screens fall back to them so the app never
  * shows an empty or broken insight.
  */
+import { untracedNumbers } from "./numberTrace";
 import { callAI, firstText } from "./api";
 import { buildHealthContext, geneticLine } from "./healthContext";
 import {
@@ -81,7 +82,7 @@ ${FORBIDDEN_OUTPUT_RULES}
 
 WHAT TO RAISE, NOT WHAT MIGHT CHANGE
 - Never suggest that a dose, a dosage, a supplement amount or a medication might be adjusted, increased, lowered, started, stopped or switched — not even as something to "explore" or "discuss". Not "dosage adjustments", not "treatment options", not "whether your dose is right".
-- Instead, tell the member exactly what to raise: the result, its value and date, and the question. Correct: "Bring your vitamin D of 28 ng/mL from Jun 2026 to your next visit and ask what is keeping it below 30 and when it should be rechecked." Incorrect, always: "Consider discussing your vitamin D with your doctor to explore treatment options or dosage adjustments."
+- Instead, tell the member exactly what to raise: the result, its value and date, and the question. Correct (a template: fill it only from this member's data): "Bring your vitamin D of <value> ng/mL from <month year> to your next visit and ask what is keeping it below the range and when it should be rechecked." Incorrect, always: "Consider discussing your vitamin D with your doctor to explore treatment options or dosage adjustments."
 - What happens to a medication or a supplement amount is the clinician's decision, made with them. The card's job is to make sure the right result reaches that conversation.
 
 SYMPTOMS, SCREENINGS AND MISSING DATA
@@ -146,7 +147,11 @@ const DOSE_CHANGE_TALK = /\b(?:dos(?:e|age|ing)s?|medications?|prescriptions?)\s
  */
 function publishable(card, fields, guard) {
   const text = fields.map((f) => card?.[f]).filter(Boolean).join("\n");
-  const why = violatesForbiddenOutput(text, guard) || (DOSE_CHANGE_TALK.test(text) ? "a hint that a dose or medication may change" : null);
+  // A number the model was never given is an invented one, however plausible.
+  const invented = guard?.source ? untracedNumbers(text, guard.source) : [];
+  const why = violatesForbiddenOutput(text, guard)
+    || (DOSE_CHANGE_TALK.test(text) ? "a hint that a dose or medication may change" : null)
+    || (invented.length ? `a number not in the member's data (${invented.join(", ")})` : null);
   if (why) {
     console.warn(`Insight card suppressed — ${why}:`, card?.title);
     return false;
@@ -296,12 +301,14 @@ Only write a card the data actually supports. Every number must trace to the dat
     });
     const raw = stripFences(firstText(data));
     const parsed = JSON.parse(raw);
+    // Every card's numbers are checked against exactly what the model was handed.
+    const checked = { ...guard, source: user };
     return {
       urgent,
       recheck,
-      daily: sanitizeDaily(parsed.daily, guard),
-      record: sanitizeRecord(parsed.record, guard),
-      labs: sanitizeLabs(parsed.labs, guard),
+      daily: sanitizeDaily(parsed.daily, checked),
+      record: sanitizeRecord(parsed.record, checked),
+      labs: sanitizeLabs(parsed.labs, checked),
     };
   } catch (err) {
     console.warn("generateAIInsights failed, falling back to deterministic:", err?.message || err);

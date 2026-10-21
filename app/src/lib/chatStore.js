@@ -135,8 +135,11 @@ export async function clearConversation(userId) {
 
 /** The archive's name for a thread: the member's first question, clipped. */
 export function threadTitle(messages = []) {
-  const first = messages.find((m) => m.role === "user" && String(m.text || "").trim());
-  const t = String(first?.text || "Conversation").replace(/\s+/g, " ").trim();
+  // Test-mode-era questions were about the demo profile, so they never name a thread.
+  const asked = (m) => m.role === "user" && String(m.text || "").trim();
+  const first = messages.find((m) => asked(m) && !m.fromTestMode);
+  const fallback = messages.some(asked) ? "Earlier conversation (Test mode)" : "Conversation";
+  const t = String(first?.text || fallback).replace(/\s+/g, " ").trim();
   return t.length > 70 ? `${t.slice(0, 69).trimEnd()}…` : t;
 }
 

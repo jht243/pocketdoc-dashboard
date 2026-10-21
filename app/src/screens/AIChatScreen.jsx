@@ -10,6 +10,7 @@ import {
   loadMessages, restoreConversation, threadTitle, uploadChatImage,
 } from "../lib/chatStore";
 import { ArchivedChats } from "../components/ArchivedChats";
+import { startingPrompts } from "../lib/chatPrompts";
 import { runCareTeam, safetyReview } from "../lib/careTeam";
 import { openFollowUps } from "../lib/followUpStore";
 import { agentsEnabled, runAgentTeam } from "../lib/agentsClient";
@@ -117,16 +118,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
     healthContext,
   ].filter(Boolean).join("\n\n");
 
-  const startingPrompts = healthData ? [
-    "My readiness is low today — should I still train?",
-    "What should I discuss with my doctor about my thyroid trend?",
-    "How does my vitamin D result fit my overall profile?",
-    "I have a doctor appointment next Tuesday",
-  ] : [
-    "What information should I upload first?",
-    "How can I prepare for my next doctor visit?",
-    "What does a preventive-care checklist include?",
-  ];
+  const suggestions = startingPrompts(healthData, userProfile);
 
   // The conversation belongs to the member, not the session. Reload the stored
   // thread on mount so leaving the screen — or the app — never costs them the
@@ -543,7 +535,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
             <div style={{ fontSize: 12, color: COLORS.textMuted, textAlign: "center", marginBottom: 16 }}>
               Start with a question or try one of these
             </div>
-            {startingPrompts.map(p => (
+            {suggestions.map(p => (
               <button key={p} onClick={() => send(p)} style={{
                 width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
                 borderRadius: 10, padding: "10px 14px", textAlign: "left", cursor: "pointer",

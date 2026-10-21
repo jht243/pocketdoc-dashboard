@@ -27,6 +27,7 @@ import { precheck, enforce } from './safety.mjs';
 import { lanesFor, laneBlock, emergencyFor, emergencyMessage } from './escalation.mjs';
 import { URGENCY_RULES } from '../../src/lib/clinicalRules.js';
 import { sanitizeAppLinks } from '../../src/lib/appLinks.js';
+import { untracedNumbers } from '../../src/lib/numberTrace.js';
 
 /**
  * The roster. Routing metadata lives here, in code, as in Monitus's BUILTIN registry;
@@ -39,7 +40,7 @@ import { sanitizeAppLinks } from '../../src/lib/appLinks.js';
 export const TEAM = {
   bloodwork: {
     desc: 'labs: CBC, CMP, lipids/ApoB, A1c/insulin, liver, kidney, iron, vitamins, hs-CRP; biological and heart age',
-    facts: ['profile', 'medications', 'labs', 'labTrends', 'bloodworkScore', 'documents'],
+    facts: ['profile', 'medications', 'labs', 'labTrends', 'bloodworkScore', 'bioAge', 'documents'],
     library: ['lipids-cardio', 'metabolic', 'kidney-liver', 'blood-iron', 'vitamins', 'inflammation', 'bio-age', 'preventive'],
   },
   hormones: {
@@ -61,7 +62,7 @@ export const TEAM = {
   },
   lifestyle: {
     desc: 'nutrition, sleep, activity, wearable trends (HRV, resting HR, readiness), stress, check-in follow-up',
-    facts: ['profile', 'intake', 'labs', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'questionnaires', 'body'],
+    facts: ['profile', 'intake', 'labs', 'bioAge', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'questionnaires', 'body'],
     library: ['nutrition', 'sleep', 'activity'],
   },
   // Scope-limited on purpose (briefs/general): answers a short approved list and
@@ -191,7 +192,12 @@ async function research({ id, ask, question, facts, run }) {
     `Answer the Advocate, not the member. Quote values with their draw dates, newest first. If your area has nothing on record, say so plainly and name the test or data that would answer it. Put every action in a lane (shared rule 6). Be tight; no padding.${SCREEN_ASK}${spec.scoped ? SCOPE_ASK : ''}`,
   ].join('\n\n');
   const raw = await complete({ system: systemFor(id), user: input, tier: 'smart', maxTokens: 1000, label: `research:${id}`, run });
-  return { ...splitScreen(scrubInventedCitations(raw, passages.map((p) => p.title))), sources: passages.map((p) => ({ kind: 'library', title: p.title, cite: p.cite, evidence: p.evidence })) };
+  return {
+    ...splitScreen(scrubInventedCitations(raw, passages.map((p) => p.title))),
+    sources: passages.map((p) => ({ kind: 'library', title: p.title, cite: p.cite, evidence: p.evidence })),
+    // The passages' own words, so a statistic the answer quotes from one can be traced.
+    library: passages.map((p) => p.text).join('\n'),
+  };
 }
 
 /* ---------------- 4. huddle ---------------- */
@@ -282,11 +288,18 @@ async function compose({ question, recent, facts, reads, notes, consensus, pre, 
   });
 }
 
+// The fact-checker reads every record section the consulted specialists read, so a
+// genotype, an HRV reading or a check-in score can be traced to the record like a lab
+// value can. With only profile, medications and labs it could not tell a real
+// genotype from an invented one.
+const CHECK_BASE = ['profile', 'medications', 'labs', 'labTrends', 'bioAge'];
+export const checkKeysFor = (ids) => [...new Set([...CHECK_BASE, ...ids.flatMap((id) => TEAM[id]?.facts || [])])];
+
 async function factCheck({ answer, facts, reads, sources, run }) {
   const given = sources.length ? sources.map((s) => `- "${s.title}" (${s.cite})`).join('\n') : '(none — the team was given no library passages, so the answer may cite none)';
   const verdict = await complete({
     system: systemFor('safety'),
-    user: `${factsFor(facts, ['profile', 'medications', 'labs', 'labTrends'])}\n\n${findingsText(reads, [], '')}\n\n## Library passages the team was given\n${given}\n\n## The Advocate's answer\n${answer}`,
+    user: `${factsFor(facts, checkKeysFor(Object.keys(reads)))}\n\n${findingsText(reads, [], '')}\n\n## Library passages the team was given\n${given}\n\n## The Advocate's answer\n${answer}`,
     tier: 'smart', maxTokens: 600, temperature: 0, label: 'safety:check', run,
   });
   const clean = /^\s*All claims supported\.?\s*$/i.test(verdict);
@@ -296,7 +309,7 @@ async function factCheck({ answer, facts, reads, sources, run }) {
 async function revise({ answer, flags, facts, reads, run }) {
   return complete({
     system: systemFor('advocate-answer'),
-    user: `${factsFor(facts, ['profile', 'medications', 'labs', 'labTrends'])}\n\n${findingsText(reads, [], '')}\n\n## Your draft\n${answer}\n\n## The Safety Review flagged\n${flags}\n\nFix every flag and change nothing else. Keep every [[app:...|...]] button token exactly as written. Return the full corrected answer only.`,
+    user: `${factsFor(facts, checkKeysFor(Object.keys(reads)))}\n\n${findingsText(reads, [], '')}\n\n## Your draft\n${answer}\n\n## The Safety Review flagged\n${flags}\n\nFix every flag and change nothing else. Keep every [[app:...|...]] button token exactly as written. Return the full corrected answer only.`,
     tier: 'smart', maxTokens: 1400, temperature: 0.2, label: 'revise', run,
   });
 }
@@ -362,6 +375,7 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   // in whatever order that is. The card draws exactly this, nothing staged.
   const reads = {};
   const sources = [];
+  const libraryText = [];
   let general = null;
   for (const { id, ask } of plan.consult) emit({ type: 'specialist_start', id, ask });
   await Promise.all(plan.consult.map(async ({ id, ask }) => {
@@ -371,6 +385,7 @@ export async function runQuestion({ question, history = [], facts, healthData, r
       reads[id] = r.read;
       if (id === 'general') general = { scope: r.scope, topic: r.topic, read: r.read };
       sources.push(...r.sources.map((s) => ({ ...s, readBy: id })));
+      libraryText.push(r.library || '');
       emit({ type: 'specialist_done', id, headline: r.headline, finding: r.finding, flag: r.flag, passages: r.sources.length });
     } catch (err) {
       console.log(`[research:${id}] failed: ${err.message}`);
@@ -436,6 +451,31 @@ export async function runQuestion({ question, history = [], facts, healthData, r
       excerpt: enforced.found.excerpt,
     });
   }
+  // Last, in code: every measured value in the answer must be in what the team was
+  // handed (the record they read, their library passages, the lane cards) or said by
+  // the member themself. The findings and earlier answers do not count as a source,
+  // because a model can invent too. One revision names the stray numbers; anything
+  // left is logged for the weekly review.
+  const memberSaid = [question, ...recent.filter((m) => m.role === 'user').map((m) => m.content)];
+  const traceSource = [factsFor(facts, checkKeysFor(Object.keys(ordered))), ...libraryText, laneBlock(lanes), ...pre.lines, ...memberSaid, '911 988'].join('\n');
+  let finalReply = enforced.reply;
+  const stray = untracedNumbers(finalReply, traceSource);
+  if (stray.length) {
+    const flags = stray.map((n) => `NUMBER: "${n}" is not in the member's record or the library passages. Remove it or replace it with the value the record gives.`).join('\n');
+    emit({ type: 'safety_flag', problem: `A number not in your record (${stray.join(', ')})`, by: 'trace' });
+    const fixed = await revise({ answer: finalReply, flags, facts, reads: ordered, run }).catch(() => '');
+    if (fixed) {
+      const recheck = await enforce({ reply: sanitizeAppLinks(scrubInventedCitations(fixed, realTitles)), healthData, run, onFlag: () => {} });
+      finalReply = recheck.reply;
+      revised = true;
+    }
+    const left = untracedNumbers(finalReply, traceSource);
+    noteSafety(run, {
+      kind: 'fact_check',
+      rule: `Code number trace: ${stray.join(', ')} not in the record or library${left.length ? ` (NOT cleared: ${left.join(', ')} still in the reply sent)` : ' (revised out)'}`,
+      excerpt: stray.join(', '),
+    });
+  }
   emit({
     type: 'safety_done',
     clean: enforced.clean,
@@ -447,7 +487,7 @@ export async function runQuestion({ question, history = [], facts, healthData, r
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
   // And again on the way out: a safety rewrite is model output too, and could have
   // mangled a token or written a new one.
-  const final = sanitizeAppLinks(tidyBottomLine(enforced.reply));
+  const final = sanitizeAppLinks(tidyBottomLine(finalReply));
   return { reply: routing.fallback ? ensureClinicianLine(final) : final, sources: dedupeSources(sources), lanes, routing, safety: run?.safety || [] };
 }
 

@@ -44,7 +44,7 @@ export async function enforce({ reply, healthData, run, onFlag }) {
 
 ${FORBIDDEN_OUTPUT_RULES}
 
-For doses specifically: remove EVERY amount of a supplement or medication, including ranges and "commonly used" or "typical" doses (any number with IU, mcg, mg, g or units). Say what the supplement is for and that the member's prescriber sets the amount. Lab values with their units (e.g. "28 ng/mL") are fine and stay.
+For doses specifically: remove EVERY amount of a supplement or medication, including ranges and "commonly used" or "typical" doses (any number with IU, mcg, mg, g or units). Say what the supplement is for and that the member's prescriber sets the amount. Lab values from the record, with their units, are fine and stay.
 
 Tokens like [[app:orderlabs|Order bloodwork]] are buttons into the app, not text: keep every one exactly as written, in place.`,
         user: `Rule broken: ${problem}\n\nReply to correct:\n${reply}`,

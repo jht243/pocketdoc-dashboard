@@ -23,11 +23,14 @@ export function ArchivedChats({ userId, onClose, onRestore, onChanged, onNavigat
   const [open, setOpen] = useState(null);         // the thread being read
   const [messages, setMessages] = useState(null); // its messages, once loaded
   const [busy, setBusy] = useState(false);
+  const [showTestMode, setShowTestMode] = useState(false);
+  const testModeCount = (messages || []).filter((m) => m.fromTestMode).length;
 
   const refresh = () => listArchived(userId).then(setThreads);
   useEffect(() => { refresh(); }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    setShowTestMode(false);
     if (!open) { setMessages(null); return; }
     let cancelled = false;
     (async () => {
@@ -116,8 +119,22 @@ export function ArchivedChats({ userId, onClose, onRestore, onChanged, onNavigat
           }}><Trash2 size={14} /> Delete</button>
         </div>
         {messages === null && <div style={{ fontSize: 12, color: COLORS.textMuted }}>Loading…</div>}
+        {/* As on the chat screen: Test-mode answers were about a sample profile, so
+            they stay folded away rather than read as this member's own results. */}
+        {testModeCount > 0 && (
+          <div style={{
+            background: COLORS.bgCard, border: `1px solid ${COLORS.border}`, borderRadius: 12,
+            padding: "10px 12px", fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10,
+          }}>
+            {testModeCount} message{testModeCount === 1 ? "" : "s"} here came from Test mode, which showed a sample profile instead of your own records. They are not about you.
+            <button onClick={() => setShowTestMode((v) => !v)} style={{
+              display: "block", marginTop: 6, background: "none", border: "none", padding: 0,
+              color: COLORS.tealLight, fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}>{showTestMode ? "Hide them" : "Show them"}</button>
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {messages?.map((m) => (
+          {messages?.filter((m) => showTestMode || !m.fromTestMode).map((m) => (
             <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
               {m.imageUrl && <img src={m.imageUrl} alt="uploaded" style={{ maxWidth: 180, borderRadius: 12, marginBottom: 6 }} />}
               <div style={{

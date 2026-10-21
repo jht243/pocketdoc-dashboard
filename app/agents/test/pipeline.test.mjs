@@ -112,6 +112,9 @@ test('a genetics question brings in the Genetics specialist, who reads the DNA r
   const read = calls.find((c) => c.system.includes('Agent: Genetics'));
   assert.ok(read, 'the Genetics brief was called');
   assert.match(read.user, /GENETICS\n- APOE/);
+  // The fact-checker can trace a genotype to the record, not only labs and medications.
+  const check = calls.find((c) => c.system.includes('Agent: Safety Review'));
+  assert.match(check.user, /GENETICS\n- APOE/);
 });
 
 // Live, Oct 20: a member's DNA report was their oldest upload, behind seven lab PDFs,
@@ -191,4 +194,66 @@ test('the bottom line keeps two bold sentences and moves the rest to plain text'
   assert.equal(tidyBottomLine(live), "**Your vitamin D is still low at 28 ng/mL (Jun 2026). You take D3 daily.**\n\nIt is time to check with your provider.\n\n## What we found\n- Vitamin D **28 ng/mL**");
   const short = "**Your vitamin D is 74 ng/mL (Sep 2026), in range.**\n\n## What we found";
   assert.equal(tidyBottomLine(short), short);
+});
+
+// Live, Oct 21: an empty account was offered "What should I discuss with my doctor
+// about my thyroid trend?" with no labs on file. Suggestions name only data we hold.
+test('the chat suggests questions only about data the member has', async () => {
+  const { startingPrompts } = await import('../../src/lib/chatPrompts.js');
+  const empty = startingPrompts({ labs: [], genetics: [] }, {}).join(' ');
+  assert.doesNotMatch(empty, /thyroid|vitamin D|readiness|genetics|medications|bloodwork/i);
+  assert.match(empty, /upload first/);
+  const full = startingPrompts({ labs: [{ name: 'TSH' }], genetics: [{ gene: 'FOXO3' }] }, { intake: { medications: ['DHEA'] } }).join(' ');
+  assert.match(full, /thyroid results/);
+  assert.match(full, /genetics report/);
+  assert.match(full, /medications or supplements/);
+});
+
+// A prompt asks for traceable numbers; this enforces it on the insight cards.
+test('an insight card number the model was never given is caught', async () => {
+  const { untracedNumbers } = await import('../../src/lib/numberTrace.js');
+  const source = '- Vitamin D, 25-OH: 41 ng/mL (drawn 2026-09-17)\n- LDL: 1,042.5 mg/dL';
+  assert.deepEqual(untracedNumbers('Your vitamin D of 41 ng/mL (Sep 2026) is in range.', source), []);
+  assert.deepEqual(untracedNumbers('Your vitamin D of 28 ng/mL is low.', source), ['28']);
+  assert.deepEqual(untracedNumbers('LDL 1042.50 across 3 panels, 7-day trend', source), [], 'formatting and small counts pass');
+  assert.deepEqual(untracedNumbers('HRV 48 ms', source), ['48']);
+});
+
+// The fact-checker is a model; this is the code backstop behind it. A value the team
+// was never handed gets one revision and, if it survives, a row in the safety log.
+test('a number in the answer that is not in the record is revised and logged', async () => {
+  const calls = stubModel({ composeText: 'Your newest vitamin D is **74 ng/mL** (Sep 17 2026), and your HRV is **48 ms**.' });
+  const run = { auth: null, ledger: [] };
+  const events = [];
+  await runQuestion({ question: 'Is my vitamin D low?', facts, healthData: {}, run }, (e) => events.push(e));
+  assert.ok(events.some((e) => e.type === 'safety_flag' && /48/.test(e.problem)), 'the stray number is flagged');
+  assert.ok(calls.some((c) => /NUMBER: "48"/.test(c.user)), 'the Advocate is asked to remove it');
+  const row = run.safety.find((s) => /Code number trace/.test(s.rule));
+  assert.match(row.rule, /NOT cleared: 48/, 'the stub writes it again, so the log says it went out');
+});
+
+test('an answer whose numbers all come from the record is not touched by the trace', async () => {
+  stubModel({ composeText: 'Your newest vitamin D is **74 ng/mL** (Sep 17 2026).' });
+  const run = { auth: null, ledger: [] };
+  await runQuestion({ question: 'Is my vitamin D low?', facts, healthData: {}, run }, () => {});
+  assert.ok(!(run.safety || []).some((s) => /Code number trace/.test(s.rule)));
+});
+
+// The chat had no biological age to quote, so it contradicted Home or computed its own.
+test('the biological age Home shows is in the record the team and the fact-checker read', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { checkKeysFor } = await import('../lib/team.mjs');
+  const ctx = readFileSync(new URL('../../src/lib/healthContext.js', import.meta.url), 'utf8');
+  assert.match(ctx, /key: "bioAge"[^\n]*body: bioAgeLines\(healthData, userProfile\)/);
+  assert.match(ctx, /import \{ bioAgeFromLabs \} from "\.\/phenoAge"/, 'the same calculator as the Home card');
+  assert.ok(TEAM.bloodwork.facts.includes('bioAge'));
+  assert.ok(TEAM.lifestyle.facts.includes('bioAge'));
+  assert.ok(checkKeysFor(['general']).includes('bioAge'));
+});
+
+test('a number the member said themself is not treated as invented', async () => {
+  stubModel({ composeText: 'You mentioned a home reading of **152/96**; your newest vitamin D is **74 ng/mL**.' });
+  const run = { auth: null, ledger: [] };
+  await runQuestion({ question: 'My blood pressure was 152/96 this morning, is that a problem?', facts, healthData: {}, run }, () => {});
+  assert.ok(!(run.safety || []).some((s) => /Code number trace/.test(s.rule)));
 });

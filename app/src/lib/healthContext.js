@@ -18,6 +18,7 @@ const BOOKKEEPING_KEYS = new Set([INTAKE_PROGRESS_KEY, "screeningsFromIntake"]);
 import { checkInContextLines } from "./checkInContent";
 import { questionnaireLines } from "./screeningQuestionnaires";
 import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules";
+import { bioAgeFromLabs } from "./phenoAge";
 
 /* ---------------- value formatting ---------------- */
 
@@ -424,6 +425,44 @@ export function geneticLine(g) {
   return `- ${head}${detail.length ? "\n    " + detail.join("\n    ") : ""}`;
 }
 
+/* ---------------- biological age ---------------- */
+
+const drawDay = (d) => (d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "latest");
+
+/**
+ * The biological age the member sees on Home, from the same calculator and inputs.
+ * Without it the chat was asked "what's my biological age?" with nothing to quote,
+ * and either contradicted Home or worked a number out itself.
+ */
+export function bioAgeLines(healthData, userProfile) {
+  const intake = userProfile?.intake || {};
+  const out = bioAgeFromLabs(healthData?.labs || [], {
+    dob: userProfile?.profile?.dob || null,
+    flags: {
+      pregnant: intake.pregnancy === "Pregnant",
+      cancerTreatment: intake.cancerActiveTreatment === "Yes",
+      acuteIllness: intake.illnessAtLastDraw === "Yes",
+    },
+  });
+  if (out.status !== "ok") {
+    return `- Not calculated: ${out.message || "the inputs it needs are not on file."}\n- Never estimate or calculate a biological age yourself.`;
+  }
+  const { latest, draw, trend, simulator } = out;
+  const day = drawDay(draw?.date);
+  return [
+    latest.capped
+      ? `- ${latest.headline}, from the ${day} draw (past 10 years younger the app shows this phrase, not a number)`
+      : `- Biological age ${latest.display} against chronological age ${latest.age}, from the ${day} draw`,
+    latest.confidence === "low" && latest.notes?.length ? `- Lower confidence: ${latest.notes.join("; ")}` : null,
+    trend ? `- Since the ${drawDay(trend.since)} draw: ${trend.direction === "steady" ? "about the same relative to age (under a year is lab noise)" : `${Math.abs(trend.change)} years ${trend.direction} relative to age`}` : null,
+    ...(simulator?.levers || []).map((l) => (l.applicable
+      ? `- What could move it (the app's simulator): ${l.label} from ${l.current} to ${l.target} ${l.unit}, ${l.effect}`
+      : `- What could move it: ${l.label} ${l.current} ${l.unit} is already at or below the simulator's target of ${l.target}`)),
+    simulator?.combined ? `- Both together: ${simulator.combined.effect}` : null,
+    "- An estimate from a published research model (Levine PhenoAge), calculated by the app. Not a diagnosis. Quote these figures as given; never recalculate them.",
+  ].filter(Boolean).join("\n");
+}
+
 /* ---------------- preventive care ---------------- */
 
 /**
@@ -559,6 +598,7 @@ Numbers the member self-reported at intake are only worth citing when no lab res
       { key: "wearableToday", title: "WEARABLE — LATEST DAY (all synced metrics)", body: wearableTodayLines(today) },
       { key: "wearableRanges", title: "WEARABLE — EACH METRIC vs THEIR OWN RANGE", body: metricRangeLines(healthData?.metrics) },
       { key: "wearableHistory", title: "WEARABLE — RECENT DAYS", body: wearableHistoryLines(healthData?.history) },
+      { key: "bioAge", title: "BIOLOGICAL AGE (calculated by the app from the labs above; the same figure the member sees on Home)", body: bioAgeLines(healthData, userProfile) },
       { key: "genetics", title: "GENETICS", body: (healthData?.genetics || []).map(geneticLine).join("\n") },
       { key: "geneticDocuments", title: "GENETIC REPORTS (the member's uploaded DNA reports, transcribed — the source the GENETICS markers above were read from)", body: geneticRecords },
       { key: "preventive", title: "PREVENTIVE CARE SCHEDULE", body: scheduleLines(userProfile?.schedule, userProfile?.completedItems) },

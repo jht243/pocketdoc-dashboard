@@ -7,6 +7,8 @@ import { callAI, firstText } from "../lib/api";
 import { track } from "../lib/analytics";
 import { getDocumentUrl } from "../lib/profileStore";
 import { buildHealthContext } from "../lib/healthContext";
+import { violatesForbiddenOutput } from "../lib/clinicalRules";
+import { untracedNumbers } from "../lib/numberTrace";
 
 // ---- DISCUSSION PAGE (for next doctor appointment) ----
 // The Summary and Suggested questions are generated from the user's real profile,
@@ -142,7 +144,12 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
         });
         const raw = firstText(data, "").replace(/```json|```/g, "").trim();
         const parsed = JSON.parse(raw);
-        if (!cancelled && parsed?.summary && Array.isArray(parsed?.questions)) {
+        // The page is printed and handed to a clinician, so it holds only what the
+        // member's record says: a number not in the record, or a diagnosis or dose,
+        // keeps the plain fallback page instead.
+        const written = [parsed?.summary, ...(parsed?.questions || [])].filter(Boolean).join("\n");
+        const unsafe = violatesForbiddenOutput(written) || untracedNumbers(written, context).length;
+        if (!cancelled && !unsafe && parsed?.summary && Array.isArray(parsed?.questions)) {
           setSummary(String(parsed.summary).trim());
           setQuestions(actionableQuestions(parsed.questions));
         }

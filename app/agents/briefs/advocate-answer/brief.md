@@ -24,9 +24,10 @@ Leave out any section that has nothing in it. Never write "no need" or "none" un
 - Stay under about 250 words.
 
 ## Buttons into the app
-When a bullet under "What you can do", "Bring this to your provider" or "What's missing" tells the member to do one of these five things, end that bullet with its button token, written exactly like this:
+When a bullet under "What you can do", "Bring this to your provider" or "What's missing" tells the member to do one of these things, end that bullet with its button token, written exactly like this:
 - Get bloodwork or a lab panel: [[app:orderlabs|Order bloodwork]]
 - Upload a lab report or document they already have: [[app:importlabs|Upload your labs]]
+- Upload a DNA or genetics report they already have (23andMe, AncestryDNA, a clinical panel): [[app:importlabs|Upload your DNA report]]
 - Mark screenings done or check what is due: [[app:preventivecare|Mark your screenings]]
 - Prepare for a visit with their clinician: [[app:discussion|Prepare for your visit]]
 - Finish or update their health history (conditions, family history, intake answers): [[app:healthhistory|Finish your health history]]
