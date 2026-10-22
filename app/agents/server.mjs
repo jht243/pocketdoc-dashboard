@@ -3,7 +3,10 @@
 //   POST /chat    { question, history, facts, healthData, image?, messageId? }  → text/event-stream
 //   POST /review  { task: "insights" | "discussion", facts, healthData, extras? }  → JSON
 //                 the team reads the whole record and writes a screen (lib/review.mjs)
-//   GET  /health  → { ok, model, cheap, via }
+//   POST /ingest  { kind: "labs" | "genetic", file (base64), mediaType, extract? }  → JSON
+//                 the specialist reads an uploaded document, the Fact Checker checks it
+//                 (lib/ingest.mjs); only what both reads support is returned to file
+//   GET  /health  → { ok, model, cheap, via, auth, tools }
 //
 // WHY A SERVER. One question is about a dozen model calls (route, four reads in
 // parallel, huddle, compose, fact-check, revise), which used to run in the member's
@@ -28,6 +31,8 @@ import { env } from './lib/env.mjs';
 import { providerInfo, costOf } from './lib/llm.mjs';
 import { runQuestion } from './lib/team.mjs';
 import { runReview } from './lib/review.mjs';
+import { runIngest } from './lib/ingest.mjs';
+import { toolsAvailable } from './lib/docTools.mjs';
 import { writeRoundLogs } from './lib/logs.mjs';
 
 const PORT = process.env.PORT || env('AGENTS_PORT', 5190);
@@ -69,7 +74,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   const u = new URL(req.url, `http://localhost:${PORT}`);
 
-  if (u.pathname === '/health') return json(res, 200, { ok: true, ...providerInfo(), auth: Boolean(SUPABASE_URL && ANON) });
+  if (u.pathname === '/health') return json(res, 200, { ok: true, ...providerInfo(), auth: Boolean(SUPABASE_URL && ANON), tools: await toolsAvailable() });
 
   if (u.pathname === '/chat' && req.method === 'POST') {
     let body;
@@ -122,6 +127,32 @@ const server = http.createServer(async (req, res) => {
         seconds: Math.round((Date.now() - started) / 1000),
         usd: costOf(run.ledger),
       }).catch(() => {});
+    }
+    return;
+  }
+
+  if (u.pathname === '/ingest' && req.method === 'POST') {
+    let body;
+    try { body = await readBody(req); } catch { return json(res, 400, { error: 'Body must be JSON, under 12 MB.' }); }
+    const who = await caller(req);
+    if (!who) return json(res, 401, { error: 'Not signed in.' });
+    const kind = body.kind === 'genetic' ? 'genetic' : 'labs';
+    if (typeof body.file !== 'string' || !body.file) return json(res, 400, { error: 'No file.' });
+    const run = { auth: who.auth, ledger: [], safety: [] };
+    const started = Date.now();
+    let answered = false;
+    try {
+      const out = await runIngest({ kind, file: body.file, mediaType: String(body.mediaType || ''), extract: body.extract !== false, run });
+      answered = true;
+      if (run) run.routing = { path: 'team', specialists: [out.readBy, out.checkedBy], general: false, fallback: false, topic: `ingest: ${kind}` };
+      const usd = costOf(run.ledger);
+      console.log(`[$${usd.toFixed(3)}] ${who.user.id.slice(0, 8)} ${run.ledger.length} calls: ingest ${kind} (${out.evidence})`);
+      json(res, 200, { ...out, cost: { calls: run.ledger.length, usd: +usd.toFixed(4) } });
+    } catch (e) {
+      console.error(e);
+      json(res, 502, { error: String(e.message || e) });
+    } finally {
+      writeRoundLogs(run, { question: `[document read: ${kind}]`, messageId: null, answered, seconds: Math.round((Date.now() - started) / 1000), usd: costOf(run.ledger) }).catch(() => {});
     }
     return;
   }

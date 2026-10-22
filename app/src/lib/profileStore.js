@@ -747,6 +747,22 @@ export async function loadLabMarkers(userId) {
 }
 
 /**
+ * Remove the results filed from one document. Used when the care team re-reads a
+ * document and confirms nothing: results filed from an unchecked read must not
+ * outlive the check that found them unsupported.
+ */
+export async function clearDocumentResults(userId, documentId) {
+  if (!isConfigured || !userId || !documentId) return { error: null };
+  const { data: stale } = await supabase.from("lab_panels").select("id").eq("user_id", userId).eq("document_id", documentId);
+  const ids = (stale || []).map((row) => row.id);
+  if (!ids.length) return { error: null };
+  await supabase.from("lab_markers").delete().in("panel_id", ids);
+  const { error } = await supabase.from("lab_panels").delete().in("id", ids);
+  if (error) console.error("clearDocumentResults", error);
+  return { error };
+}
+
+/**
  * Persist a reviewed lab import: one panel row plus its markers.
  *
  * This is what the "Save to health record" button had been missing — the screen

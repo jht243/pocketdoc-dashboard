@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { listDocuments, getDocumentUrl, deleteDocument, saveDocumentText, loadPanelDocumentIds, countDocumentData, markDocumentNoLabData, NO_LAB_DATA_VERDICT } from "../lib/profileStore";
 import { extractDocumentText, fetchAsBase64, nameStoredDocument, needsNaming } from "../lib/documentText";
 import { ingestLabResults } from "../lib/labIngest";
+import { isChecked } from "../lib/readCheck";
 
 const KIND_ICON = { lab: FileText, genetic: Dna, other: FileText };
 
@@ -198,13 +199,19 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
         work.push({ doc, job: "read" });
         continue;
       }
+      // Read before the care team's checked reads existed (Oct 22 2026): its text and
+      // any results filed from it were never checked against the document, so it is
+      // read again from the file, and its results replaced with what the reads agree on.
+      if (doc.extracted_text && !isChecked(doc.extracted_text)) {
+        work.push({ doc, job: "read" });
+        continue;
+      }
       // Read, but its numbers never reached the record: an import whose extraction hit
-      // a rate limit, or a file stored before results were filed automatically. The
-      // transcription is already on the row, so this is one cheap text call and the
-      // member never has to know it happened.
+      // a rate limit, or a file stored before results were filed automatically. Results
+      // are only ever read from the document, so this is a read too.
       if (doc.extracted_text && doc.kind !== "genetic" && !panelIds.has(doc.id)
         && doc.extract_error !== NO_LAB_DATA_VERDICT) {
-        work.push({ doc, job: "file" });
+        work.push({ doc, job: "read" });
       }
       // Never named, or named under the old "— Aug 2026" scheme before test dates were
       // read. Either way it is renamed once, which also gives it its test date.
@@ -212,14 +219,7 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
     }
 
     work.forEach(({ doc }) => setStage(doc.id, "queued"));
-    for (const { doc, job } of work) {
-      if (job === "read") {
-        await readDocument(doc);
-      } else {
-        await fileResults(doc, doc.extracted_text);
-        finishProgress(doc.id);
-      }
-    }
+    for (const { doc } of work) await readDocument(doc);
     for (const doc of unnamed) await applyContentName(doc, doc.extracted_text);
   };
 
@@ -233,37 +233,18 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
     onDocumentsChange?.();
   };
 
-  /**
-   * Put a document's results in the health record.
-   *
-   * Automatic, unprompted, and quiet about it: a member who uploaded bloodwork has
-   * already said what they want done with it. A failure here is left silent too —
-   * the file and its transcription are safe, and the next visit to this screen tries
-   * again.
-   */
-  const fileResults = async (doc, text) => {
-    if (!user || !text || doc.kind === "genetic") return;
-    setStage(doc.id, "filing");
-    try {
-      const { saved, markers, error } = await ingestLabResults({ userId: user.id, document: doc, text });
-      if (saved) {
-        setPanelDocIds((prev) => new Set(prev).add(doc.id));
-        onDocumentsChange?.();
-      } else if (!error && !markers.length) {
-        // The model read the whole document and found nothing lab-shaped — a
-        // genetic report, an appointment note. Record that verdict, or this file
-        // is flagged "we'll try again" and re-extracted on every visit, forever.
-        await markDocumentNoLabData(doc.id);
-        setDocs((prev) => prev.map((d) => (d.id === doc.id
-          ? { ...d, extract_error: NO_LAB_DATA_VERDICT }
-          : d)));
-      }
-    } catch (err) {
-      console.error("fileResults", err);
-    }
+  /** Note a lab document the care team read and found nothing lab-shaped in, so it isn't re-read every visit. */
+  const recordNoLabData = async (doc) => {
+    await markDocumentNoLabData(doc.id);
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, extract_error: NO_LAB_DATA_VERDICT } : d)));
   };
 
-  /** Download a stored file, transcribe it, and attach the text to its row. */
+  /**
+   * Download a stored file and have the care team read it: the specialist reads, the
+   * Fact Checker checks, and a lab report's confirmed results are filed in the same
+   * pass. Automatic and quiet, like an upload. A failed read keeps whatever text the
+   * document already had; the next visit tries again.
+   */
   const readDocument = async (doc) => {
     if (!doc.storage_path) return;
     setReadingId(doc.id);
@@ -273,24 +254,32 @@ export default function DocumentList({ limit, onEmptyAction, onDocumentsChange }
       if (!url) throw new Error("Couldn't open the stored file.");
       const base64 = await fetchAsBase64(url);
       setStage(doc.id, "reading");
-      const { text, error } = await extractDocumentText(base64, doc.mime_type || "");
-      await saveDocumentText(doc.id, text, error);
+      let text = "";
+      if (doc.kind === "genetic") {
+        const read = await extractDocumentText(base64, doc.mime_type || "", { kind: "genetic" });
+        if (read.error && doc.extracted_text) throw new Error(read.error);
+        text = read.text;
+        await saveDocumentText(doc.id, text, read.error);
+      } else {
+        const result = await ingestLabResults({ userId: user?.id, document: doc, base64, mediaType: doc.mime_type || "" });
+        text = result.text;
+        if (result.saved) setPanelDocIds((prev) => new Set(prev).add(doc.id));
+        else if (!result.error && !result.markers.length && result.empty) await recordNoLabData(doc);
+      }
       // Update in place rather than refetching the list: a reload mid-backfill would
       // restart the loop over a stale snapshot.
       setDocs((prev) => prev.map((d) => (d.id === doc.id
-        ? { ...d, extracted_text: text || null, extract_error: error || null, status: text ? "extracted" : "failed" }
+        ? { ...d, extracted_text: text || null, extract_error: text ? null : d.extract_error, status: text ? "extracted" : "failed" }
         : d)));
       if (text) onDocumentsChange?.();
-      // Reading a lab report and filing its results are one action from the member's
-      // side, so they happen together rather than leaving results behind a second tap.
-      if (text) await fileResults(doc, text);
       if (text) await applyContentName(doc, text);
     } catch (err) {
       console.error("readDocument", err);
-      await saveDocumentText(doc.id, "", err.message);
-      setDocs((prev) => prev.map((d) => (d.id === doc.id
-        ? { ...d, extract_error: err.message, status: "failed" }
-        : d)));
+      // Never wipe a document's existing text because a re-read failed.
+      if (!doc.extracted_text) {
+        await saveDocumentText(doc.id, "", err.message);
+        setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, extract_error: err.message, status: "failed" } : d)));
+      }
     } finally {
       setReadingId(null);
       finishProgress(doc.id);

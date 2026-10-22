@@ -93,11 +93,8 @@ function GeneticProfileScreen({ setActive, goBack, backLabel, healthData }) {
         </button>
         {open && (
           <div style={{ marginTop: 12 }}>
-            {m.what && (
-              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
-                {m.what}
-              </div>
-            )}
+            {/* Only the report's own words are shown: the extractor's summary of what a
+                gene does was never checked against the report. */}
             {m.notes && (
               <div style={{ marginBottom: 12, padding: "10px 12px", background: COLORS.bgCard, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, marginBottom: 6, letterSpacing: 0.5 }}>
@@ -152,11 +149,8 @@ function GeneticProfileScreen({ setActive, goBack, backLabel, healthData }) {
         </button>
         {open && (
           <div style={{ marginTop: 12 }}>
-            {m.what && (
-              <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
-                {m.what}
-              </div>
-            )}
+            {/* Only the report's own words are shown: the extractor's summary of what a
+                gene does was never checked against the report. */}
             {m.notes && (
               <div style={{ marginBottom: 12, padding: "10px 12px", background: COLORS.bgCard, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, marginBottom: 6, letterSpacing: 0.5 }}>

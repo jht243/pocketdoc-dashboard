@@ -3,11 +3,11 @@ import { Camera, CheckCircle2, ChevronRight, Dna, Plus, Upload, X } from "lucide
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { callAI, firstText } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
-import { uploadDocument, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
-import { fileBlock, ingestLabResults, toIsoDate } from "../lib/labIngest";
-import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
+import { uploadDocument, getDocumentUrl, saveDocumentText, saveGeneticMarkers, saveLabMarkers } from "../lib/profileStore";
+import { ingestLabResults, toIsoDate } from "../lib/labIngest";
+import { readDocument } from "../lib/agentsClient";
+import { fetchAsBase64, nameStoredDocument } from "../lib/documentText";
 import { labToneColor, statusFromRange } from "../lib/labTone";
 import { OrderComingSoon } from "../components/OrderComingSoon";
 
@@ -22,50 +22,6 @@ const markerInput = {
 };
 
 const blankMarker = () => ({ name: "", value: "", unit: "", range: "", status: "unknown" });
-
-/**
- * Turn the model's raw reply into a genome array — tolerantly.
- *
- * Genetic objects are NOT flat: each carries nested `recommendations` / `medications`
- * arrays, so the non-nested `{…}` salvage in labIngest.parseMarkerArray would shatter
- * them. Here the fallback walks the string tracking brace depth (outside of strings)
- * and slices each complete top-level object, so a max_tokens cutoff only loses the
- * single unfinished trailing genome instead of every one.
- */
-function parseGeneticArray(raw) {
-  const clean = (raw || "").replace(/```json|```/g, "").trim();
-  try {
-    const parsed = JSON.parse(clean);
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && Array.isArray(parsed.markers)) return parsed.markers;
-    if (parsed && Array.isArray(parsed.genes)) return parsed.genes;
-  } catch { /* fall through to depth-aware salvage */ }
-
-  const out = [];
-  let depth = 0, start = -1, inStr = false, esc = false;
-  for (let i = 0; i < clean.length; i++) {
-    const ch = clean[i];
-    if (inStr) {
-      if (esc) esc = false;
-      else if (ch === "\\") esc = true;
-      else if (ch === '"') inStr = false;
-      continue;
-    }
-    if (ch === '"') { inStr = true; continue; }
-    if (ch === "{") { if (depth === 0) start = i; depth++; }
-    else if (ch === "}") {
-      depth--;
-      if (depth === 0 && start >= 0) {
-        try {
-          const obj = JSON.parse(clean.slice(start, i + 1));
-          if (obj && typeof obj === "object" && !Array.isArray(obj)) out.push(obj);
-        } catch { /* skip a malformed object */ }
-        start = -1;
-      }
-    }
-  }
-  return out;
-}
 
 // Coerce one model-produced genome into the exact shape the review UI and the
 // store expect — defaulting missing fields rather than trusting the model to have
@@ -190,57 +146,24 @@ function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
       if (file.type?.startsWith("image")) setImagePreview(dataUrl);
       else setImagePreview(null);
 
-      // Read the document to text FIRST, then extract structure out of that text.
-      //
-      // Both steps used to send the whole file: the transcription and the marker
-      // extraction each carried the same multi-megabyte PDF, and they ran at the same
-      // time. That doubled the tokens one import costs and spent them in a single
-      // burst, which is what tripped the per-minute ceiling and produced "Extraction
-      // failed" on files that read perfectly well. A transcription is a few thousand
-      // characters, so extracting from it instead is both far cheaper and sequential.
-      //
-      // The transcription is worth having in its own right — it's what lets the chat
-      // discuss the report's narrative, which no marker schema captures.
-      setStage("extracting");
-      setExtractionError(null);
-      setExtractionNotice(null);
-      const text = await transcribeDocument(uploaded, base64, mediaType);
-      if (importType === "genetic") await extractGenetics(base64, mediaType, text);
-      else await extractMarkers(base64, mediaType, text);
+      // The care team reads it (agents/lib/ingest.mjs): the specialist with the
+      // document tools, the Fact Checker independently. One call returns the checked
+      // transcription and the results both reads support.
+      if (importType === "genetic") await extractGenetics(base64, mediaType, uploaded);
+      else await extractMarkers(base64, mediaType, uploaded);
     };
     reader.readAsDataURL(file);
   };
 
-  /**
-   * Read the whole file to text and attach it to its document row.
-   *
-   * Failure here is logged onto the row rather than raised at the user: the file is
-   * safely stored and the markers still extract, so a failed transcription degrades
-   * what the AI knows without costing them anything they entered.
-   */
-  const transcribeDocument = async (document, base64, mediaType) => {
-    setReadingDoc(true);
-    let text = "";
-    try {
-      const result = await extractDocumentText(base64, mediaType);
-      text = result.text || "";
-      if (document?.id) await saveDocumentText(document.id, text, result.error);
-      if (text) onImported?.();
-      // Name it from what it says. Not awaited: a name is a small text call and the
-      // member is waiting on their results, not on the label.
-      if (text) {
-        nameStoredDocument(document, text).then((named) => {
-          if (!named || storedDocRef.current?.id !== document.id) return;
-          rememberDoc({ ...storedDocRef.current, file_name: named.name, collected_on: named.collectedOn });
-          onImported?.();
-        });
-      }
-    } catch (err) {
-      console.error("transcribeDocument", err);
-    } finally {
-      setReadingDoc(false);
-    }
-    return text;
+  /** Name the stored document from what the care team read off it. Not awaited by the member. */
+  const nameFromText = (document, text) => {
+    if (!document?.id || !text) return;
+    onImported?.();
+    nameStoredDocument(document, text).then((named) => {
+      if (!named || storedDocRef.current?.id !== document.id) return;
+      rememberDoc({ ...storedDocRef.current, file_name: named.name, collected_on: named.collectedOn });
+      onImported?.();
+    });
   };
 
   /**
@@ -250,20 +173,15 @@ function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
    * they asked for, not a follow-up decision. What they see afterwards is what was
    * stored, editable, so a misread value gets corrected rather than authorized.
    */
-  const extractMarkers = async (base64, mediaType, documentText = "") => {
+  const extractMarkers = async (base64, mediaType, document = storedDocRef.current) => {
     setStage("extracting");
     setExtractionError(null);
     setExtractionNotice(null);
     setUnclearRows([]);
     setSavingLabs(true);
     try {
-      const result = await ingestLabResults({
-        userId: user?.id,
-        document: storedDocRef.current,
-        text: documentText,
-        base64,
-        mediaType,
-      });
+      const result = await ingestLabResults({ userId: user?.id, document, base64, mediaType });
+      nameFromText(document, result.text);
 
       setExtractedMarkers(result.markers);
       // Show back what the document said the draw was, so an edit starts from the
@@ -297,56 +215,26 @@ function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
   // for it. We extract those verbatim rather than paraphrasing, and classify each
   // genome as lifestyle-actionable or pharmacogenomic so the profile can file it
   // under the right tab.
-  const extractGenetics = async (base64, mediaType, documentText = "") => {
+  const extractGenetics = async (base64, mediaType, document = storedDocRef.current) => {
     setStage("extracting");
     setExtractionError(null);
     setExtractionNotice(null);
+    setUnclearRows([]);
     try {
-      const contentBlock = documentText
-        ? { type: "text", text: `Genetic report transcription:\n\n${documentText}` }
-        : fileBlock(base64, mediaType);
-
-      const data = await callAI({
-        system: `You are extracting structured genetic data from a consumer genetic report (e.g. AncestryDNA, 23andMe, a longevity or pharmacogenomic report).
-Return ONLY a JSON array with no other text, no markdown, no backticks. One object per gene/variant the report discusses.
-Each object must have exactly these fields:
-{
-  "gene": "gene symbol, e.g. MTHFR",
-  "variant": "human-readable variant/genotype label the report uses, e.g. C677T heterozygous, or null",
-  "genotype": "raw allele call if shown, e.g. CT, or null",
-  "rsid": "dbSNP rs id if shown, e.g. rs1801133, or null",
-  "category": "pharma if this genome is about drug/medication metabolism, otherwise lifestyle",
-  "status": "favorable | normal | variant | watch | unknown",
-  "impact": "Informative | Moderate | Clinical | Watch",
-  "title": "short plain-language headline for what this genome affects",
-  "summary": "1-2 sentence explanation of what this gene/variant does",
-  "notes": "the report's OWN interpretive notes/description for this genome, quoted as closely as possible — do not invent, do not omit",
-  "recommendations": ["actionable point the report makes for lifestyle genomes", "..."],
-  "medications": [{ "name": "drug or drug class", "note": "the report's note about it" }],
-  "aiContext": "one compact line an AI health assistant can use as context"
-}
-Rules:
-- "notes" must come from the report. If the report gives no interpretation for a genome, set notes to null rather than fabricating one.
-- Use "medications" only for pharmacogenomic (category: pharma) genomes; use "recommendations" for lifestyle genomes. The unused one is an empty array [].
-- Set status to "favorable"/"normal" when the report frames the result as no concern, "variant" for an actionable difference, "watch" for higher-stakes findings that warrant follow-up.
-- If the document contains no genetic data at all, return an empty array [].`,
-        messages: [
-          {
-            role: "user",
-            content: [
-              contentBlock,
-              { type: "text", text: "Extract every gene/variant this genetic report discusses, with the report's own notes, as a JSON array." },
-            ],
-          },
-        ],
-        // Genomes carry nested notes + recommendations; a full report is many of them.
-        // Give the array plenty of room so the JSON isn't truncated mid-genome.
-        maxTokens: 8192,
-        pdf: true,
-      });
-      const raw = firstText(data, "[]");
-      const parsed = parseGeneticArray(raw).filter((g) => g && g.gene).map(normalizeGenome);
-      if (!parsed.length && !/^\s*\[\s*\]\s*$/.test(raw.replace(/```json|```/g, ""))) {
+      // A raw genotype export can run to megabytes of text; the record keeps the
+      // first part, and that is what the Genetics specialist reads.
+      let file = base64;
+      if (/^text\/|plain/i.test(mediaType || "")) {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const text = new TextDecoder("utf-8").decode(bytes).slice(0, 24000);
+        file = btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+      }
+      const read = await readDocument({ kind: "genetic", file, mediaType });
+      if (document?.id) await saveDocumentText(document.id, read.text || "", read.text ? null : "No readable health content found in this file.");
+      nameFromText(document, read.text);
+      setUnclearRows([...(read.unclear || []), ...(read.dropped || [])]);
+      const parsed = (read.genetics || []).filter((g) => g && g.gene).map(normalizeGenome);
+      if (!parsed.length && !read.empty) {
         setExtractionError("Couldn't read any genomes from this file. You can add them manually below, or try a clearer scan.");
       }
       setExtractedGenetics(parsed);
@@ -442,30 +330,19 @@ Rules:
   };
 
   /**
-   * Re-run the whole read for the file already in hand.
-   *
-   * Retries the transcription too, not just the structured pass: when the first
-   * attempt lost the transcription (which is the common case — both halves fail
-   * together when the service is busy), extracting again from an empty text would
-   * fall back to sending the raw file and cost the same tokens that just failed.
+   * Re-run the read. Entered from a stored document, the file is fetched back out of
+   * the bucket: results are only ever read from the document itself, never re-derived
+   * from an old transcription that may predate the checked reads.
    */
   const retryExtraction = async () => {
-    // Entered from a stored document: the transcription is already on the row, so
-    // retry the structured pass alone rather than re-reading a file we never held.
-    if (!imageData) {
-      const text = storedDoc?.extracted_text;
-      if (!text) return;
-      if (importType === "genetic") await extractGenetics("", "", text);
-      else await extractMarkers("", "", text);
-      return;
+    let file = imageData;
+    if (!file && storedDoc?.storage_path) {
+      const url = await getDocumentUrl(storedDoc.storage_path, 300);
+      if (url) file = { base64: await fetchAsBase64(url), mediaType: storedDoc.mime_type || "" };
     }
-    const { base64, mediaType } = imageData;
-    setStage("extracting");
-    setExtractionError(null);
-    setExtractionNotice(null);
-    const text = await transcribeDocument(storedDoc, base64, mediaType);
-    if (importType === "genetic") await extractGenetics(base64, mediaType, text);
-    else await extractMarkers(base64, mediaType, text);
+    if (!file) return;
+    if (importType === "genetic") await extractGenetics(file.base64, file.mediaType, storedDoc);
+    else await extractMarkers(file.base64, file.mediaType, storedDoc);
   };
 
   const geneStatusColor = { favorable: COLORS.tealLight, normal: COLORS.tealLight, variant: COLORS.warning, watch: COLORS.danger, unknown: COLORS.textMuted };
@@ -635,6 +512,15 @@ Rules:
 
       {stage === "review" && importType === "genetic" && (
         <>
+          {unclearRows.length > 0 && (
+            <div style={{
+              padding: 12, background: COLORS.warnDim, border: `1px solid ${COLORS.warning}40`,
+              borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14, lineHeight: 1.5
+            }}>
+              <div style={{ fontWeight: 700, color: COLORS.textPrimary, marginBottom: 4 }}>Some results couldn't be confirmed against your report, so they weren't added</div>
+              <div>{unclearRows.join(", ")}. Check them against your report and add any you'd like below.</div>
+            </div>
+          )}
           {extractionError && (
             <div style={{
               padding: 12, background: COLORS.badDim, border: `1px solid ${COLORS.danger}40`,

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "My Advocate and the four specialist advocates behind the chat: route \u2192 research in parallel \u2192 huddle \u2192 compose \u2192 safety review, over the member's own record and the knowledge library. The Monitus agent system, adapted for medicine.",
+  "description": "My Advocate and the specialists behind every recommendation, plus the reading of uploaded documents (specialist reads, Fact Checker checks): route \u2192 research in parallel \u2192 huddle \u2192 compose \u2192 safety review, over the member's own record and the knowledge library. The Monitus agent system, adapted for medicine.",
   "engines": {
     "node": ">=22"
   },
@@ -12,5 +12,9 @@
     "test": "node --test test/*.test.mjs",
     "library:readme": "node library/readme.mjs",
     "library:review": "node library/review.mjs"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "0.1.65",
+    "pdfjs-dist": "4.10.38"
   }
 }

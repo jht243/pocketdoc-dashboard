@@ -70,6 +70,42 @@ export async function runAgentReview({ task, userProfile, healthData, healthHist
 // The slowest real round is about a minute; past three, the connection is dead.
 const ROUND_TIMEOUT_MS = 180000;
 
+// A scan read twice and settled can take a couple of minutes on a long report.
+const INGEST_TIMEOUT_MS = 300000;
+
+/**
+ * Read an uploaded document into the record on the service (agents/lib/ingest.mjs):
+ * the Blood Work or Genetics specialist reads it with the document tools, the Fact
+ * Checker reads it independently, and only what both reads support comes back.
+ *
+ * @param {object} o
+ * @param {"labs"|"genetic"} o.kind
+ * @param {string}  o.file       base64, no data-URL prefix
+ * @param {string} [o.mediaType]
+ * @param {boolean} [o.extract]  false: the checked transcription only
+ * @returns {Promise<{ text, unclear, dropped, markers, genetics, drawnOn, source, empty, readBy, checkedBy }>}
+ */
+export async function readDocument({ kind = "labs", file, mediaType = "", extract = true }) {
+  if (!agentsEnabled()) throw new Error("Your care team isn't available to read this right now.");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Not signed in.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), INGEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${AGENTS_URL}/ingest`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ kind, file, mediaType, extract }),
+      signal: controller.signal,
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || `The reading service answered ${res.status}`);
+    return out;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * @param {object}   opts
  * @param {string}   opts.question

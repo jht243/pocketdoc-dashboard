@@ -33,6 +33,18 @@ export function numbersOf(line) {
   return (String(line || "").match(NUMBER) || []).map((n) => String(Number(n.replace(/,/g, ""))));
 }
 
+// Genetic values are not numbers: rsIDs, allele calls (CT, C/T), star alleles (*1/*2).
+const GENETIC = /\brs\d{3,}\b|\*\d+[A-Z]?(?:\/\*\d+[A-Z]?)?|(?<![A-Za-z])[ACGT](?:\/|;)?[ACGT](?![A-Za-z])|\b[ACGT]\d{2,5}[ACGT]\b/g;
+
+/**
+ * Every value a line states: its numbers, plus the genetic values a DNA report prints
+ * (rsIDs, genotypes, star alleles), normalised so "C/T", "C;T" and "CT" are one call.
+ */
+export function valuesOf(line) {
+  const genetic = (String(line || "").match(GENETIC) || []).map((g) => (/^[ACGT][/;]?[ACGT]$/.test(g) ? g.replace(/[/;]/, "") : g.toLowerCase()));
+  return [...numbersOf(String(line || "").replace(GENETIC, " ")), ...genetic];
+}
+
 /** The words that name a line's row: lowercase, letters only, minus filler. */
 export function labelOf(line) {
   return [...new Set((String(line || "").toLowerCase().match(/[a-z]{2,}/g) || []).filter((w) => !STOP.has(w)))];
@@ -51,7 +63,7 @@ export function datesOf(text) {
 
 /** Lines that carry a result: a number that isn't a date or time, and a naming word. */
 export function resultLines(text) {
-  return String(text || "").split("\n").map((l) => l.trim()).filter((l) => l && numbersOf(withoutDates(l)).length && labelOf(l).length && !l.includes(UNCLEAR_MARK));
+  return String(text || "").split("\n").map((l) => l.trim()).filter((l) => l && valuesOf(withoutDates(l)).length && labelOf(l).length && !l.includes(UNCLEAR_MARK));
 }
 
 /** What a date only one read saw becomes, in place of a guess. */
@@ -87,8 +99,8 @@ export function similarity(a, b) {
 }
 
 const sameNumbers = (a, b) => {
-  const x = numbersOf(a).sort();
-  const y = numbersOf(b).sort();
+  const x = valuesOf(a).sort();
+  const y = valuesOf(b).sort();
   return x.length === y.length && x.every((n, i) => n === y[i]);
 };
 
@@ -248,3 +260,86 @@ export function linesFromItems(items = []) {
 
 /** Whether a PDF's own text is enough to read its results from (a text layer, not a scan). */
 export const hasUsableText = (text) => resultLines(text).length >= 3;
+
+/* ---------------- what the specialists file ---------------- */
+
+/** The first line of a transcription the reads checked; anything without it predates them. */
+export const CHECKED_MARK = "[Checked: every result below was read twice from the document and agreed, or is marked unclear.]";
+
+/** Whether a stored transcription went through the checked reads. */
+export const isChecked = (text) => String(text || "").trimStart().startsWith(CHECKED_MARK);
+
+const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9*]+/g, " ").trim();
+
+/**
+ * Whether a passage the model says it quoted from the document is actually there:
+ * most of its four-word runs appear in the transcription. Quotes get light rewording
+ * (line breaks, a dropped "the"); invented sentences share almost nothing.
+ */
+export function supportedText(passage, text, share = 0.7) {
+  const words = norm(passage).split(" ").filter(Boolean);
+  if (!words.length) return false;
+  const hay = ` ${norm(text)} `;
+  if (words.length < 4) return hay.includes(` ${words.join(" ")} `);
+  let hit = 0;
+  const runs = words.length - 3;
+  for (let i = 0; i < runs; i++) if (hay.includes(` ${words.slice(i, i + 4).join(" ")} `)) hit += 1;
+  return hit / runs >= share;
+}
+
+/**
+ * A collection date the extraction gave ("YYYY-MM-DD") only stands if that date is
+ * printed in the checked text (in any of the usual orders); otherwise it is null.
+ */
+export function verifiedDate(iso, text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return null;
+  const [y, mo, d] = [m[1], String(Number(m[2])), String(Number(m[3]))];
+  const printed = new Set(datesOf(text));
+  const yy = y.slice(2);
+  return [`${mo}/${d}/${y}`, `${d}/${mo}/${y}`, `${y}/${mo}/${d}`, `${mo}/${d}/${Number(yy)}`].some((k) => printed.has(k)) ? iso : null;
+}
+
+/**
+ * Keep only what a DNA report actually says. A gene must be printed; an rsID and a
+ * genotype, when given, must be printed on a line naming that gene or rsID. The
+ * report's own notes, recommendations and medication notes stay only if they are in
+ * the text. The extractor's own summary and AI context are never filed: they are its
+ * words, not the report's, and the Genetics specialist explains a result when asked.
+ *
+ * @returns {{ kept: Array, dropped: string[] }}
+ */
+export function traceGenetic(items = [], text = "") {
+  const lines = String(text || "").split("\n");
+  const hay = String(text || "");
+  const kept = [];
+  const dropped = [];
+  for (const g of items) {
+    const gene = String(g?.gene || "").trim();
+    const geneRe = gene ? new RegExp(`\\b${gene.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
+    if (!geneRe || !geneRe.test(hay)) { dropped.push(gene || "a variant"); continue; }
+    const rsid = String(g?.rsid || "").trim().toLowerCase();
+    if (rsid && !hay.toLowerCase().includes(rsid)) { dropped.push(gene); continue; }
+    const call = valuesOf(String(g?.genotype || ""))[0];
+    if (call) {
+      const near = lines.some((l, i) => {
+        const block = lines.slice(Math.max(0, i - 1), i + 2).join(" ");
+        return (geneRe.test(l) || (rsid && l.toLowerCase().includes(rsid))) && valuesOf(block).includes(call);
+      });
+      if (!near) { dropped.push(gene); continue; }
+    }
+    kept.push({
+      ...g,
+      variant: g?.variant && supportedText(g.variant, hay, 0.5) ? g.variant : null,
+      notes: g?.notes && supportedText(g.notes, hay) ? g.notes : null,
+      recommendations: (g?.recommendations || []).filter((r) => supportedText(r, hay)),
+      medications: (g?.medications || [])
+        .filter((m) => m?.name && norm(hay).includes(norm(m.name)))
+        .map((m) => ({ ...m, note: m.note && supportedText(m.note, hay) ? m.note : null })),
+      summary: null,
+      aiContext: null,
+      what: null,
+    });
+  }
+  return { kept, dropped };
+}

@@ -7,8 +7,9 @@ import { applyIntakeScreenings, screeningStatus } from "../lib/screeningLogic";
 import { COLORS, DISPLAY } from "../theme/tokens";
 import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
-import { uploadDocument, saveDocumentText } from "../lib/profileStore";
-import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
+import { uploadDocument } from "../lib/profileStore";
+import { nameStoredDocument } from "../lib/documentText";
+import { ingestLabResults } from "../lib/labIngest";
 import { SectionedIntake } from "../components/SectionedIntake";
 import { RichReply } from "../components/RichReply";
 import { runAgentTeam } from "../lib/agentsClient";
@@ -171,14 +172,15 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       // the sentence "They have uploaded bloodwork for analysis" — and was invisible
       // to every later conversation.
       if (uploaded?.id) {
-        docText.current = extractDocumentText(base64, mediaType)
-          .then(async ({ text, error }) => {
-            await saveDocumentText(uploaded.id, text, error);
-            const named = await nameStoredDocument(uploaded, text);
+        // The care team reads it now (specialist + Fact Checker) and files the results
+        // it confirms, so the welcome below and the Labs screen both have them.
+        docText.current = ingestLabResults({ userId: user?.id, document: uploaded, base64, mediaType })
+          .then(async ({ text }) => {
+            const named = text ? await nameStoredDocument(uploaded, text) : null;
             if (named) setUploadedFileName(named.name);
-            return { name: named?.name || file.name, type: "lab", text: text || "", textError: error || null };
+            return { name: named?.name || file.name, type: "lab", text: text || "", textError: text ? null : "Couldn't be read." };
           })
-          .catch((err) => { console.error("onboarding transcription", err); return null; });
+          .catch((err) => { console.error("onboarding read", err); return null; });
       }
     };
     reader.readAsDataURL(file);

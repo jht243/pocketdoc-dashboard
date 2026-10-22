@@ -31,6 +31,15 @@ The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18), G
 - The browser care team, the template insight cards and the template check-in reply were removed. When the service can't answer, the screen says so and offers a retry.
 - Every agent except the router runs under the shared rules (including rules 12–14: GLP-1, Oct 18 answers, no purchase from a finding), Dr. Locker's clinical analysis rules and his forbidden-output list (`lib/config.mjs`).
 
+## Reading uploaded documents (Oct 22 2026)
+
+`POST /ingest` (`lib/ingest.mjs`): reading a document into the record is the team's job, not the browser's.
+- **Tools** (`lib/docTools.mjs`, in code): a PDF's own text layer (pdf.js), or its pages rendered at ~2000px (pdf.js + @napi-rs/canvas), or the photo, sent at high detail.
+- **Specialist reads**: Blood Work for a lab report (`briefs/bloodwork-import`), Genetics for a DNA report (`briefs/genetics-import`). It transcribes, then extracts from the checked transcription.
+- **Fact Checker** (`briefs/fact-checker`): reads the same document independently, without seeing the specialist's read. Code compares the two reads row by row (`src/lib/readCheck.js`); the Fact Checker re-reads anything disputed; a value two reads don't agree on is marked `[unclear on the document — not recorded]` and never filed. Dates are checked the same way. A PDF's text layer is checked in code: a number the specialist changed means the raw text is kept.
+- **Code files only what traces**: every marker to its own row (value, unit, range), every gene, rsID and genotype to the report, the collection date and lab name to the printed text. The extractor's own summaries of a gene are never filed.
+- Everything unclear or dropped is a `fact_check` row in `ghai.safety_events`. A checked transcription starts with `[Checked: …]`; documents read before this are held back from the agents and re-read from their file in the background.
+
 ## How a question runs
 
 It runs on a Node service, as in Monitus `server.mjs`, and streams server-sent events.

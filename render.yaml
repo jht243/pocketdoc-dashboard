@@ -51,7 +51,9 @@ services:
     name: thumbprint-agents
     runtime: node
     rootDir: app
-    buildCommand: echo "no dependencies"
+    # pdf.js and its canvas: the tools the specialists read uploaded documents with
+    # (agents/lib/docTools.mjs). /health reports `tools: false` if they're missing.
+    buildCommand: cd agents && npm ci --omit=dev
     startCommand: node agents/server.mjs
     healthCheckPath: /health
     autoDeploy: true

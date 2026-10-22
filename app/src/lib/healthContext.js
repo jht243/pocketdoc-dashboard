@@ -21,6 +21,7 @@ import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules"
 import { bioAgeFromLabs } from "./phenoAge";
 import { bodyMetrics } from "./bodyMetrics";
 import { glp1Eligibility, glp1Lines } from "./glp1";
+import { isChecked } from "./readCheck";
 
 /* ---------------- value formatting ---------------- */
 
@@ -200,6 +201,12 @@ export function documentLines(records = []) {
           ? `could not be read (${r.textError}) — you cannot see this file's contents`
           : "not yet transcribed — you cannot see this file's contents";
         return `- ${head}: ${why}`;
+      }
+      // Read before the checked reads (Oct 22 2026): its numbers were never confirmed
+      // against the document, and anything in this block counts as a source for the
+      // number trace, so it is held back until the care team re-reads it.
+      if (!isChecked(r.text)) {
+        return `- ${head}: being re-read and checked against the original file; its contents are not available yet. Use LAB RESULTS for its values once filed.`;
       }
       if (budget <= 0) {
         return `- ${head}: stored, but not included here — the older documents are omitted to leave room for the rest of this record`;
@@ -420,7 +427,8 @@ export function geneticLine(g) {
     g.title,
     g.status && g.status !== "unknown" ? `status: ${g.status}` : null,
     g.impact ? `impact: ${g.impact}` : null,
-    g.aiContext || g.what,
+    // Only what the report says: the extractor's own summary (aiContext, what) was its
+    // words, never checked against the report, and is not handed on as fact.
     g.notes,
     g.medications?.length ? `medication relevance: ${g.medications.join("; ")}` : null,
     g.source ? `source: ${g.source}` : null,
