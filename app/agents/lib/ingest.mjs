@@ -94,7 +94,13 @@ async function readChecked({ kind, file, mediaType, run, emit }) {
     const third = await ask(CHECKER, parts, `Read 2: settle these rows.\n${rows.join('\n')}`, { maxTokens: 2048, label: 'ingest:settle', run }).catch(() => '');
     settled = applyTieBreak(first, found, third);
   }
-  const dated = checkDates(settled.text, second);
+  // Dates only one read saw get a targeted read too, before anything is marked unclear.
+  let dateSource = second;
+  if (checkDates(settled.text, second).unclear.length) {
+    const dates = await ask(CHECKER, parts, 'Read 2: write every date printed on the document, one per line, with its label exactly as printed (e.g. "Collected: 10/14/2026").', { maxTokens: 400, label: 'ingest:dates', run }).catch(() => '');
+    dateSource = `${second}\n${dates}`;
+  }
+  const dated = checkDates(settled.text, dateSource);
   const unclear = [...settled.unclear, ...dated.unclear.map((d) => `date ${d}`)];
   emit({ type: 'check_done', by: CHECKER, agreed: found.agreed.length, settled: found.disputed.length - settled.unclear.length, unclear: unclear.length, recovered: settled.recovered.length });
   if (unclear.length) noteSafety(run, { kind: 'fact_check', rule: `[ingest] Two reads of the document did not agree on: ${unclear.join('; ')}. Marked unclear, not filed.`, excerpt: clip(unclear.join('; '), 400) });

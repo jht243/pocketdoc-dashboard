@@ -169,3 +169,11 @@ test('genetics: the Genetics specialist reads, and only what the report prints i
   assert.equal(mthfr.summary, null, 'the extractor\'s own summary is never filed');
   assert.deepEqual(mthfr.recommendations, [], 'a recommendation the report does not make is never filed');
 });
+
+test('a date only the specialist wrote down gets its own re-read, and the collection date is filed', async () => {
+  const rowsOnly = TRUTH_ROWS.split('\n').filter((l) => !/Collected|Reported/.test(l)).join('\n');
+  stub({ transcribe: `Patient: Test Member  Collected: 10/14/26 07:45\n${rowsOnly}`, check: rowsOnly, settle: 'Collected: 10/14/2026\nReported: 10/15/2026' });
+  const out = await runIngest({ kind: 'labs', file: fixture('lab-scan.pdf'), mediaType: 'application/pdf', run: { ledger: [], safety: [] } });
+  assert.equal(out.drawnOn, '2026-10-14');
+  assert.ok(!out.unclear.some((u) => /date/.test(u)), out.unclear.join(','));
+});

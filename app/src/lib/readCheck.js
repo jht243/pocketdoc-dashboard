@@ -56,9 +56,19 @@ const DATE = /\b\d{4}-\d{1,2}-\d{1,2}\b|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b/g;
 const TIME = /\b\d{1,2}:\d{2}(?::\d{2})?(?:\s?[ap]\.?m\.?)?\b/gi;
 const withoutDates = (line) => String(line || "").replace(DATE, " ").replace(TIME, " ");
 
-/** The dates printed in a text, as written ("10/14/2026"), normalised to digits. */
+/** A printed date as ISO: "10/14/2026" (US order unless the first part can't be a month), "2026-10-14". */
+function dateKey(printed) {
+  const parts = printed.split(/[/.-]/).map(Number);
+  let [y, mo, d] = parts[0] > 999 ? parts : [parts[2], parts[0], parts[1]];
+  if (parts[0] <= 999 && parts[0] > 12) [mo, d] = [parts[1], parts[0]];
+  if (y < 100) y += 2000;
+  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** The dates printed in a text, normalised so "10/14/2026", "10/14/26" and "2026-10-14" are one date. */
 export function datesOf(text) {
-  return [...new Set((String(text || "").match(DATE) || []).map((d) => d.split(/[/.-]/).map((n) => String(Number(n))).join("/")))];
+  return [...new Set((String(text || "").match(DATE) || []).map(dateKey).filter(Boolean))];
 }
 
 /** Lines that carry a result: a number that isn't a date or time, and a naming word. */
@@ -80,8 +90,7 @@ export function checkDates(primary, second) {
   const seen = new Set(datesOf(second));
   const unclear = [];
   const text = String(primary || "").replace(DATE, (d) => {
-    const key = d.split(/[/.-]/).map((n) => String(Number(n))).join("/");
-    if (seen.has(key)) return d;
+    if (seen.has(dateKey(d))) return d;
     unclear.push(d);
     return DATE_UNCLEAR;
   });
@@ -315,21 +324,13 @@ export function supportedText(passage, text, share = 0.7) {
 export function verifiedDate(iso, text) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "").trim());
   if (!m) return null;
-  const [y, mo, d] = [m[1], String(Number(m[2])), String(Number(m[3]))];
+  const key = `${m[1]}-${m[2]}-${m[3]}`;
+  // A printed d/m order counts too ("14/10/2026"), as dateKey reads day-first only when it must.
+  const swapped = `${m[1]}-${m[3]}-${m[2]}`;
   const printed = new Set(datesOf(text));
-  const yy = y.slice(2);
-  return [`${mo}/${d}/${y}`, `${d}/${mo}/${y}`, `${y}/${mo}/${d}`, `${mo}/${d}/${Number(yy)}`].some((k) => printed.has(k)) ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  return printed.has(key) || printed.has(swapped) ? key : null;
 }
 
-/** A printed date as ISO: "10/14/2026" (US order unless the first part can't be a month), "2026-10-14". */
-function isoOf(printed) {
-  const parts = printed.split(/[/.-]/).map(Number);
-  let [y, mo, d] = parts[0] > 999 ? parts : [parts[2], parts[0], parts[1]];
-  if (parts[0] <= 999 && parts[0] > 12) [mo, d] = [parts[1], parts[0]];
-  if (y < 100) y += 2000;
-  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return null;
-  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
 
 /**
  * The collection date as printed, read in code: the date on a line naming the
@@ -342,7 +343,7 @@ export function collectionDate(text) {
       if (!re.test(l)) continue;
       const after = l.slice(l.search(re));
       const hit = (after.match(DATE) || [])[0];
-      if (hit) return isoOf(hit);
+      if (hit) return dateKey(hit);
     }
     return null;
   };
