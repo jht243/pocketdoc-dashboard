@@ -47,6 +47,7 @@ export function reviewersFor(facts, { firstData = false } = {}) {
   if (firstData) return ['general'];
   const ids = [];
   if (has(facts, 'labs')) ids.push('bloodwork');
+  if (has(facts, 'bioAge') && !/^- Not calculated/.test(text(facts, 'bioAge').trim())) ids.push('bioage');
   if (HORMONE_MARKERS.test(text(facts, 'labs')) || HORMONE_INTAKE.test(`${text(facts, 'intake')} ${text(facts, 'medications')}`)) ids.push('hormones');
   if (has(facts, 'medications')) ids.push('medications');
   if (has(facts, 'genetics') || has(facts, 'geneticDocuments')) ids.push('genetics');

@@ -40,7 +40,7 @@ import { glp1Eligibility, glp1LaneCard } from '../../src/lib/glp1.js';
  */
 export const TEAM = {
   bloodwork: {
-    desc: 'labs: CBC, CMP, lipids/ApoB, A1c/insulin, liver, kidney, iron, vitamins, hs-CRP; biological and heart age',
+    desc: 'labs: CBC, CMP, lipids/ApoB, A1c/insulin, liver, kidney, iron, vitamins, hs-CRP; heart age',
     facts: ['profile', 'medications', 'labs', 'labTrends', 'bloodworkScore', 'bioAge', 'documents'],
     library: ['lipids-cardio', 'metabolic', 'kidney-liver', 'blood-iron', 'vitamins', 'inflammation', 'bio-age', 'preventive'],
   },
@@ -65,6 +65,14 @@ export const TEAM = {
     desc: 'nutrition, sleep, activity, wearable trends (HRV, resting HR, readiness), stress, check-in follow-up',
     facts: ['profile', 'intake', 'labs', 'bioAge', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'questionnaires', 'body'],
     library: ['nutrition', 'sleep', 'activity'],
+  },
+  // Added Oct 21 2026: biological age leads Home now, with "Help me reduce my biological
+  // age" under it, so it has its own specialist (briefs/bioage), carrying Dr. Locker's
+  // rule for how to get younger.
+  bioage: {
+    desc: 'biological age (PhenoAge): what the number is, which of the nine markers drive it, why it is missing, and how to bring it down, including where weight and hormones fit; heart age and fitness as health age beyond the number',
+    facts: ['profile', 'bioAge', 'labs', 'labTrends', 'weight', 'intake', 'medications', 'wearableToday', 'wearableHistory', 'checkIns', 'questionnaires'],
+    library: ['bio-age', 'inflammation', 'metabolic', 'kidney-liver', 'blood-iron', 'activity', 'sleep'],
   },
   // Added Oct 21 2026, as two specialists: weight is the members' top concern, and GLP-1
   // eligibility needs one owner who reads the code-decided result (src/lib/glp1.js);
@@ -120,8 +128,13 @@ const FORCE = [
   ['metabolism', /\b(metaboli\w*|blood sugar|glucose|a1c|hba1c|insulin|prediabet\w*|pre-diabet\w*|diabet\w*|triglycerides?|blood pressure|hypertension|fatty liver|cgm|glucose monitor)\b/i],
   ['hormones', /\b(hormone\w*|thyroid|tsh|t3|t4|menopaus\w*|perimenopaus\w*|hot flash\w*|testosterone|trt|estrogen|estradiol|progesterone|shbg|libido|period|cycle|peptide\w*|bpc)\b/i],
   ['genetics', /\b(genetics?|genes?|genetic\w*|genomic\w*|genotype\w*|dna|23andme|ancestry\s?dna|variants?|snps?|rs\d{3,}|apoe|mthfr|brca[12]?|hfe|carrier status)\b/i],
-  ['bloodwork', /\b(labs?|bloodwork|blood work|panel|results?|marker\w*|cholesterol|ldl|hdl|apob|a1c|glucose|insulin|ferritin|iron|vitamin|b12|crp|creatinine|egfr|alt|ast|biological age|bio age)\b/i],
+  ['bloodwork', /\b(labs?|bloodwork|blood work|panel|results?|marker\w*|cholesterol|ldl|hdl|apob|a1c|glucose|insulin|ferritin|iron|vitamin|b12|crp|creatinine|egfr|alt|ast)\b/i],
+  ['bioage', /\b(biological age|bio ?age|phenoage|pheno age|heart age|younger|aging|ageing|longevity|age faster|age slower)\b/i],
 ];
+
+// "Reduce / lower / bring down my biological age", "how do I get younger".
+const REDUCE_BIOAGE = /\b(?:reduc|lower|improv|decreas|revers|turn\w* back|drop|cut)\w*[^.?!]{0,40}\b(?:biological|bio) ?age\b|\bbring\w*[^.?!]{0,30}\b(?:biological|bio) ?age\b[^.?!]{0,12}\bdown\b|\bget younger\b|\byounger than my age\b/i;
+const BIOAGE_PLAN = ['bioage', 'weight', 'metabolism', 'hormones'];
 
 export async function route({ question, recent, facts, run }) {
   const roster = Object.entries(TEAM).map(([id, t]) => `- "${id}": ${t.desc}`).join('\n');
@@ -151,6 +164,15 @@ ${factsFor(facts, ['profile', 'medications', 'labs'])}`;
     if (!seen.has(id) && re.test(question)) {
       seen.add(id);
       consult.push({ id, ask: `What in my member's record bears on "${clip(question, 90)}" from your side?` });
+    }
+  }
+  // Dr. Locker, Oct 21 2026: "how do I get younger" is answered with weight, metabolism
+  // and hormones in the plan, not the two simulator levers alone (briefs/bioage).
+  if (REDUCE_BIOAGE.test(question)) {
+    for (const id of BIOAGE_PLAN) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      consult.push({ id, ask: `My member wants to bring their biological age down. From your side, what on their record acts on the nine PhenoAge markers, and what should they do?` });
     }
   }
   if (!consult.length) consult.push({ id: 'bloodwork', ask: "What in my member's record bears most directly on their question?" });
@@ -254,7 +276,7 @@ export async function consensusOf({ notes, run }) {
 
 /* ---------------- 6–7. compose and check ---------------- */
 
-const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', genetics: 'Genetics', lifestyle: 'Lifestyle', weight: 'Weight', metabolism: 'Metabolism', general: 'General' };
+const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', genetics: 'Genetics', lifestyle: 'Lifestyle', weight: 'Weight', metabolism: 'Metabolism', bioage: 'Biological Age', general: 'General' };
 
 /**
  * Who answered, for the routing log: the specialists consulted, whether General was

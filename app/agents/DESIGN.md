@@ -2,17 +2,18 @@
 
 This is a copy of the Monitus agent system (Adam Handfinger), adapted for medicine. Same mechanics, different job descriptions, library and facts.
 
-## The team: 1 manager + 8 specialists
+## The team: 1 manager + 9 specialists
 
-The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18), Genetics (Oct 20), and Weight and Metabolism (Oct 21, two specialists).
+The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18), Genetics (Oct 20), Weight and Metabolism (Oct 21, two specialists) and Biological Age (Oct 21).
 
 | Agent | Monitus counterpart | Covers | Must never |
 |---|---|---|---|
 | **Advocate** (manager) | Manager | Routes the question, runs the huddle, writes the one answer the member sees, runs the bio-age simulator. Out-of-scope questions get "let's bring this to your clinician". | Answer a clinical question without a specialist; skip the safety check |
-| **Bloodwork** | Defaults Expert (the core one) | CBC, CMP, lipids + ApoB, A1c + insulin, liver, kidney, iron, vitamins, hs-CRP; owns the PhenoAge and Heart Age explanations | Diagnose; recommend starting or changing a medication |
+| **Bloodwork** | Defaults Expert (the core one) | CBC, CMP, lipids + ApoB, A1c + insulin, liver, kidney, iron, vitamins, hs-CRP, read as labs; Heart Age | Diagnose; recommend starting or changing a medication |
 | **Hormone & Thyroid** | Bond Expert | Male and female modules: perimenopause and menopause, testosterone, estradiol, SHBG, progesterone, thyroid and antibodies; peptide education and FDA status only | Recommend a specific hormone, peptide or dose |
 | **Medication & Interactions** | Contract Expert | Current meds, supplements, drug-supplement interactions, pharmacogenomics (CPIC A/B) once a report is on file | Start, stop or change a dose; it flags and explains only |
 | **Genetics** (added Oct 20) | none | The DNA report on file, all of it: health, trait, longevity, nutrition and carrier variants, how strong each association is, and the labs that show whether a variant is doing anything (HFE and ferritin, APOE and LDL). Added after a member's "evaluate my genetics report" went to Medication alone and came back as a PGx answer with no medications on file | Say a variant means the member has or will get a condition; treat a negative consumer result as ruling one out; recommend anything on genotype alone |
+| **Biological Age** (added Oct 21) | none | The PhenoAge number as the app calculated it, the nine markers behind it, why it is missing, and how to bring it down. Dr. Locker's rule (Oct 21): read all nine markers, not just the simulator's two; bring weight and hormones into the plan honestly (they act on the markers, not the formula); order the plan by reach; name what improves outside the number (Heart Age, fitness); years only from the simulator. A "bring it down" question also brings in Weight, Metabolism and Hormone & Thyroid | State a year figure the simulator didn't; say weight, hormones, LDL or blood pressure move PhenoAge directly |
 | **Metabolism** (added Oct 21) | none | Metabolic health as a system: fasting glucose, A1c, fasting insulin, triglycerides and HDL, blood pressure, liver enzymes, the metabolic-syndrome cluster (with the waist from the WEIGHT section), continuous glucose data. Blood Work reads every lab; Metabolism reads these together and over time | Diagnose diabetes, prediabetes, metabolic syndrome or fatty liver; touch medication eligibility |
 | **Weight** (added Oct 21) | none | Weight, waist, relative fat mass, waist-to-height, what moves weight day to day, and weight-loss medication. GLP-1 label eligibility (BMI 30+, or 27+ with high blood pressure, type 2 diabetes, high cholesterol or sleep apnea) and the safety exclusions (MTC/MEN2, pregnancy or trying to conceive, pancreatitis) are decided in code (`src/lib/glp1.js`); a candidate is told "You may be a candidate for weight-loss medication. Let's review it with your clinician." and a provider-lane card (`glp1_review`) opens a follow-up | Recommend, name or dose a GLP-1; decide eligibility itself; use BMI categories as labels |
 | **Lifestyle** | Construction Generalist | Nutrition, sleep, activity, wearable trends, check-in follow-up | Give medical advice |

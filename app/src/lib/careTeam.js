@@ -41,6 +41,7 @@ export const SPECIALISTS = [
     lens: "the DNA report on file, all of it: health and trait variants, longevity, nutrition and fitness markers, carrier status and pharmacogenomic markers; what each genotype means, how strong the evidence is, which labs show whether a variant is doing anything, and what a consumer test cannot rule out" },
   { id: "lifestyle", label: "Lifestyle", short: "Lifestyle", icon: "Salad", color: "#16A34A",
     lens: "nutrition, sleep, activity and training, wearable trends (HRV, resting heart rate, readiness) against their own baseline, stress, and check-in patterns" },
+  { id: "bioage", label: "Biological Age", short: "Bio age", icon: "Hourglass", color: "#1E6091" },
   { id: "weight", label: "Weight", short: "Weight", icon: "Scale", color: "#0D9488" },
   { id: "metabolism", label: "Metabolism", short: "Metabolism", icon: "Activity", color: "#B45309" },
   { id: "general", label: "General", short: "General", icon: "Compass", color: "#475569", scoped: true,
@@ -91,6 +92,7 @@ const TAGLINES = {
   hormones: "Hormones, thyroid and menopause",
   medications: "Medications, supplements, interactions",
   lifestyle: "Nutrition, sleep, training and recovery",
+  bioage: "What drives your biological age, and what moves it",
   weight: "Weight, body fat and weight-loss medication",
   metabolism: "Blood sugar, insulin, blood fats and blood pressure",
   general: "Screenings, appointments and the app; knows what's for your clinician",
@@ -122,6 +124,8 @@ const PHOTOS = {
   lifestyle: "1643297654416-05795d62e39c",
   // Reuses the retired Gastroenterology portrait, which no current member of the team wears.
   weight: "1622902046580-2b47f47f5471",
+  // Reuses the retired Brain & Mood portrait.
+  bioage: "1678695972687-033fa0bdbac9",
   // Reuses the retired Cardiology portrait.
   metabolism: "1612349317150-e413f6a5b16d",
   // Reuses the retired Audiology portrait: a new face, not a second copy of one on the team.

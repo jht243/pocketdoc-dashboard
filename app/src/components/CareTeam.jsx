@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Brain, Check, ChevronDown, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse,
+  Activity, Brain, Check, ChevronDown, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse, Hourglass,
   Moon, Pill, Salad, Scale, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound, Users,
 } from "lucide-react";
 import { COLORS } from "../theme/tokens";
 import { member, readTeam, photoUrl, ADVOCATE, SAFETY } from "../lib/careTeam";
 
 const ICONS = {
-  Activity, Brain, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse, Moon, Pill, Salad,
+  Activity, Brain, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse, Hourglass, Moon, Pill, Salad,
   Scale, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound,
 };
 
