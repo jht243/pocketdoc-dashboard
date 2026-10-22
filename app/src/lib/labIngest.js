@@ -17,6 +17,7 @@
  */
 import { callAI, firstText } from "./api";
 import { saveLabMarkers } from "./profileStore";
+import { traceMarkers, unclearNames } from "./readCheck";
 
 const EXTRACTION_PROMPT = `You are extracting structured lab data from a medical document or image.
 Return ONLY JSON with no other text, no markdown, no backticks, in exactly this shape:
@@ -143,7 +144,17 @@ export async function extractLabPanel({ text = "", base64 = "", mediaType = "" }
  * @param {string} [opts.mediaType]
  */
 export async function ingestLabResults({ userId, document, text = "", base64 = "", mediaType = "" }) {
-  const panel = await extractLabPanel({ text, base64, mediaType });
+  // No checked transcription, no results: a panel read straight off the file has
+  // nothing to be checked against, and that is how invented values were filed.
+  if (!text) return { markers: [], drawnOn: null, source: null, empty: false, unclear: [], saved: false, error: null };
+  const read = await extractLabPanel({ text, base64, mediaType });
+  // Every marker must trace to the checked transcription: its value, unit and range
+  // on its own row (readCheck.js). One that doesn't was invented or misread on the
+  // way from text to JSON, and is not filed. Rows the reads couldn't settle are
+  // marked unclear in the text; both are returned so the screen can name them.
+  const traced = traceMarkers(read.markers, text);
+  const unclear = [...new Set([...unclearNames(text), ...traced.dropped])];
+  const panel = { ...read, markers: traced.kept, unclear };
   if (!panel.markers.length) {
     return { ...panel, saved: false, error: null };
   }

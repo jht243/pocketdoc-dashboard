@@ -102,7 +102,9 @@ function toOpenAIMessage(message) {
     }
     if (block.type === "image") {
       const { media_type, data } = block.source || {};
-      return { type: "image_url", image_url: { url: `data:${media_type};base64,${data}` } };
+      // `detail: "high"` for a document page: at the default the model reads small
+      // digits at low resolution and guesses them.
+      return { type: "image_url", image_url: { url: `data:${media_type};base64,${data}`, ...(block.detail ? { detail: block.detail } : {}) } };
     }
     if (block.type === "document") {
       // OpenAI reads PDFs via a base64 data URL in a `file` content part.

@@ -122,6 +122,8 @@ function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
   // no data of a kind we file yet. Rendered without error styling — as we learn to
   // extract more document types, these files start counting with no action needed.
   const [extractionNotice, setExtractionNotice] = useState(null);
+  // Rows the reads couldn't settle (readCheck.js): named, never filed with a guess.
+  const [unclearRows, setUnclearRows] = useState([]);
   const [savingGenetics, setSavingGenetics] = useState(false);
   const [savingLabs, setSavingLabs] = useState(false);
   // Which half of the two-step read is running, so the waiting screen says something
@@ -252,6 +254,7 @@ function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
     setStage("extracting");
     setExtractionError(null);
     setExtractionNotice(null);
+    setUnclearRows([]);
     setSavingLabs(true);
     try {
       const result = await ingestLabResults({
@@ -268,6 +271,7 @@ function ImportLabsScreen({ setActive, goBack, backLabel, onImported }) {
       if (result.drawnOn) setLabDate(result.drawnOn);
       if (result.source) setLabSource(result.source);
       setSavedMarkerCount(result.saved ? result.markers.length : 0);
+      setUnclearRows(result.unclear || []);
 
       if (result.error) {
         setExtractionError(`Your file is saved to your records, but its results couldn't be added to your labs: ${result.error.message || result.error}.`);
@@ -740,6 +744,17 @@ Rules:
               borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14, lineHeight: 1.5
             }}>
               {extractionNotice}
+            </div>
+          )}
+          {unclearRows.length > 0 && (
+            <div style={{
+              padding: 12, background: COLORS.warnDim, border: `1px solid ${COLORS.warning}40`,
+              borderRadius: 10, fontSize: 12, color: COLORS.textSecondary, marginBottom: 14, lineHeight: 1.5
+            }}>
+              <div style={{ fontWeight: 700, color: COLORS.textPrimary, marginBottom: 4 }}>
+                {unclearRows.length === 1 ? "One result couldn't be read clearly" : `${unclearRows.length} results couldn't be read clearly`}, so {unclearRows.length === 1 ? "it wasn't" : "they weren't"} added
+              </div>
+              <div>{unclearRows.join(", ")}. Check them against your report and add any you'd like below with "+ Add a marker".</div>
             </div>
           )}
           {extractionError && (

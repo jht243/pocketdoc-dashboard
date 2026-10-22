@@ -13,6 +13,8 @@
  */
 import { callAI, firstText } from "./api";
 import { renameDocument } from "./profileStore";
+import { openPdf, renderPages, MAX_PAGES } from "./pdfRead";
+import { applyTieBreak, checkDates, hasUsableText, reconcile, untracedAgainst } from "./readCheck";
 import { cleanName, needsContentName, needsNaming, parseNameReply } from "./documentNames";
 
 export { needsContentName, needsNaming } from "./documentNames";
@@ -77,13 +79,66 @@ export async function fetchAsBase64(url) {
   return btoa(binary);
 }
 
+// The second read is written differently on purpose: the same prompt twice tends to
+// make the same mistake twice. It lists rows only, so the two reads are compared row
+// by row (readCheck.js).
+const SECOND_READ_PROMPT = `You are checking a transcription of a health document. Read the document yourself, independently.
+
+List every result row exactly as printed, one per line: "Name: value unit (reference range)". Copy every digit, decimal point, unit and range character by character. Also write every date printed on the document (collection, report, received) on its own line, as printed. Do not add rows that are not printed, do not skip rows, do not correct or round anything. If a value cannot be read with certainty, write "Name: UNREADABLE". Output the lines only.`;
+
+const TIE_PROMPT = `Two careful reads of this health document disagreed about the rows listed below. Look at the document and, for each row, write exactly what is printed: "Name: value unit (reference range)", character by character. If a row is not on the document, write "Name: NOT ON DOCUMENT". If you cannot read it with certainty, write "Name: UNREADABLE". Output one line per row, nothing else.`;
+
+const pageBlocks = (pages) => pages.map((url) => {
+  const [, mediaType, data] = /^data:([^;]+);base64,(.*)$/.exec(url) || [];
+  return { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data }, detail: "high" };
+});
+
+async function read(system, blocks, ask, maxTokens = 8192) {
+  const data = await callAI({ system, messages: [{ role: "user", content: [...blocks, { type: "text", text: ask }] }], maxTokens });
+  return firstText(data, "").trim();
+}
+
+/**
+ * A scan or a photo, read twice and reconciled (readCheck.js). Rows the two reads
+ * disagree on, or that only one of them saw, get a third, targeted read; a value two
+ * reads agree on is kept, anything else is marked unclear and never becomes a result.
+ */
+async function readChecked(blocks) {
+  const first = await read(TRANSCRIBE_PROMPT, blocks, "Transcribe this document to plain text.");
+  if (!first || first === "NO_CONTENT") return { text: first, unclear: [] };
+  const second = await read(SECOND_READ_PROMPT, blocks, "List every result row exactly as printed.", 4096);
+  const found = reconcile(first, second);
+  let settled = { text: first, unclear: [] };
+  if (found.disputed.length || found.missing.length) {
+    const rows = [...found.disputed.map((d) => d.primary), ...found.missing];
+    const third = await read(TIE_PROMPT, blocks, `Rows to read:\n${rows.join("\n")}`, 2048).catch(() => "");
+    settled = applyTieBreak(first, found, third);
+  }
+  // A date only one read saw is not trusted either: it places the panel in time.
+  const dated = checkDates(settled.text, second);
+  return { text: dated.text, unclear: settled.unclear };
+}
+
+/**
+ * A PDF's own text, reformatted into the transcription layout. The text layer is the
+ * document's characters, so a number the model changed or added while reformatting is
+ * caught here, and the raw text is kept instead.
+ */
+async function fromTextLayer(layer) {
+  const shaped = await read(TRANSCRIBE_PROMPT, [{ type: "text", text: `The document's own text, extracted from the PDF (rows are in printed order; columns are separated by spaces):\n\n${layer}` }], "Transcribe this document to plain text, keeping every number exactly as it appears above.");
+  if (!shaped || shaped === "NO_CONTENT") return shaped;
+  return untracedAgainst(shaped, layer).length ? layer : shaped;
+}
+
 /**
  * @param {string} base64      the file's base64 payload (no data-URL prefix)
  * @param {string} mediaType   the browser-reported MIME type, which may be wrong or empty
- * @returns {Promise<{text: string, error: string|null}>}
+ * @returns {Promise<{text: string, error: string|null, unclear: string[]}>}
+ *   `unclear`: rows that could not be read with certainty, by name. They are marked as
+ *   unclear in the text and are never recorded as results.
  */
 export async function extractDocumentText(base64, mediaType = "") {
-  if (!base64) return { text: "", error: "No file content." };
+  if (!base64) return { text: "", error: "No file content.", unclear: [] };
 
   const cleanType = String(mediaType || "").toLowerCase();
   const isText = cleanType.startsWith("text/") || cleanType.includes("plain");
@@ -91,35 +146,37 @@ export async function extractDocumentText(base64, mediaType = "") {
 
   if (isText) {
     const text = truncate(decodeBase64Text(base64));
-    return { text, error: text ? null : "Couldn't read this text file." };
+    return { text, error: text ? null : "Couldn't read this text file.", unclear: [] };
   }
 
-  // Anything that isn't clearly an image is treated as a PDF — `file.type` is empty
-  // or wrong often enough on mobile that trusting it loses whole documents.
-  const contentBlock = isImage
-    ? { type: "image", source: { type: "base64", media_type: cleanType, data: base64 } }
-    : { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
-
   try {
-    const data = await callAI({
-      system: TRANSCRIBE_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [contentBlock, { type: "text", text: "Transcribe this document to plain text." }],
-        },
-      ],
-      // A multi-page panel is long; a small budget truncates mid-result.
-      maxTokens: 8192,
-    });
-    const raw = firstText(data, "").trim();
-    if (!raw || raw === "NO_CONTENT") {
-      return { text: "", error: "No readable health content found in this file." };
+    let result;
+    if (isImage) {
+      result = await readChecked([{ type: "image", source: { type: "base64", media_type: cleanType, data: base64 }, detail: "high" }]);
+    } else {
+      // Anything that isn't clearly an image is treated as a PDF: `file.type` is empty
+      // or wrong often enough on mobile that trusting it loses whole documents.
+      const pdf = await openPdf(base64).catch((err) => { console.warn("openPdf", err); return null; });
+      if (pdf && hasUsableText(pdf.text)) {
+        result = { text: await fromTextLayer(pdf.text), unclear: [] };
+      } else if (pdf) {
+        result = await readChecked(pageBlocks(await renderPages(pdf)));
+      } else {
+        // pdf.js couldn't open it: the file itself, still read twice and checked.
+        result = await readChecked([{ type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } }]);
+      }
+      if (pdf && pdf.pageCount > pdf.read && result.text) {
+        result.text = `${result.text}\n\n[Only the first ${MAX_PAGES} of ${pdf.pageCount} pages were read.]`;
+      }
     }
-    return { text: truncate(raw), error: null };
+    const raw = String(result.text || "").trim();
+    if (!raw || raw === "NO_CONTENT") {
+      return { text: "", error: "No readable health content found in this file.", unclear: [] };
+    }
+    return { text: truncate(raw), error: null, unclear: result.unclear || [] };
   } catch (err) {
     console.error("extractDocumentText", err);
-    return { text: "", error: err.message || "Extraction failed." };
+    return { text: "", error: err.message || "Extraction failed.", unclear: [] };
   }
 }
 
