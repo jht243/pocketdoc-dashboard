@@ -19,6 +19,7 @@ import { checkInContextLines } from "./checkInContent";
 import { questionnaireLines } from "./screeningQuestionnaires";
 import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules";
 import { bioAgeFromLabs } from "./phenoAge";
+import { bodyMetrics } from "./bodyMetrics";
 
 /* ---------------- value formatting ---------------- */
 
@@ -53,6 +54,8 @@ export function formatAnswer(value) {
     // and dose (amount/unit/frequency).
     if ("feet" in value || "cm" in value) return formatHeight(value);
     if ("systolic" in value || "diastolic" in value) return formatBloodPressure(value);
+    // Weight and waist: a number and its unit.
+    if ("value" in value && "unit" in value) return isBlankAnswer(value.value) ? null : `${value.value} ${value.unit}`;
     if ("amount" in value) {
       return [value.amount, value.unit, value.frequency].filter(Boolean).join(" ") || null;
     }
@@ -501,6 +504,20 @@ function scheduleLines(schedule = [], completedItems = {}) {
  * @param {object} [opts.healthHistory]   standalone Health History answers, when loaded
  * @returns {string} the block appended to the system prompt
  */
+/**
+ * The measures worked out from height, weight and waist. Dr. Locker (Oct 21 2026):
+ * the member is shown relative fat mass and waist-to-height ratio; BMI is kept in the
+ * background for eligibility rules, so it is labelled that way here.
+ */
+function bodyMetricLines(intake, sex) {
+  const m = bodyMetrics(intake, sex);
+  return [
+    m.rfm != null ? `- Relative fat mass (RFM, estimated body fat % from height, waist and sex; calculated by the app): ${m.rfm}%` : null,
+    m.waistToHeight != null ? `- Waist-to-height ratio (calculated by the app; under 0.5 is the usual healthy target): ${m.waistToHeight.toFixed(2)}` : null,
+    m.bmi != null ? `- BMI (calculated by the app, BACKGROUND ONLY for eligibility rules — the member is shown RFM and waist-to-height instead; don't lead with BMI): ${m.bmi}` : null,
+  ];
+}
+
 export function buildFactSections({ userProfile, healthData, healthHistory }) {
   const profile = userProfile?.profile || {};
   const intake = userProfile?.intake || {};
@@ -513,6 +530,9 @@ export function buildFactSections({ userProfile, healthData, healthHistory }) {
     bullet("Sex at birth / recorded sex", profile.sex),
     bullet("Height", intake.height),
     bullet("Current weight", intake.weight),
+    bullet("Waist", intake.waist),
+    bullet("Blood type", intake.bloodType),
+    ...bodyMetricLines(intake, profile.sex),
     profile.smoker ? "- Smoker: yes" : null,
     profile.familyEarlyHeartDisease ? "- Family history of early heart disease: yes" : null,
     profile.familyOrPersonalCancer ? "- Family or personal history of cancer: yes" : null,

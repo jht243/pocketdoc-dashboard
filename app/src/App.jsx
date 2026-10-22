@@ -411,6 +411,18 @@ function App() {
   };
 
 
+  // The health history's answers, saved from its own screen or from Account →
+  // Personal details (height, weight, waist, blood type).
+  const saveHistory = (data) => {
+    setHealthHistory(data);
+    if (!user) return;
+    // Screenings ticked in the health history, and height/weight, can change the
+    // preventive care schedule; show the new one now rather than after a reload.
+    saveHealthHistory(user.id, data).then((res) => {
+      if (res?.schedule) setUserProfile((p) => (p ? { ...p, schedule: res.schedule, completedItems: res.completedItems } : p));
+    });
+  };
+
   const screens = {
     onboarding: (
       <OnboardingScreen
@@ -428,22 +440,15 @@ function App() {
     discussion: <DiscussionPageScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} healthHistory={healthHistory} />,
     orderlabs: <OrderLabsScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} />,
     browsesupplements: <BrowseSupplementsScreen setActive={navigate} {...back} />,
-    account: <AccountScreen setActive={navigate} {...back} onSaved={refreshProfile} />,
+    account: <AccountScreen setActive={navigate} {...back} onSaved={refreshProfile}
+      intake={healthHistory || userProfile?.intake} sex={userProfile?.profile?.sex} onSaveIntake={saveHistory} />,
     profile: <ProfileScreen setActive={navigate} nutritionEnabled={nutritionEnabled} setNutritionEnabled={setNutritionEnabled} userProfile={userProfile} healthHistory={healthHistory} healthData={healthData} ouraNotice={ouraNotice} onOuraNoticeSeen={() => setOuraNotice(null)} onWearableChange={refreshWearable} />,
     body: <BodyScreen setActive={navigate} {...back} healthData={healthData} />,
     importlabs: <ImportLabsScreen setActive={navigate} {...back} onImported={refreshRecords} />,
     geneticprofile: <GeneticProfileScreen setActive={navigate} {...back} healthData={healthData} />,
     medications: <MedicationScreen setActive={navigate} {...back} userProfile={userProfile} healthData={healthData} onMedsChange={refreshProfile} />,
     preventivecare: <PreventiveCareScreen setActive={navigate} {...back} userProfile={userProfile} onCompletedItemsChange={(completedItems) => setUserProfile((p) => (p ? { ...p, completedItems } : p))} onQuestionnaireSaved={refreshQuestionnaires} />,
-    healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={(data) => {
-      setHealthHistory(data);
-      if (!user) return;
-      // Screenings ticked in the health history, and height/weight, can change the
-      // preventive care schedule; show the new one now rather than after a reload.
-      saveHealthHistory(user.id, data).then((res) => {
-        if (res?.schedule) setUserProfile((p) => (p ? { ...p, schedule: res.schedule, completedItems: res.completedItems } : p));
-      });
-    }} />,
+    healthhistory: <HealthHistoryScreen setActive={navigate} {...back} userProfile={userProfile} healthHistory={healthHistory} onSave={saveHistory} />,
   };
 
   const hiddenTabBar = [

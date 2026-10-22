@@ -17,6 +17,7 @@ import { agentsEnabled, runAgentTeam } from "../lib/agentsClient";
 import { FORBIDDEN_OUTPUT_RULES } from "../lib/clinicalRules";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
 import { RichReply } from "../components/RichReply";
+import { takeQueuedChatQuestion } from "../lib/chatHandoff";
 
 // Live research now comes from the hosted web-search tool in the gateway, not from
 // a special model id: the old `gpt-4o-search-preview` chat models were deprecated by
@@ -478,6 +479,15 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
     setLoading(false);
     refreshInsights();
   };
+
+  // A question another screen asked on the member's behalf (Home's "Help me reduce
+  // my biological age"), sent once their thread has loaded so it follows it.
+  useEffect(() => {
+    if (historyLoading) return;
+    const queued = takeQueuedChatQuestion();
+    if (queued) send(queued);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyLoading]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%", background: COLORS.bgDeep }}>

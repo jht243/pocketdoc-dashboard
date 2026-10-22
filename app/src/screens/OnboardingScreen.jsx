@@ -13,6 +13,9 @@ import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText } from "../lib/profileStore";
 import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
 import { SectionedIntake } from "../components/SectionedIntake";
+import { IntakeForm } from "../components/IntakeForm";
+import { BodyMetrics } from "../components/BodyMetrics";
+import { hasHeightAndWeight } from "../lib/bodyMetrics";
 import { emptyAnswers } from "../lib/intakeContent";
 
 // ---- ONBOARDING SCREEN ----
@@ -96,8 +99,12 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
     };
   };
 
+  // Height and weight are required here (Oct 21 2026 call): the screening schedule
+  // and the background BMI that prescribing eligibility needs both depend on them.
+  const step1Ready = Boolean(profile.name && profile.dob && hasHeightAndWeight(intake));
+
   const goToStep2 = () => {
-    if (!profile.dob || !profile.name) return;
+    if (!step1Ready) return;
     // Compute before setState so the step-progress save includes the schedule
     // (setSchedule alone would leave goToStep reading a stale empty array).
     const nextSchedule = computeSchedule(profile);
@@ -231,7 +238,7 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
         </div>
       )}
 
-      {/* STEP 1: Fast facts — name, age, sex, risk factors */}
+      {/* STEP 1: Fast facts — name, age, sex, measurements, risk factors */}
       {step === 1 && (
         <div>
           <div style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 6 }}>Let's get started</div>
@@ -260,6 +267,11 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             </div>
           </div>
 
+          <IntakeForm answers={intake} onChange={onIntakeChange} variant="onboarding" sectionIds={["body"]} profile={profile} />
+          <div style={{ marginTop: -14, marginBottom: 20 }}>
+            <BodyMetrics intake={intake} sex={profile.sex} />
+          </div>
+
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 10 }}>Risk factors — optional, but each one changes your screening recommendations</div>
             {[
@@ -277,7 +289,10 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             ))}
           </div>
 
-          <button onClick={goToStep2} disabled={!profile.name || !profile.dob} style={{ width: "100%", background: !profile.name || !profile.dob ? COLORS.bgCardAlt : COLORS.teal, border: "none", color: !profile.name || !profile.dob ? COLORS.textMuted : COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: !profile.name || !profile.dob ? "default" : "pointer" }}>
+          {!step1Ready && profile.name && profile.dob && (
+            <div style={{ fontSize: 12, color: COLORS.textMuted, textAlign: "center", marginBottom: 10 }}>Add your height and weight to continue.</div>
+          )}
+          <button onClick={goToStep2} disabled={!step1Ready} style={{ width: "100%", background: !step1Ready ? COLORS.bgCardAlt : COLORS.teal, border: "none", color: !step1Ready ? COLORS.textMuted : COLORS.onAccent, fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12, cursor: !step1Ready ? "default" : "pointer" }}>
             See my screening schedule →
           </button>
         </div>

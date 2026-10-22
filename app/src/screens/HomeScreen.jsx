@@ -1,19 +1,17 @@
-import React, { useState } from "react";
+import React from "react";
 import { Activity, AlertCircle, AlertTriangle, ChevronRight, Moon, Sparkles } from "lucide-react";
 import { Card } from "../components/Card";
-import { ScoreBreakdownModal } from "../components/ScoreBreakdownModal";
-import { ScoreGauge } from "../components/ScoreGauge";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { intakeProgressSummary } from "../lib/intakeContent";
 import { buildThumbprintChecklist } from "../lib/thumbprintChecklist";
 import { ThumbprintChecklist } from "../components/ThumbprintChecklist";
 import { CheckInCard } from "../components/CheckInCard";
-import { BioAgeCard } from "../components/BioAgeCard";
+import { BioAgeHero } from "../components/BioAgeCard";
+import { PreventiveCareCard } from "../components/PreventiveCareCard";
+import { queueChatQuestion } from "../lib/chatHandoff";
 import { getDailyRecommendation } from "../lib/recommendations";
 import { insightActionLabel, liveInsightAction, runInsightAction } from "../lib/insightActions";
-import { useScoreModel } from "../lib/scoring";
-import { summarizeSchedule } from "../lib/screeningLogic";
 import { formatHoursMinutes } from "../lib/wearableShape";
 import { BrandMark } from "../components/BrandMark";
 import { EvidenceBox } from "../components/EvidenceBox";
@@ -21,10 +19,8 @@ import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
 
 function HomeScreen({
-  setActive, nutritionEnabled, userProfile, healthHistory, healthData, aiInsights,
+  setActive, userProfile, healthHistory, healthData, aiInsights,
 }) {
-  const [showBreakdown, setShowBreakdown] = useState(false);
-  const score = useScoreModel(nutritionEnabled, healthData, userProfile);
   // Once the AI insights have loaded (aiInsights !== null) they govern this card —
   // including deliberately showing nothing. Until then (or if the AI is unavailable)
   // fall back to the deterministic recommendation so the card is never empty.
@@ -74,27 +70,26 @@ function HomeScreen({
       ].filter(Boolean)
     : [];
 
-  // One contextual action button — the single most time-sensitive thing
+  // One contextual action button. Screenings have their own card now, so this is
+  // only the unfinished health history.
   const contextualAction = (() => {
     if (!userProfile) return null;
-    // "Overdue" only for a recorded screening past its interval; one we have no record
-    // of is "not on file", which gets a neutral chip and comes after everything else.
-    const counts = summarizeSchedule(userProfile.schedule, userProfile.completedItems);
-    const plural = (n) => (n > 1 ? "s" : "");
-    if (counts.overdue > 0) return { label: `${counts.overdue} overdue screening${plural(counts.overdue)}`, target: "preventivecare", color: COLORS.danger };
-    if (counts.due_soon > 0) return { label: `${counts.due_soon} screening${plural(counts.due_soon)} due soon`, target: "preventivecare", color: COLORS.warning };
     // Read from the saved answers, not from whether the screen was opened this session —
     // the old check nagged every member again after each reload.
     const intake = intakeProgressSummary(healthHistory || userProfile.intake);
     if (!intake.complete && !showChecklist) return { label: `Finish your health history · ${intake.done} of ${intake.total} done`, target: "healthhistory", color: COLORS.tealLight };
-    if (counts.not_on_file > 0) return { label: `${counts.not_on_file} screening${plural(counts.not_on_file)} not on file`, target: "preventivecare", color: COLORS.textSecondary };
     return null;
   })();
 
+  // The button under the bio age asks the care team, with the member's record in front
+  // of it, rather than opening a page of generic tips.
+  const askToReduce = () => {
+    queueChatQuestion("Help me reduce my biological age.");
+    setActive("aichat");
+  };
+
   return (
     <div style={{ padding: "24px 18px", position: "relative" }}>
-      {showBreakdown && <ScoreBreakdownModal onClose={() => setShowBreakdown(false)} nutritionEnabled={nutritionEnabled} healthData={healthData} userProfile={userProfile} />}
-
       {/* Brand bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <BrandMark size={26} fontSize={15} />
@@ -122,7 +117,7 @@ function HomeScreen({
         </p>
       </div>
 
-      {/* Element 0: urgency. Always first, before the score and before any card. */}
+      {/* Element 0: urgency. Always first, before the bio age and before any card. */}
       <UrgentBanner items={[...urgent, ...recheck]} />
 
       <SectionLabel>This morning</SectionLabel>
@@ -133,49 +128,14 @@ function HomeScreen({
         <ThumbprintChecklist checklist={checklist} setActive={setActive} />
       </>}
 
-      {(score.hasData || score.hasSchedule || !showChecklist) && <SectionLabel>Today's signal</SectionLabel>}
+      {/* Element 1: biological age in the circle, with the button that asks how to
+          bring it down. It replaced the Health Score dial on Oct 21 2026. */}
+      <SectionLabel>Your biological age</SectionLabel>
+      <BioAgeHero healthData={healthData} userProfile={userProfile} setActive={setActive} onReduce={askToReduce} />
 
-      {/* Element 1: Health score — one number, one sentence. A member who already has
-          score data keeps it while finishing the checklist; for a new member the
-          checklist stands in for the locked score. */}
-      {score.hasData ? (
-        <button onClick={() => setShowBreakdown(true)} style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block", marginBottom: 14 }}>
-          <Card style={{ marginBottom: 0, textAlign: "center", paddingTop: 20, paddingBottom: 20 }}>
-            <ScoreGauge components={score.components} totalScore={score.totalScore} totalMax={score.totalMax}
-              footnote={score.explanation.footnote} onTap={() => setShowBreakdown(true)} />
-            <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 10 }}>Tap to see what's driving your score today</div>
-          </Card>
-        </button>
-      ) : score.hasSchedule ? (
-        // Nothing scoreable yet. "0 of 50" here would read as a terrible score when
-        // the truth is there's no score: offer the one step that starts it instead.
-        <Card style={{ marginBottom: 14, textAlign: "center", padding: "22px 18px" }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: COLORS.textMuted }}>HEALTH SCORE</div>
-          <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.textPrimary, marginTop: 4 }}>Not scored yet</div>
-          <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.55, margin: "8px 0 14px" }}>
-            Your score starts once there's something real behind it. The quickest way in is telling us
-            which screenings you've already had.
-          </div>
-          <button onClick={() => setActive("preventivecare")} style={{
-            width: "100%", background: COLORS.accent, border: "none", color: COLORS.onAccent,
-            fontSize: 14, fontWeight: 700, padding: "12px 14px", borderRadius: 12, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-          }}>
-            {score.explanation.startHint} <ChevronRight size={15} />
-          </button>
-        </Card>
-      ) : !showChecklist && (
-        <LockedDataSection
-          title="Your health score"
-          description="Unlock your score by importing a lab result or connecting health data."
-          actionLabel="Import lab results"
-          onAction={() => setActive("importlabs")}
-          rows={3}
-        />
-      )}
-
-      {/* Biological age — renders nothing unless the bio-age flag is on. */}
-      <BioAgeCard healthData={healthData} userProfile={userProfile} setActive={setActive} />
+      {/* Element 1b: what's due. Preventive care used to reach Home through the score. */}
+      {userProfile?.schedule?.length > 0 && <SectionLabel>Preventive care</SectionLabel>}
+      <PreventiveCareCard userProfile={userProfile} setActive={setActive} />
 
       {/* Element 2: One action card — the single highest-priority signal */}
       {rec && <SectionLabel>Top insight</SectionLabel>}

@@ -148,12 +148,13 @@ function Control({ q, answers, setValue, toggleMulti }) {
   const value = answers[q.id];
 
   if (q.type === "single") {
+    // `wrap` lays short options (blood types) out in rows instead of one per line.
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={q.wrap ? { display: "flex", flexWrap: "wrap", gap: 6 } : { display: "flex", flexDirection: "column", gap: 6 }}>
         {q.options.map((opt) => {
           const selected = value === opt;
           return (
-            <button key={opt} onClick={() => setValue(q.id, selected ? "" : opt)} style={optionStyle(selected)}>{opt}</button>
+            <button key={opt} onClick={() => setValue(q.id, selected ? "" : opt)} style={q.wrap ? { ...optionStyle(selected), width: "auto", flex: "0 0 auto" } : optionStyle(selected)}>{opt}</button>
           );
         })}
       </div>
@@ -232,6 +233,33 @@ function Control({ q, answers, setValue, toggleMulti }) {
             <span style={{ fontSize: 12, color: COLORS.textMuted }}>in</span>
           </div>
         )}
+      </>
+    );
+  }
+
+  // Weight and waist are a number plus a unit toggle, like height. A weight saved by
+  // the old free-text field ("175 lbs") is read into the same two parts.
+  if (q.type === "weight" || q.type === "waist") {
+    const units = q.type === "weight" ? ["lb", "kg"] : ["in", "cm"];
+    let v = value && typeof value === "object" ? value : { unit: units[0], value: "" };
+    if (typeof value === "string" && value.trim()) {
+      const n = /(\d+(?:[.,]\d+)?)/.exec(value);
+      v = { unit: /kg|kilo/i.test(value) ? "kg" : "lb", value: n ? n[1].replace(",", ".") : "" };
+    }
+    const patch = (k, x) => setValue(q.id, { ...v, [k]: x });
+    return (
+      <>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          {units.map((u) => (
+            <button key={u} onClick={() => patch("unit", u)} style={{ ...unitTabStyle(v.unit === u), flex: "0 0 auto" }}>{u}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input value={v.value || ""} onChange={(e) => patch("value", e.target.value)} inputMode="decimal" aria-label={q.label}
+            placeholder={q.type === "weight" ? (v.unit === "kg" ? "80" : "175") : (v.unit === "cm" ? "86" : "34")}
+            style={{ ...fieldStyle, flex: "0 0 96px" }} />
+          <span style={{ fontSize: 12, color: COLORS.textMuted }}>{v.unit}</span>
+        </div>
       </>
     );
   }

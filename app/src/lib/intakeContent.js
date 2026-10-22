@@ -24,6 +24,8 @@
  *   dose     — amount + unit + frequency. value: { amount, unit, frequency }
  *   height   — feet/inches or centimetres, unit-switchable.
  *              value: { unit: "imperial" | "metric", feet, inches, cm }
+ *   weight   — a number in pounds or kilograms. value: { unit: "lb" | "kg", value }
+ *   waist    — a number in inches or centimetres. value: { unit: "in" | "cm", value }
  *   bloodPressure — one reading plus when it was taken.
  *              value: { systolic, diastolic, month: "MM", year: "YYYY" } (all strings)
  *
@@ -56,6 +58,7 @@ const RACE_ETHNICITY = [
 ];
 const EDUCATION = ["< High school", "High school / GED", "Some college", "Bachelor's", "Graduate degree"];
 const EMPLOYMENT = ["Employed full-time", "Employed part-time", "Self-employed", "Retired", "Not employed"];
+const BLOOD_TYPES = ["A+", "A−", "B+", "B−", "AB+", "AB−", "O+", "O−", "Don't know"];
 
 // ---- Section 2 — personal health history ----
 const DIAGNOSED_CONDITIONS = [
@@ -282,10 +285,25 @@ export const INTAKE_SECTIONS = [
       { id: "genderIdentitySelf", type: "text", label: "How would you describe your gender identity?", placeholder: "In your own words", showIf: (a) => a.genderIdentity === "Other" && a.genderIdentityDetail === "Prefer to self-describe" },
       { id: "gaht", type: "single", label: "Are you currently receiving gender-affirming hormone therapy (GAHT)?", options: ["No", "Yes — currently", "Yes — past only"], showIf: asksAboutGAHT },
       { id: "raceEthnicity", type: "multi", label: "Race / ethnicity (select all that apply)", options: RACE_ETHNICITY, exclusive: ["Prefer not to say"] },
-      { id: "height", type: "height", label: "Height" },
-      { id: "weight", type: "text", label: "Current weight", placeholder: "e.g. 175 lbs" },
       { id: "education", type: "single", label: "Highest level of education completed", options: EDUCATION },
       { id: "employment", type: "single", label: "Current employment status", options: EMPLOYMENT },
+    ],
+  },
+  // Its own section so onboarding step 1 and Account → Personal details can render
+  // just these (Oct 21 2026 call). Waist is what relative fat mass needs; Dr. Locker
+  // prefers it to BMI.
+  {
+    id: "body",
+    title: "Your measurements",
+    intro: "Height and weight are needed. Your waist lets us estimate body fat more accurately than BMI does.",
+    questions: [
+      { id: "height", type: "height", label: "Height" },
+      { id: "weight", type: "weight", label: "Current weight" },
+      {
+        id: "waist", type: "waist", label: "Waist", remindable: true,
+        help: "Measure with a tape at your belly button, standing relaxed, after breathing out. This isn't your pants size: sizes vary by brand, and women's sizes aren't inches.",
+      },
+      { id: "bloodType", type: "single", label: "Blood type (if you know it)", options: BLOOD_TYPES, wrap: true },
     ],
   },
   {
@@ -569,8 +587,8 @@ export const INTAKE_GROUPS = [
   {
     id: "about",
     title: "About you & your goals",
-    sections: ["focus", "demographics", "goals"],
-    prep: "No documents needed. Your height and weight are the only numbers we ask for.",
+    sections: ["focus", "demographics", "body", "goals"],
+    prep: "No documents needed. A tape measure helps for your waist.",
   },
   {
     id: "history",

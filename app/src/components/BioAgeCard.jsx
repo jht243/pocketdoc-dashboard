@@ -130,8 +130,8 @@ function Simulator({ out, onClose }) {
   );
 }
 
-function BioAgeCardInner({ healthData, userProfile, setActive }) {
-  const [open, setOpen] = useState(false);
+/** The member's bio-age result from their own labs and date of birth. */
+function useBioAge(healthData, userProfile) {
   const labs = healthData?.labs;
   const dob = userProfile?.profile?.dob || null;
   // Intake answers that pause the score: each moves these markers for reasons
@@ -146,6 +146,29 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
   );
   useTrackOnce("score_viewed", { score: "biological" }, out.status === "ok");
   useTrackOnce("score_missing_prompt_shown", { score: "biological", status: out.status }, out.status !== "ok");
+  return out;
+}
+
+/** Opening the simulator: scroll up, show it, and record that the levers were tried. */
+function simulatorOpener(out, setOpen) {
+  const { simulator } = out;
+  const canSimulate = out.status === "ok" && simulator?.levers?.some((l) => l.applicable);
+  const open = () => {
+    if (!canSimulate) return;
+    scrollPhoneToTop();
+    setOpen(true);
+    // The simulator shows every lever's effect at once, so opening it is also the
+    // member trying the levers.
+    const levers = simulator.levers.filter((l) => l.applicable).map((l) => l.key);
+    track("simulator_opened", { score: "biological", levers });
+    track("simulator_lever_tried", { score: "biological", levers, combined: Boolean(simulator.combined) });
+  };
+  return { canSimulate, open };
+}
+
+function BioAgeCardInner({ healthData, userProfile, setActive }) {
+  const [open, setOpen] = useState(false);
+  const out = useBioAge(healthData, userProfile);
 
   if (out.status !== "ok") {
     const step = nextStep(out);
@@ -165,19 +188,9 @@ function BioAgeCardInner({ healthData, userProfile, setActive }) {
     );
   }
 
-  const { latest, draw, trend, simulator } = out;
-  const canSimulate = simulator?.levers?.some((l) => l.applicable);
+  const { latest, draw, trend } = out;
+  const { canSimulate, open: openSimulator } = simulatorOpener(out, setOpen);
   const lowConfidence = latest.confidence === "low" ? latest.notes.find((n) => /fasting|hs-CRP|detection/i.test(n)) : null;
-  const openSimulator = () => {
-    if (!canSimulate) return;
-    scrollPhoneToTop();
-    setOpen(true);
-    // The simulator shows every lever's effect at once, so opening it is also the
-    // member trying the levers.
-    const levers = simulator.levers.filter((l) => l.applicable).map((l) => l.key);
-    track("simulator_opened", { score: "biological", levers });
-    track("simulator_lever_tried", { score: "biological", levers, combined: Boolean(simulator.combined) });
-  };
 
   return (
     <>
@@ -221,4 +234,102 @@ function BioAgeCard(props) {
   return <BioAgeCardInner {...props} />;
 }
 
-export { BioAgeCard };
+/** "about 12 years younger than your age", or "about the same as your age" under a year. */
+function gapLine(gap) {
+  if (Math.abs(gap) < 1) return "About the same as your age";
+  return `${aboutYears(Math.abs(gap)).replace(/^about/, "About")} ${gap < 0 ? "younger" : "older"} than your age`;
+}
+
+/**
+ * Home's lead: biological age in the circle, actual age under it, and the button that
+ * asks the care team how to bring it down. Replaced the Health Score dial on Oct 21
+ * 2026 (Dr. Locker: "this part needs to go… we have this in a circle, you know, 50
+ * years and then you put actual age on the bottom or minus however many years").
+ *
+ * Without a number it says what's missing and offers the one step that fixes it, the
+ * same as the card on Biology.
+ */
+function BioAgeHero({ healthData, userProfile, setActive, onReduce }) {
+  const [open, setOpen] = useState(false);
+  const out = useBioAge(healthData, userProfile);
+  const ok = out.status === "ok";
+  const { canSimulate, open: openSimulator } = simulatorOpener(out, setOpen);
+  const latest = ok ? out.latest : null;
+  const step = ok ? null : nextStep(out);
+  const R = 92;
+
+  return (
+    <>
+      {open && <Simulator out={out} onClose={() => setOpen(false)} />}
+      <Card style={{ textAlign: "center", paddingTop: 22, paddingBottom: 18 }}>
+        <button onClick={openSimulator} aria-label={canSimulate ? "See what could move your biological age" : undefined} style={{
+          background: "none", border: "none", padding: 0, display: "block", margin: "0 auto",
+          cursor: canSimulate ? "pointer" : "default",
+        }}>
+          <div style={{ position: "relative", width: 204, height: 204 }}>
+            <svg width="204" height="204" aria-hidden="true">
+              <circle cx="102" cy="102" r={R} fill="none" stroke={ok ? COLORS.brand : COLORS.ringTrack} strokeWidth="10" />
+            </svg>
+            <div style={{
+              position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 2, padding: "0 30px",
+            }}>
+              {ok && !latest.capped && (
+                <span style={{ fontFamily: DISPLAY, fontSize: 60, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, color: COLORS.textPrimary }}>{latest.display}</span>
+              )}
+              {ok && latest.capped && (
+                <span style={{ fontFamily: DISPLAY, fontSize: 17, fontWeight: 700, lineHeight: 1.25, color: COLORS.textPrimary }}>{latest.headline}</span>
+              )}
+              {!ok && (
+                <span style={{ fontFamily: DISPLAY, fontSize: 44, fontWeight: 700, lineHeight: 1, color: COLORS.textMuted }}>—</span>
+              )}
+              <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600, letterSpacing: "0.1em", marginTop: 4 }}>BIOLOGICAL AGE</span>
+            </div>
+          </div>
+        </button>
+
+        {ok ? (
+          <>
+            <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.textPrimary, marginTop: 12 }}>You're {latest.age}</div>
+            {!latest.capped && (
+              <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>{gapLine(latest.gap)}</div>
+            )}
+            {out.draw?.date && (
+              <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4 }}>From your {fmtDate(out.draw.date)} draw</div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginTop: 12 }}>{out.message}</div>
+        )}
+
+        {ok && onReduce && (
+          <button onClick={onReduce} style={{
+            width: "100%", marginTop: 16, background: COLORS.accent, border: "none", color: COLORS.onAccent,
+            fontSize: 14, fontWeight: 700, padding: "13px 14px", borderRadius: 12, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}>
+            Help me reduce my biological age <ChevronRight size={15} />
+          </button>
+        )}
+        {!ok && step && setActive && (
+          <button onClick={() => setActive(step.screen)} style={{
+            width: "100%", marginTop: 16, background: COLORS.accent, border: "none", color: COLORS.onAccent,
+            fontSize: 14, fontWeight: 700, padding: "13px 14px", borderRadius: 12, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}>
+            {step.label} <ChevronRight size={15} />
+          </button>
+        )}
+        {canSimulate && (
+          <button onClick={openSimulator} style={{
+            marginTop: 10, background: "none", border: "none", padding: 0, cursor: "pointer",
+            fontSize: 12, fontWeight: 600, color: COLORS.accent,
+          }}>See what in your labs could move it</button>
+        )}
+        <div style={{ fontSize: 10.5, color: COLORS.textMuted, marginTop: 10 }}>{DISCLAIMER}</div>
+      </Card>
+    </>
+  );
+}
+
+export { BioAgeCard, BioAgeHero };

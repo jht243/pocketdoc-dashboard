@@ -154,11 +154,18 @@ export function parseHeightCm(height) {
 }
 
 /**
- * Weight in kg from the intake's free-text weight ("175 lbs", "80 kg", "175").
- * A bare number is read as pounds — the field's own placeholder is "e.g. 175 lbs".
+ * Weight in kg from the intake's weight answer: the number-plus-unit object the form
+ * saves ({ unit: "lb" | "kg", value }), or a legacy free-typed string ("175 lbs",
+ * "80 kg", "175"). A bare number is read as pounds, as the old field's placeholder
+ * ("e.g. 175 lbs") asked for.
  */
 export function parseWeightKg(weight) {
   if (weight == null || weight === "") return null;
+  if (typeof weight === "object") {
+    const value = num(weight.value);
+    if (value == null) return null;
+    return parseWeightKg(`${value} ${weight.unit === "kg" ? "kg" : "lb"}`);
+  }
   const text = String(weight).toLowerCase().trim();
   const m = /(\d+(?:[.,]\d+)?)/.exec(text);
   if (!m) return null;
@@ -168,6 +175,20 @@ export function parseWeightKg(weight) {
     : value * 0.45359237;
   if (!Number.isFinite(kg) || kg < 30 || kg > 350) return null;
   return kg;
+}
+
+/**
+ * Waist circumference in cm from the intake's waist answer ({ unit: "in" | "cm", value }).
+ * Null outside a plausible adult range, which also catches a dress size ("8") typed
+ * where inches were asked for.
+ */
+export function parseWaistCm(waist) {
+  if (!waist || typeof waist !== "object") return null;
+  const value = num(waist.value);
+  if (value == null) return null;
+  const cm = waist.unit === "cm" ? value : value * 2.54;
+  if (cm < 50 || cm > 200) return null;
+  return cm;
 }
 
 /** BMI to one decimal from the health history, or null when height or weight is missing. */

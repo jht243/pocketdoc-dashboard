@@ -1,8 +1,12 @@
-// Dev-only harness for the biological-age card: the spec's worked example and the
-// states a member can land in, each in a phone-width column. See bio-age-preview.html.
+// Dev-only harness for the biological-age card and Home's bio-age circle: the spec's
+// worked example and the states a member can land in, each in a phone-width column,
+// plus the measurements section and the preventive care card. See bio-age-preview.html.
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BioAgeCard } from "../components/BioAgeCard";
+import { BioAgeCard, BioAgeHero } from "../components/BioAgeCard";
+import { PreventiveCareCard } from "../components/PreventiveCareCard";
+import { IntakeForm } from "../components/IntakeForm";
+import { BodyMetrics } from "../components/BodyMetrics";
 import { COLORS } from "../theme/tokens";
 import "../styles/global.css";
 
@@ -37,8 +41,16 @@ const SCENARIOS = {
   "No date of birth": { labs: panel("2026-06-01"), dob: "" },
 };
 
+const SCHEDULE = [
+  { id: "colon", name: "Colorectal cancer screening", frequencyMonths: 120 },
+  { id: "mammo", name: "Mammogram", frequencyMonths: 24 },
+  { id: "lipids", name: "Cholesterol panel", frequencyMonths: 60 },
+  { id: "flu", name: "Flu shot", frequencyMonths: 12 },
+];
+
 function Preview() {
   const [name, setName] = useState("Worked example");
+  const [body, setBody] = useState({});
   const s = SCENARIOS[name];
   return (
     <div style={{ minHeight: "100vh", background: "#E6EBF1", display: "flex", justifyContent: "center" }}>
@@ -46,7 +58,13 @@ function Preview() {
         <select value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 14, fontSize: 12 }}>
           {Object.keys(SCENARIOS).map((k) => <option key={k}>{k}</option>)}
         </select>
+        <BioAgeHero key={`hero-${name}`} healthData={{ labs: s.labs }} userProfile={{ profile: { dob: s.dob } }} setActive={() => {}} onReduce={() => {}} />
+        <PreventiveCareCard userProfile={{ schedule: SCHEDULE, completedItems: { mammo: "2024-09", flu: "2026-01" } }} setActive={() => {}} />
         <BioAgeCard key={name} healthData={{ labs: s.labs }} userProfile={{ profile: { dob: s.dob } }} setActive={() => {}} />
+        <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 14, marginTop: 14 }}>
+          <IntakeForm answers={body} onChange={(k, v) => setBody((b) => ({ ...b, [k]: v }))} variant="onboarding" sectionIds={["body"]} profile={{ sex: "female" }} />
+          <BodyMetrics intake={body} sex="female" />
+        </div>
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ import { SectionLabel } from "../components/SectionLabel";
 import { useAuth } from "../lib/AuthContext";
 import { supabase } from "../lib/supabase";
 import { loadAccount, saveAccount, deleteAccount, missingOrderDetails } from "../lib/profileStore";
+import { IntakeForm } from "../components/IntakeForm";
+import { BodyMetrics } from "../components/BodyMetrics";
 
 const EMPTY = {
   firstName: "", lastName: "", email: "", dob: "", sex: "", phone: "",
@@ -118,11 +120,50 @@ function joinList(items) {
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
+/**
+ * Height, weight, waist and blood type, the health history's "Your measurements"
+ * section, editable here too (Oct 21 2026 call: "height and weight in the personal
+ * details"). Saves itself after a pause, like the details above, into the same
+ * health-history answers the Health History screen writes.
+ */
+// Only these keys are handed to the form. Given the whole answer set, the form would
+// clear every answer it judges hidden, and with the sex still loading that would be
+// the whole reproductive-health section.
+const MEASUREMENT_KEYS = ["height", "weight", "waist", "waist__remind", "bloodType"];
+
+function Measurements({ intake, sex, onSave }) {
+  const [answers, setAnswers] = useState(() =>
+    Object.fromEntries(MEASUREMENT_KEYS.filter((k) => intake?.[k] !== undefined).map((k) => [k, intake[k]])));
+  const lastSaved = useRef(JSON.stringify(answers));
+  const latest = useRef(answers);
+  latest.current = answers;
+  const persist = (next) => {
+    const serialized = JSON.stringify(next);
+    if (serialized === lastSaved.current) return;
+    lastSaved.current = serialized;
+    onSave?.(next);
+  };
+  useEffect(() => {
+    const t = setTimeout(() => persist(answers), AUTOSAVE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => persist(latest.current), []);
+  return (
+    <Card>
+      <IntakeForm answers={answers} onChange={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))}
+        variant="onboarding" sectionIds={["body"]} profile={{ sex }} />
+      <BodyMetrics intake={answers} sex={sex} />
+    </Card>
+  );
+}
+
 // ---- ACCOUNT ----
 // The member's own details and login: name, date of birth, contact and address,
 // email and password, sign out, and permanent deletion. Always the real account,
 // read from the database.
-function AccountScreen({ goBack, backLabel, onSaved }) {
+function AccountScreen({ goBack, backLabel, onSaved, intake, sex, onSaveIntake }) {
   const { user, signOut } = useAuth();
   const [form, setForm] = useState(EMPTY);
   const [loaded, setLoaded] = useState(false);
@@ -316,6 +357,8 @@ function AccountScreen({ goBack, backLabel, onSaved }) {
           </>
         )}
       </Card>
+
+      {onSaveIntake && <Measurements intake={intake} sex={form.sex || sex} onSave={(next) => onSaveIntake({ ...(intake || {}), ...next })} />}
 
       <SectionLabel>Login</SectionLabel>
       <Card>
