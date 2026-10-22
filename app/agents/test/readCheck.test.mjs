@@ -145,3 +145,16 @@ test('dates are checked on their own: a header is never blanked as a disputed re
   assert.ok(text.includes(`Reported: ${DATE_UNCLEAR}`));
   assert.deepEqual(unclear, ['10/15/2026']);
 });
+
+test("rows pair up by rsID or name even when one read adds the report's description", () => {
+  const specialist = 'MTHFR  rs1801133  C/T\nOne copy of the C677T variant. Folate conversion may be mildly reduced.\nAPOE  rs429358  T/T\nGlucose, Fasting: 112 mg/dL (65-99)';
+  const checker = 'MTHFR rs1801133 Genotype: C/T\nOne copy of the C677T variant. Folate conversion may be mildly reduced.\nAPOE rs429358 Genotype: T/T\nGlucose: 112 mg/dL (65-99)';
+  const found = reconcile(specialist, checker);
+  assert.equal(found.disputed.length, 0, JSON.stringify(found.disputed));
+  assert.equal(found.missing.length, 0, JSON.stringify(found.missing));
+  assert.equal(found.agreed.length, 4);
+  // A genotype the reads disagree on is still a dispute, named by gene and rsID.
+  const bad = reconcile('MTHFR  rs1801133  C/C', checker);
+  assert.equal(bad.disputed.length, 1);
+  assert.deepEqual(applyTieBreak('MTHFR  rs1801133  C/C', bad, 'MTHFR rs1801133: UNREADABLE').unclear, ['MTHFR rs1801133']);
+});

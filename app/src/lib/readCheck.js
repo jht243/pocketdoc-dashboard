@@ -98,6 +98,25 @@ export function similarity(a, b) {
   return both / (x.size + y.size - both);
 }
 
+const rsidOf = (line) => (/\brs\d{3,}\b/i.exec(String(line || "")) || [])[0]?.toLowerCase() || null;
+
+/**
+ * How surely two reads' lines are the same row. The same rsID is the same row. Else
+ * the naming words: one read often adds words the other leaves out ("Glucose,
+ * Fasting" against "Glucose"), so the overlap counts against the shorter name, and
+ * the first naming word (the marker or gene) must agree.
+ */
+function rowMatch(a, b) {
+  const ra = rsidOf(a);
+  if (ra && ra === rsidOf(b)) return 1;
+  const x = labelOf(a);
+  const y = labelOf(b);
+  if (!x.length || !y.length || x[0] !== y[0]) return similarity(a, b);
+  const ys = new Set(y);
+  const both = x.filter((w) => ys.has(w)).length;
+  return Math.max(similarity(a, b), both / Math.min(x.length, y.length));
+}
+
 const sameNumbers = (a, b) => {
   const x = valuesOf(a).sort();
   const y = valuesOf(b).sort();
@@ -112,7 +131,7 @@ function bestMatch(line, pool, used) {
   let score = MATCH - 1e-9;
   pool.forEach((cand, i) => {
     if (used.has(i)) return;
-    const s = similarity(line, cand);
+    const s = rowMatch(line, cand);
     if (s > score) { score = s; best = i; }
   });
   return best;
@@ -145,6 +164,8 @@ export function reconcile(primary, second) {
 
 /** The naming part of a row, for the unclear line: everything before its first number. */
 function rowName(line) {
+  const rs = /\brs\d{3,}\b/i.exec(String(line));
+  if (rs) return String(line).slice(0, rs.index + rs[0].length).replace(/\s+/g, " ").trim();
   const at = String(line).search(/\d/);
   const head = (at > 0 ? line.slice(0, at) : line).replace(/[:\-–—|]+\s*$/, "").trim();
   return head || labelOf(line).join(" ");

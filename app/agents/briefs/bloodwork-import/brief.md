@@ -12,7 +12,7 @@ Write the document as plain text for the record.
 - Transcribe what the document says. No summary, no interpretation, nothing added or left out.
 - Every result on one line, in printed order: `Name: value unit (reference range) — flag`. Copy the value, unit and range character by character.
 - Keep section headings, the collection date, the report date, the ordering provider and the lab's name.
-- Keep any narrative interpretation or comment text verbatim.
+- Keep any narrative interpretation or comment text verbatim, on its own line(s), never on a result line.
 - If a value cannot be read with certainty, write `Name: UNREADABLE` for that row. Never write a plausible value.
 - Output the transcription only. If the document has nothing health-related, output exactly `NO_CONTENT`.
 

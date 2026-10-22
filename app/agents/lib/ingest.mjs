@@ -85,7 +85,7 @@ async function readChecked({ kind, file, mediaType, run, emit }) {
   if (!first || first === 'NO_CONTENT') return { text: first, unclear: [], evidence: ev.kind, pages: ev.read, pageCount: ev.pageCount };
 
   emit({ type: 'check_start', by: CHECKER });
-  const second = await ask(CHECKER, parts, 'Read 1: list every row and every date exactly as printed.', { maxTokens: 4096, label: 'ingest:check', run });
+  const second = await ask(CHECKER, parts, 'Read 1: copy every line that carries a value, exactly as printed.', { maxTokens: 4096, label: 'ingest:check', run });
   const found = reconcile(first, second);
   let settled = { text: first, unclear: [], recovered: [] };
   if (found.disputed.length || found.missing.length) {
