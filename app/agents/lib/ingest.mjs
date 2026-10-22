@@ -23,7 +23,7 @@ import { brief } from './config.mjs';
 import { readEvidence, imageParts, MAX_PAGES } from './docTools.mjs';
 import { noteSafety, clip } from './team.mjs';
 import {
-  CHECKED_MARK, UNCLEAR_MARK, applyTieBreak, checkDates, reconcile, traceGenetic, traceMarkers,
+  CHECKED_MARK, UNCLEAR_MARK, applyTieBreak, checkDates, collectionDate, reconcile, traceGenetic, traceMarkers,
   unclearNames, untracedAgainst, verifiedDate,
 } from '../../src/lib/readCheck.js';
 
@@ -136,9 +136,13 @@ export async function runIngest({ kind = 'labs', file, mediaType = '', extract =
   const raw = await ask(reader, says(`Checked transcription:\n\n${body}`), 'Task 2: extract this panel\'s collection date, lab, and every marker, as JSON.', { maxTokens: 4096, label: 'ingest:extract', run });
   const envelope = parseJson(raw) || {};
   const markers = Array.isArray(envelope.markers) ? envelope.markers : objectsIn(raw).filter((m) => m?.name && m?.value != null);
-  const { kept, dropped } = traceMarkers(markers.filter((m) => m?.name), body);
+  const { kept: traced, dropped } = traceMarkers(markers.filter((m) => m?.name), body);
+  // A range is filed as printed inside the brackets the transcription puts round it.
+  const kept = traced.map((m) => (m.range ? { ...m, range: String(m.range).trim().replace(/^\((.*)\)$/, '$1').trim() } : m));
   if (dropped.length) noteSafety(run, { kind: 'fact_check', rule: `[ingest] Markers that did not match their own row of the checked report were not filed: ${dropped.join(', ')}.`, excerpt: clip(dropped.join(', '), 400) });
-  const drawnOn = verifiedDate(envelope.drawn_on, body);
+  // The collection date is read in code from the checked text; the extractor's date
+  // only stands where code finds none and that date is printed.
+  const drawnOn = collectionDate(body) || verifiedDate(envelope.drawn_on, body);
   const source = envelope.source && String(body).toLowerCase().includes(String(envelope.source).toLowerCase()) ? String(envelope.source).trim() : null;
   emit({ type: 'extract_done', by: reader, filed: kept.length, dropped: dropped.length });
   return {

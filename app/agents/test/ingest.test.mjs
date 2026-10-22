@@ -142,9 +142,12 @@ test('a marker the extractor invents is dropped against the checked text', async
   const out = await runIngest({ kind: 'labs', file: fixture('lab-scan.pdf'), mediaType: 'application/pdf', run: { ledger: [], safety: [] } });
   assert.deepEqual(out.markers.map((m) => m.name), ['Glucose, Fasting']);
   assert.deepEqual(out.dropped, ['Ferritin']);
-  // A date and a lab name that aren't printed are not filed either.
-  assert.equal(out.drawnOn, null);
+  // The collection date is the printed one, read in code, never the extractor's 2026-10-20;
+  // a lab name that isn't printed is not filed.
+  assert.equal(out.drawnOn, '2026-10-14');
   assert.equal(out.source, null);
+  // Ranges are filed as printed, without the transcription's brackets.
+  assert.equal(out.markers[0].range, '65-99');
 });
 
 test('genetics: the Genetics specialist reads, and only what the report prints is filed', async () => {

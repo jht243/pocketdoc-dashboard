@@ -292,12 +292,40 @@ export function supportedText(passage, text, share = 0.7) {
  * printed in the checked text (in any of the usual orders); otherwise it is null.
  */
 export function verifiedDate(iso, text) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "").trim());
   if (!m) return null;
   const [y, mo, d] = [m[1], String(Number(m[2])), String(Number(m[3]))];
   const printed = new Set(datesOf(text));
   const yy = y.slice(2);
-  return [`${mo}/${d}/${y}`, `${d}/${mo}/${y}`, `${y}/${mo}/${d}`, `${mo}/${d}/${Number(yy)}`].some((k) => printed.has(k)) ? iso : null;
+  return [`${mo}/${d}/${y}`, `${d}/${mo}/${y}`, `${y}/${mo}/${d}`, `${mo}/${d}/${Number(yy)}`].some((k) => printed.has(k)) ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
+/** A printed date as ISO: "10/14/2026" (US order unless the first part can't be a month), "2026-10-14". */
+function isoOf(printed) {
+  const parts = printed.split(/[/.-]/).map(Number);
+  let [y, mo, d] = parts[0] > 999 ? parts : [parts[2], parts[0], parts[1]];
+  if (parts[0] <= 999 && parts[0] > 12) [mo, d] = [parts[1], parts[0]];
+  if (y < 100) y += 2000;
+  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * The collection date as printed, read in code: the date on a line naming the
+ * collection or draw, else the report date, else null. It never comes from a model.
+ */
+export function collectionDate(text) {
+  const lines = String(text || "").split("\n");
+  const on = (re) => {
+    for (const l of lines) {
+      if (!re.test(l)) continue;
+      const after = l.slice(l.search(re));
+      const hit = (after.match(DATE) || [])[0];
+      if (hit) return isoOf(hit);
+    }
+    return null;
+  };
+  return on(/collect|drawn|draw date|specimen|sample date/i) || on(/report|result(?:ed)?\s+date|received/i);
 }
 
 /**
