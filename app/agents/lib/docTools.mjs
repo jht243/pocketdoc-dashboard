@@ -8,26 +8,51 @@
 //
 // pdf.js is loaded on first use, so the chat never waits on it and a deploy missing
 // it reports `tools: false` on /health instead of failing to start.
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { hasUsableText, linesFromItems } from '../../src/lib/readCheck.js';
 
 export const MAX_PAGES = 10;
 const TARGET_WIDTH = 2000;
 
 let lib = null;
-let unavailable = null;
+let installing = null;
+
+/**
+ * Install the reading tools into this service when its build didn't (a Render
+ * service whose build command predates them). Once per process, in the background
+ * from startup, so a deploy never leaves uploads without a reader.
+ */
+function installTools() {
+  installing ||= new Promise((resolve) => {
+    const dir = fileURLToPath(new URL('..', import.meta.url));
+    console.log('[docTools] reading tools missing; installing them');
+    execFile('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], { cwd: dir, timeout: 300000 }, (err, stdout, stderr) => {
+      if (err) console.error('[docTools] install failed', err.message, stderr?.slice(-500));
+      else console.log('[docTools] reading tools installed');
+      resolve(!err);
+    });
+  });
+  return installing;
+}
+
 async function pdfjs() {
   if (lib) return lib;
-  if (unavailable) throw unavailable;
   try {
     lib = await import('pdfjs-dist/legacy/build/pdf.mjs');
     return lib;
-  } catch (err) {
-    unavailable = new Error(`The document reader isn't installed on this service (${err.message}).`);
-    throw unavailable;
+  } catch (first) {
+    if (await installTools()) {
+      try { lib = await import('pdfjs-dist/legacy/build/pdf.mjs'); return lib; } catch { /* fall through */ }
+    }
+    throw new Error(`The document reader isn't installed on this service (${first.message}).`);
   }
 }
 
-/** Whether pdf.js loads here: what /health reports as `tools`. */
+/** The tools' state right now, without waiting: what /health reports as `tools`. */
+export const toolsStatus = () => (lib ? true : installing ? 'installing' : false);
+
+/** Whether pdf.js loads here (installing it first if the build skipped it). */
 export async function toolsAvailable() {
   try { await pdfjs(); return true; } catch { return false; }
 }

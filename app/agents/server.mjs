@@ -32,7 +32,7 @@ import { providerInfo, costOf } from './lib/llm.mjs';
 import { runQuestion } from './lib/team.mjs';
 import { runReview } from './lib/review.mjs';
 import { runIngest } from './lib/ingest.mjs';
-import { toolsAvailable } from './lib/docTools.mjs';
+import { toolsAvailable, toolsStatus } from './lib/docTools.mjs';
 import { writeRoundLogs } from './lib/logs.mjs';
 
 const PORT = process.env.PORT || env('AGENTS_PORT', 5190);
@@ -74,7 +74,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   const u = new URL(req.url, `http://localhost:${PORT}`);
 
-  if (u.pathname === '/health') return json(res, 200, { ok: true, ...providerInfo(), auth: Boolean(SUPABASE_URL && ANON), tools: await toolsAvailable() });
+  if (u.pathname === '/health') return json(res, 200, { ok: true, ...providerInfo(), auth: Boolean(SUPABASE_URL && ANON), tools: toolsStatus() });
 
   if (u.pathname === '/chat' && req.method === 'POST') {
     let body;
@@ -190,6 +190,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
+  // Load (or, if the build skipped them, install) the document tools now, so the
+  // first upload doesn't wait on them.
+  toolsAvailable().then((ok) => console.log(`document tools: ${ok ? 'ready' : 'unavailable'}`));
   const { model, cheap, via } = providerInfo();
   console.log(`Thumbprint agents on :${PORT}  (${model} / ${cheap} via ${via})  auth=${Boolean(SUPABASE_URL && ANON)}`);
 });
