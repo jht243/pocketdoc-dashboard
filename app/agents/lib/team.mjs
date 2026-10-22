@@ -28,7 +28,7 @@ import { lanesFor, laneBlock, emergencyFor, emergencyMessage } from './escalatio
 import { URGENCY_RULES } from '../../src/lib/clinicalRules.js';
 import { sanitizeAppLinks } from '../../src/lib/appLinks.js';
 import { untracedNumbers } from '../../src/lib/numberTrace.js';
-import { glp1Eligibility, glp1LaneCard } from '../../src/lib/glp1.js';
+import { glp1Eligibility, glp1LaneCard, ensureGlp1Line } from '../../src/lib/glp1.js';
 
 /**
  * The roster. Routing metadata lives here, in code, as in Monitus's BUILTIN registry;
@@ -155,11 +155,15 @@ ${factsFor(facts, ['profile', 'medications', 'labs'])}`;
     tier: 'cheap', maxTokens: 400, temperature: 0, label: 'route', run,
   });
   const plan = parseJson(raw) || {};
-  const seen = new Set();
+  // Capped first, then marked as taken: a specialist the cap cut off must still be
+  // addable by the forced rules below. Marking during the filter is what let a router
+  // pick of Hormone & Thyroid, cut as a fourth, block the bio-age plan from adding it.
+  const picked = new Set();
   const consult = (plan.consult || [])
-    .filter((c) => TEAM[c?.id] && !seen.has(c.id) && seen.add(c.id))
+    .filter((c) => TEAM[c?.id] && !picked.has(c.id) && picked.add(c.id))
     .slice(0, MAX_SPECIALISTS)
     .map((c) => ({ id: c.id, ask: clip(c.ask, 180) }));
+  const seen = new Set(consult.map((c) => c.id));
   for (const [id, re] of FORCE) {
     if (!seen.has(id) && re.test(question)) {
       seen.add(id);
@@ -553,7 +557,8 @@ export async function runQuestion({ question, history = [], facts, healthData, i
   emit({ type: 'answer', seconds: Math.round((Date.now() - started) / 1000) });
   // And again on the way out: a safety rewrite is model output too, and could have
   // mangled a token or written a new one.
-  const final = sanitizeAppLinks(tidyBottomLine(finalReply));
+  // Dr. Locker's GLP-1 line goes in verbatim, in code (src/lib/glp1.js).
+  const final = ensureGlp1Line(sanitizeAppLinks(tidyBottomLine(finalReply)), glp1Card, question);
   return { reply: routing.fallback ? ensureClinicianLine(final) : final, sources: dedupeSources(sources), lanes, routing, safety: run?.safety || [] };
 }
 

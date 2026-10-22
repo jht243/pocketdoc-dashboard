@@ -104,3 +104,20 @@ test('weight questions bring in the Weight specialist, and the GLP-1 card rides 
   assert.ok(out.lanes.some((c) => c.marker === 'glp1_review' && c.lane === 'provider'));
   assert.match(composeInput, /Weight-loss medication review/);
 });
+
+test("Dr. Locker's line goes in verbatim when the model paraphrases it", async () => {
+  const { ensureGlp1Line, glp1ExclusionLine } = await import('../../src/lib/glp1.js');
+  const card = glp1LaneCard(glp1Eligibility(at(190), 'male'));
+  const paraphrase = '**Your BMI meets the range often considered.**\n\nBring this to your provider\n- Discuss options for weight management.';
+  const fixed = ensureGlp1Line(paraphrase, card, 'Am I a candidate for Wegovy?');
+  assert.ok(fixed.includes(GLP1_FLAG_LINE));
+  assert.ok(fixed.indexOf(GLP1_FLAG_LINE) > fixed.indexOf('Bring this to your provider'));
+  // Already there: unchanged. Not about weight: unchanged.
+  assert.equal(ensureGlp1Line(fixed, card, 'Am I a candidate?'), fixed);
+  assert.equal(ensureGlp1Line('Your vitamin D is 40.', card, 'How is my vitamin D?'), 'Your vitamin D is 40.');
+  // An exclusion gets the clinician line, never the candidate line.
+  const excluded = glp1LaneCard(glp1Eligibility(at(190, { pancreatitisHistory: 'Yes' }), 'male'));
+  const out = ensureGlp1Line('**About weight.**', excluded, 'Can I take Ozempic?');
+  assert.ok(out.includes(glp1ExclusionLine(['history of pancreatitis'])));
+  assert.ok(!out.includes(GLP1_FLAG_LINE));
+});

@@ -57,3 +57,8 @@ test('record reviews include the specialist only when a biological age was calcu
   assert.ok(reviewersFor({ sections: [sec('labs', '- Albumin: 4.4 g/dL'), sec('bioAge', '- Biological age 50 against chronological age 53, from the Jun 1 2026 draw')] }).includes('bioage'));
   assert.ok(!reviewersFor({ sections: [sec('labs', '- Albumin: 4.4 g/dL'), sec('bioAge', '- Not calculated: add a CBC with differential.')] }).includes('bioage'));
 });
+
+test('a router pick cut by the cap can still be added by the bio-age plan', async () => {
+  const got = await ids('Help me reduce my biological age.', [{ id: 'bloodwork', ask: 'a' }, { id: 'bioage', ask: 'b' }, { id: 'weight', ask: 'c' }, { id: 'hormones', ask: 'd' }]);
+  for (const id of ['bioage', 'weight', 'metabolism', 'hormones']) assert.ok(got.includes(id), got.join(','));
+});

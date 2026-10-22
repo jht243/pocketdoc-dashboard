@@ -414,6 +414,9 @@ const optionStyle = (selected) => ({
 const fieldStyle = {
   background: COLORS.bgCardAlt, border: `1px solid ${COLORS.border}`, borderRadius: 8,
   padding: "9px 10px", color: COLORS.textPrimary, fontSize: 13, outline: "none", boxSizing: "border-box",
+  // An input's automatic minimum width (about 20 characters) beats its flex basis, so
+  // the feet and inches boxes ran ~170px each and pushed the row off a phone screen.
+  minWidth: 0,
 };
 
 const unitTabStyle = (selected) => ({

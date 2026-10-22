@@ -24,7 +24,8 @@ const facts = {
 test('every specialist with data to read is on the review, and only those', () => {
   assert.deepEqual(reviewersFor(facts), ['bloodwork', 'hormones', 'lifestyle', 'weight', 'general']);
   assert.deepEqual(reviewersFor({ sections: [sec('labs', '- LDL: 99')] }), ['bloodwork']);
-  assert.deepEqual(reviewersFor(facts, { firstData: true }), ['general']);
+  assert.deepEqual(reviewersFor(facts, { firstData: true }), ['general', 'weight']);
+  assert.deepEqual(reviewersFor({ sections: [sec('preventive', '- x')] }, { firstData: true }), ['general']);
   // Metabolism reads when a metabolic marker or condition is on file.
   assert.ok(reviewersFor({ sections: [sec('labs', '- Hemoglobin A1c: 5.9 % (drawn 2026-09-17)')] }).includes('metabolism'));
   assert.ok(reviewersFor({ sections: [sec('intake', '- Diagnosed conditions: High blood pressure (hypertension)')] }).includes('metabolism'));

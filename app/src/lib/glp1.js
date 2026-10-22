@@ -98,6 +98,8 @@ export function glp1LaneCard(result) {
   return {
     marker: "glp1_review",
     name: "Weight-loss medication review",
+    glp1: result.status,
+    exclusions: result.exclusions,
     domain: "weight",
     lane: "provider",
     label: "Bring this to your provider",
@@ -115,6 +117,34 @@ export function glp1LaneCard(result) {
 export function glp1Inputs(intake = {}) {
   const keys = ["height", "weight", "conditions", "pregnancy", ...GLP1_EXCLUSIONS.map((e) => e.id)];
   return Object.fromEntries(keys.filter((k) => intake?.[k] !== undefined).map((k) => [k, intake[k]]));
+}
+
+/** What the member is told when a GLP-1 exclusion is on file: their clinician reviews it. */
+export const glp1ExclusionLine = (exclusions = []) =>
+  `Because of your ${exclusions.length ? exclusions.join(" and ") : "history"}, weight-loss medication has to be reviewed with your clinician.`;
+
+const WEIGHT_TALK = /\b(weight|obes\w*|body fat|bmi|glp-?1s?|ozempic|wegovy|mounjaro|zepbound|semaglutide|tirzepatide|weight-loss medication)\b/i;
+
+/**
+ * Dr. Locker's words, in code. When the member meets the label and the conversation is
+ * about weight, the answer carries "You may be a candidate for weight-loss medication.
+ * Let's review it with your clinician." verbatim under "Bring this to your provider";
+ * a model's paraphrase is not enough. A member with an exclusion gets the clinician
+ * line instead. Anything else is returned unchanged.
+ */
+export function ensureGlp1Line(reply, card, question = "") {
+  const text = String(reply || "");
+  if (!card || card.marker !== "glp1_review") return text;
+  if (!WEIGHT_TALK.test(question) && !WEIGHT_TALK.test(text)) return text;
+  const line = card.glp1 === "clinician_only" ? glp1ExclusionLine(card.exclusions) : GLP1_FLAG_LINE;
+  if (text.includes(line)) return text;
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => /bring this to your provider/i.test(l) && l.trim().length < 60);
+  if (at >= 0) {
+    lines.splice(at + 1, 0, `- **${line}**`);
+    return lines.join("\n");
+  }
+  return `${text}\n\n**Bring this to your provider**\n- **${line}**`;
 }
 
 /** The result as the record section the agents read (healthContext.js "weight"). */

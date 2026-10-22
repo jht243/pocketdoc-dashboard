@@ -485,7 +485,7 @@ export const INTAKE_SECTIONS = [
   {
     id: "glp1Safety",
     title: "Weight-loss medication safety",
-    intro: "Three quick questions. If weight-loss medication ever comes up with your clinician, these are the first things they check.",
+    intro: "A few quick questions. If weight-loss medication ever comes up with your clinician, these are the first things they check.",
     showIf: (a) => (bmiFromIntake(a) ?? 0) >= GLP1_BMI_WITH_CONDITION,
     questions: [
       { id: "mtcHistory", type: "single", label: "Have you or anyone in your family had medullary thyroid cancer or MEN2 (multiple endocrine neoplasia type 2)?", options: ["No", "Yes", "Not sure"] },

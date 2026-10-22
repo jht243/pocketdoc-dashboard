@@ -44,7 +44,9 @@ const METABOLIC_INTAKE = /diabet|insulin resistance|high blood pressure|hyperten
  * measured on file it reads alone, and the cards are about getting the first data.
  */
 export function reviewersFor(facts, { firstData = false } = {}) {
-  if (firstData) return ['general'];
+  // Nothing measured yet: General, plus Weight when the member has entered measurements,
+  // so a member who meets the GLP-1 label hears it on Home before any bloodwork.
+  if (firstData) return /Height|Current weight|Waist/.test(text(facts, 'weight')) ? ['general', 'weight'] : ['general'];
   const ids = [];
   if (has(facts, 'labs')) ids.push('bloodwork');
   if (has(facts, 'bioAge') && !/^- Not calculated/.test(text(facts, 'bioAge').trim())) ids.push('bioage');
@@ -154,7 +156,7 @@ export async function runReview({ task, facts, healthData = {}, extras = {}, run
     extras.freshness ? `## Data age (the newest reading is the fact; over 12 months is history)\n${extras.freshness}` : '',
     extras.urgent?.length ? `## Urgent patterns already shown to the member (do not repeat, soften or contradict them)\n${extras.urgent.map((u) => `- ${u}`).join('\n')}\n\n${URGENCY_RULES}` : '',
     extras.recheck?.length ? `## Out-of-range results too old to be urgent (the member sees a calm "worth repeating" note; never describe them as current)\n${extras.recheck.map((u) => `- ${u}`).join('\n')}` : '',
-    extras.firstData ? '## FIRST DATA ONLY\nNo bloodwork, no wearable and no readable report on file. Write nothing about a condition, a risk or a likely cause; every item is about getting their first data.' : '',
+    extras.firstData ? '## FIRST DATA ONLY\nNo bloodwork, no wearable and no readable report on file. Write nothing about a condition, a risk or a likely cause; every item is about getting their first data. The measurements the member entered (waist-based numbers) may be stated, and the weight-loss medication flag exactly as the WEIGHT section and the lane cards say.' : '',
   ].filter(Boolean).join('\n\n');
 
   // 2. Every specialist with data to read, at once.

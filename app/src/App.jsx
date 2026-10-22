@@ -424,6 +424,10 @@ function App() {
   // Personal details (height, weight, waist, blood type).
   const saveHistory = (data) => {
     setHealthHistory(data);
+    // The record the agents, the bio-age card and the GLP-1 check read is
+    // userProfile.intake; without this a measurement saved in Account reached them only
+    // after a reload, and the team told the member their height wasn't on file.
+    setUserProfile((p) => (p ? { ...p, intake: { ...(p.intake || {}), ...data } } : p));
     if (!user) return;
     // Screenings ticked in the health history, and height/weight, can change the
     // preventive care schedule; show the new one now rather than after a reload.

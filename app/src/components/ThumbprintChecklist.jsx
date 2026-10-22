@@ -31,7 +31,7 @@ function ThumbprintChecklist({ checklist, setActive }) {
           <span style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.accent }}>{done} of {total} done</span>
         </div>
         <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 10 }}>
-          Your health score and personalized insights unlock as your bloodwork, genetics, and history come in.
+          Your biological age and personalized insights unlock as your bloodwork, genetics, and history come in.
         </div>
         <div style={{ display: "flex", gap: 4 }}>
           {items.filter((i) => i.required).map((i) => (
