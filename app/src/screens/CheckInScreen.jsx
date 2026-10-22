@@ -1,23 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronLeft, Flame, Sparkles, Sun } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
-import { callAI, firstText } from "../lib/api";
 import { saveCheckIn } from "../lib/checkInStore";
 import { answerFollowUp, loadFollowUps } from "../lib/followUpStore";
 import { FOLLOW_UP_QUESTION_ID } from "../lib/followUps";
-import { buildHealthContext } from "../lib/healthContext";
-import { detectUrgentPatterns, violatesForbiddenOutput } from "../lib/clinicalRules";
-import { untracedNumbers } from "../lib/numberTrace";
+import { detectUrgentPatterns } from "../lib/clinicalRules";
 import {
   NOTE_MAX, SKIPS_PER_14_DAYS, WINDOW_CLOSE_HOUR, WINDOW_OPEN_HOUR,
-  answerSummary, checkInContextLines, checkInQuestions, computeStreak, fallbackReply,
+  checkInQuestions, computeStreak,
   localDay, skipsUsed, windowState, withoutFollowUp,
 } from "../lib/checkInContent";
 import { COLORS, DISPLAY, RADIUS } from "../theme/tokens";
 
-// The reply has to land while the member is still looking (doc 19: under 3 seconds).
-// Past that, the deterministic reply is shown instead of a spinner.
-const REPLY_BUDGET_MS = 3000;
+// What the member sees once they finish. The personal read of today's check-in is
+// the care team's (Oct 21 2026: every recommendation comes from the team): saving the
+// check-in changes the record, the insight review reruns with it, and anything worth
+// knowing arrives as the Home card. This line only says so; it advises nothing.
+const LOGGED_REPLY = "Logged. Your care team reads today's check-in alongside the rest of your record, and anything worth knowing will be on your Home screen shortly.";
 
 // Physical emergencies typed into the note stop the flow — urgency overrides
 // everything (clinical rules spec, Section 7). Crisis language is checked by the
@@ -39,31 +38,6 @@ function safetyCheck(note) {
     };
   }
   return null;
-}
-
-const REPLY_SYSTEM = `You are Thumbprint Health's morning check-in. The member just answered their daily check-in.
-Write ONE sentence (at most 40 words) back to them that connects what they reported today to something specific in their own data: a pattern across their recent check-ins, a lab value, or their wearable.
-Rules: never diagnose, never name a condition they might have, never recommend starting, stopping or changing a medication or dose, never alarm. Note patterns calmly; when something is worth raising, say it's worth discussing with their provider. If nothing specific connects, acknowledge today and name one trend. No greetings, no emoji, no lists.`;
-
-async function generateReply({ answers, note, checkIns, userProfile, healthData, healthHistory }) {
-  const today = localDay();
-  const fallback = fallbackReply(answers, checkIns, today);
-  try {
-    const context = buildHealthContext({ userProfile, healthData, healthHistory });
-    const content = `${context}\n\nRECENT CHECK-INS (newest first):\n${checkInContextLines(checkIns, today) || "(this is their first)"}\n\nTODAY'S CHECK-IN: ${answerSummary(answers, note)}`;
-    const request = callAI({
-      system: REPLY_SYSTEM,
-      maxTokens: 120,
-      messages: [{ role: "user", content }],
-    }).then((data) => firstText(data).trim());
-    const timeout = new Promise((resolve) => setTimeout(() => resolve(""), REPLY_BUDGET_MS));
-    const text = await Promise.race([request, timeout]);
-    // A number that is not in the member's data is an invented one: use the plain reply.
-    if (!text || violatesForbiddenOutput(text) || untracedNumbers(text, content).length) return fallback;
-    return text;
-  } catch {
-    return fallback;
-  }
 }
 
 // ---- MORNING CHECK-IN ----
@@ -122,7 +96,7 @@ function CheckInScreen({ goBack, backLabel, userProfile, healthData, healthHisto
       answerFollowUp(user.id, followUp.followUpId, answers[FOLLOW_UP_QUESTION_ID], today);
     }
     const daily = withoutFollowUp(answers);
-    const text = urgent ? null : await generateReply({ answers: daily, note, checkIns, userProfile, healthData, healthHistory });
+    const text = urgent ? null : LOGGED_REPLY;
     setReply(text || "");
     await persist({ day: today, answers: daily, note: note.trim() || null, response: text });
     setStage("done");

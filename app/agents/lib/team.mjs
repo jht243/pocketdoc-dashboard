@@ -28,6 +28,7 @@ import { lanesFor, laneBlock, emergencyFor, emergencyMessage } from './escalatio
 import { URGENCY_RULES } from '../../src/lib/clinicalRules.js';
 import { sanitizeAppLinks } from '../../src/lib/appLinks.js';
 import { untracedNumbers } from '../../src/lib/numberTrace.js';
+import { glp1Eligibility, glp1LaneCard } from '../../src/lib/glp1.js';
 
 /**
  * The roster. Routing metadata lives here, in code, as in Monitus's BUILTIN registry;
@@ -65,6 +66,19 @@ export const TEAM = {
     facts: ['profile', 'intake', 'labs', 'bioAge', 'wearableScore', 'wearableToday', 'wearableRanges', 'wearableHistory', 'dailyScore', 'checkIns', 'questionnaires', 'body'],
     library: ['nutrition', 'sleep', 'activity'],
   },
+  // Added Oct 21 2026, as two specialists: weight is the members' top concern, and GLP-1
+  // eligibility needs one owner who reads the code-decided result (src/lib/glp1.js);
+  // metabolism reads glucose, insulin, blood fats, blood pressure and liver as a system.
+  weight: {
+    desc: 'weight, body size and composition (waist, relative fat mass, waist-to-height), what moves weight day to day, and weight-loss medication (GLP-1s): label eligibility (decided in code), safety questions, side effects',
+    facts: ['profile', 'weight', 'intake', 'medications', 'body', 'wearableToday', 'checkIns', 'questionnaires'],
+    library: ['metabolic', 'medications', 'nutrition', 'activity'],
+  },
+  metabolism: {
+    desc: 'metabolic health as a system: fasting glucose, A1c, fasting insulin, triglycerides and HDL, blood pressure, liver enzymes, the metabolic-syndrome cluster, prediabetes and type 2 diabetes patterns, continuous glucose data',
+    facts: ['profile', 'labs', 'labTrends', 'weight', 'intake', 'medications', 'bioAge', 'wearableToday', 'wearableHistory', 'checkIns', 'questionnaires'],
+    library: ['metabolic', 'lipids-cardio', 'kidney-liver', 'nutrition', 'activity'],
+  },
   // Scope-limited on purpose (briefs/general): answers a short approved list and
   // hands everything else to the clinician. `scoped` makes it report whether the
   // question was in scope and what it was about, which is how fallbacks are counted.
@@ -78,7 +92,7 @@ export const TEAM = {
 
 const MAX_SPECIALISTS = 3;
 
-const clip = (s, n) => {
+export const clip = (s, n) => {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
 };
@@ -102,6 +116,8 @@ export function factsFor(facts, keys) {
 // against the one specialist who should have been asked being left out.
 const FORCE = [
   ['medications', /\b(medication|medicine|meds?|drug|prescri\w*|pill|supplement\w*|statin|metformin|levothyroxine|synthroid|ozempic|wegovy|semaglutide|tirzepatide|ssri|interact\w*|side effects?|can i take)\b/i],
+  ['weight', /\b(weight|overweight|obes\w*|lose \w+ pounds|losing|fat loss|body fat|belly fat|waist|bmi|rfm|glp-?1s?|ozempic|wegovy|mounjaro|zepbound|semaglutide|tirzepatide|appetite)\b/i],
+  ['metabolism', /\b(metaboli\w*|blood sugar|glucose|a1c|hba1c|insulin|prediabet\w*|pre-diabet\w*|diabet\w*|triglycerides?|blood pressure|hypertension|fatty liver|cgm|glucose monitor)\b/i],
   ['hormones', /\b(hormone\w*|thyroid|tsh|t3|t4|menopaus\w*|perimenopaus\w*|hot flash\w*|testosterone|trt|estrogen|estradiol|progesterone|shbg|libido|period|cycle|peptide\w*|bpc)\b/i],
   ['genetics', /\b(genetics?|genes?|genetic\w*|genomic\w*|genotype\w*|dna|23andme|ancestry\s?dna|variants?|snps?|rs\d{3,}|apoe|mthfr|brca[12]?|hfe|carrier status)\b/i],
   ['bloodwork', /\b(labs?|bloodwork|blood work|panel|results?|marker\w*|cholesterol|ldl|hdl|apob|a1c|glucose|insulin|ferritin|iron|vitamin|b12|crp|creatinine|egfr|alt|ast|biological age|bio age)\b/i],
@@ -181,16 +197,19 @@ function splitScreen(text) {
   };
 }
 
-async function research({ id, ask, question, facts, run }) {
+// `context` is what a record review adds beyond the record (targets, the member's own
+// messages, data age, urgent patterns already shown); a chat question has none.
+export async function research({ id, ask, question, facts, run, context = '' }) {
   const spec = TEAM[id];
   const passages = searchReference(spec.library, `${question} ${ask}`, 5);
   const input = [
     factsFor(facts, spec.facts),
+    context,
     knowledgeBlock(passages),
     `## The member's question\n"${question}"`,
     `## The Advocate asks you\n${ask}`,
     `Answer the Advocate, not the member. Quote values with their draw dates, newest first. If your area has nothing on record, say so plainly and name the test or data that would answer it. Put every action in a lane (shared rule 6). Be tight; no padding.${SCREEN_ASK}${spec.scoped ? SCOPE_ASK : ''}`,
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
   const raw = await complete({ system: systemFor(id), user: input, tier: 'smart', maxTokens: 1000, label: `research:${id}`, run });
   return {
     ...splitScreen(scrubInventedCitations(raw, passages.map((p) => p.title))),
@@ -202,7 +221,7 @@ async function research({ id, ask, question, facts, run }) {
 
 /* ---------------- 4. huddle ---------------- */
 
-async function confer({ id, reads, run }) {
+export async function confer({ id, reads, run }) {
   const others = Object.entries(reads).filter(([o]) => o !== id);
   const raw = await complete({
     system: systemFor(id),
@@ -223,7 +242,7 @@ Respond with ONLY JSON: {"to": "<${others.map(([o]) => o).join(' | ')}>", "note"
   return out.note && to ? { from: id, to, note: clip(out.note, 200) } : null;
 }
 
-async function consensusOf({ notes, run }) {
+export async function consensusOf({ notes, run }) {
   if (!notes.length) return '';
   const raw = await complete({
     system: 'You summarise a care team huddle in one sentence for the member, in the second person.',
@@ -235,7 +254,7 @@ async function consensusOf({ notes, run }) {
 
 /* ---------------- 6–7. compose and check ---------------- */
 
-const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', genetics: 'Genetics', lifestyle: 'Lifestyle', general: 'General' };
+const NAMES = { bloodwork: 'Blood Work', hormones: 'Hormone & Thyroid', medications: 'Medication & Interactions', genetics: 'Genetics', lifestyle: 'Lifestyle', weight: 'Weight', metabolism: 'Metabolism', general: 'General' };
 
 /**
  * Who answered, for the routing log: the specialists consulted, whether General was
@@ -259,14 +278,14 @@ export function ensureClinicianLine(reply) {
 }
 
 /** What the safety log records, noted on the run as it happens. */
-function noteSafety(run, e) {
+export function noteSafety(run, e) {
   if (run) (run.safety ||= []).push(e);
 }
 
 // The first quoted passage in the fact-checker's flags is the offending text.
-const quoted = (flags) => /"([^"]{4,})"/.exec(flags || '')?.[1] || '';
+export const quoted = (flags) => /"([^"]{4,})"/.exec(flags || '')?.[1] || '';
 
-function findingsText(reads, notes, consensus) {
+export function findingsText(reads, notes, consensus) {
   const consulted = Object.keys(reads).map((id) => NAMES[id] || id);
   return `## Your specialists' findings
 Consulted on this question: ${consulted.join(', ')}. Credit a finding only to the specialist who made it, by these names; never name a specialist who was not consulted.
@@ -295,7 +314,7 @@ async function compose({ question, recent, facts, reads, notes, consensus, pre, 
 const CHECK_BASE = ['profile', 'medications', 'labs', 'labTrends', 'bioAge'];
 export const checkKeysFor = (ids) => [...new Set([...CHECK_BASE, ...ids.flatMap((id) => TEAM[id]?.facts || [])])];
 
-async function factCheck({ answer, facts, reads, sources, run }) {
+export async function factCheck({ answer, facts, reads, sources, run }) {
   const given = sources.length ? sources.map((s) => `- "${s.title}" (${s.cite})`).join('\n') : '(none — the team was given no library passages, so the answer may cite none)';
   const verdict = await complete({
     system: systemFor('safety'),
@@ -314,6 +333,23 @@ async function revise({ answer, flags, facts, reads, run }) {
   });
 }
 
+/* ---------------- 0. a photo ---------------- */
+
+/**
+ * A photo the member attached, turned into words the team can read: what is visibly
+ * there (label text as printed, a product name, how a skin area looks), with no
+ * medical reading of it. The team then answers the question with the description in
+ * it, under every rule a text question gets.
+ */
+export async function describePhoto({ image, question, run }) {
+  const url = /^data:image\//.test(image) ? image : `data:image/jpeg;base64,${image}`;
+  return complete({
+    system: 'You describe a photo a member of a health app attached to their question, for a care team that cannot see it. Say only what is visibly there: the kind of thing it is, any text exactly as printed (product names, ingredients, amounts on a label, values on a report), and how a visible area of skin or body looks (colour, size against nearby features, shape, texture). Never interpret it medically, never name a condition, never advise. If the photo is unclear, say so. Plain prose, at most 150 words.',
+    messages: [{ role: 'user', content: [{ type: 'text', text: `The member's question: "${question}"` }, { type: 'image_url', image_url: { url } }] }],
+    tier: 'smart', maxTokens: 300, temperature: 0, label: 'photo', run,
+  });
+}
+
 /* ---------------- orchestration ---------------- */
 
 /**
@@ -327,10 +363,15 @@ async function revise({ answer, flags, facts, reads, run }) {
  * @param {object}   o.run         { auth, ledger }
  * @param {Function} send          receives each event
  */
-export async function runQuestion({ question, history = [], facts, healthData, run }, send) {
+export async function runQuestion({ question, history = [], facts, healthData, image = null, run }, send) {
   const started = Date.now();
   const emit = (e) => send({ ...e, t: Date.now() - started });
   const recent = history.slice(-6).filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim());
+  // A photo becomes words first; from here on it is a text question like any other.
+  if (image) {
+    const seen = await describePhoto({ image, question, run }).catch(() => '');
+    question = `${question || 'What can you tell me about this photo?'}\n\n[I attached a photo. What it shows: ${seen || 'the photo could not be read.'}]`;
+  }
 
   // 1. Code before any model. Crisis language skips the team entirely: the member
   // gets the 988 line now, not after a minute of specialists.
@@ -361,8 +402,11 @@ export async function runQuestion({ question, history = [], facts, healthData, r
     return { reply: emergencyMessage(act), sources: [], emergency: act, lanes: [] };
   }
 
-  // The lanes, in code, before any model: they depend only on the record.
-  const lanes = lanesFor(healthData?.labs, { sex: healthData?.sex });
+  // The lanes, in code, before any model: they depend only on the record. The GLP-1
+  // label check is one more provider card (src/lib/glp1.js): it reaches compose, the
+  // reply's lanes and the provider follow-ups the same way a lab marker does.
+  const glp1Card = glp1LaneCard(glp1Eligibility(healthData?.intake || {}, healthData?.sex));
+  const lanes = [...(glp1Card ? [glp1Card] : []), ...lanesFor(healthData?.labs, { sex: healthData?.sex })];
 
   // 2. Route.
   emit({ type: 'route_start' });

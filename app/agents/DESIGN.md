@@ -2,9 +2,9 @@
 
 This is a copy of the Monitus agent system (Adam Handfinger), adapted for medicine. Same mechanics, different job descriptions, library and facts.
 
-## The team: 1 manager + 6 specialists
+## The team: 1 manager + 8 specialists
 
-The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18) and Genetics (Oct 20).
+The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18), Genetics (Oct 20), and Weight and Metabolism (Oct 21, two specialists).
 
 | Agent | Monitus counterpart | Covers | Must never |
 |---|---|---|---|
@@ -13,6 +13,8 @@ The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18) an
 | **Hormone & Thyroid** | Bond Expert | Male and female modules: perimenopause and menopause, testosterone, estradiol, SHBG, progesterone, thyroid and antibodies; peptide education and FDA status only | Recommend a specific hormone, peptide or dose |
 | **Medication & Interactions** | Contract Expert | Current meds, supplements, drug-supplement interactions, pharmacogenomics (CPIC A/B) once a report is on file | Start, stop or change a dose; it flags and explains only |
 | **Genetics** (added Oct 20) | none | The DNA report on file, all of it: health, trait, longevity, nutrition and carrier variants, how strong each association is, and the labs that show whether a variant is doing anything (HFE and ferritin, APOE and LDL). Added after a member's "evaluate my genetics report" went to Medication alone and came back as a PGx answer with no medications on file | Say a variant means the member has or will get a condition; treat a negative consumer result as ruling one out; recommend anything on genotype alone |
+| **Metabolism** (added Oct 21) | none | Metabolic health as a system: fasting glucose, A1c, fasting insulin, triglycerides and HDL, blood pressure, liver enzymes, the metabolic-syndrome cluster (with the waist from the WEIGHT section), continuous glucose data. Blood Work reads every lab; Metabolism reads these together and over time | Diagnose diabetes, prediabetes, metabolic syndrome or fatty liver; touch medication eligibility |
+| **Weight** (added Oct 21) | none | Weight, waist, relative fat mass, waist-to-height, what moves weight day to day, and weight-loss medication. GLP-1 label eligibility (BMI 30+, or 27+ with high blood pressure, type 2 diabetes, high cholesterol or sleep apnea) and the safety exclusions (MTC/MEN2, pregnancy or trying to conceive, pancreatitis) are decided in code (`src/lib/glp1.js`); a candidate is told "You may be a candidate for weight-loss medication. Let's review it with your clinician." and a provider-lane card (`glp1_review`) opens a follow-up | Recommend, name or dose a GLP-1; decide eligibility itself; use BMI categories as labels |
 | **Lifestyle** | Construction Generalist | Nutrition, sleep, activity, wearable trends, check-in follow-up | Give medical advice |
 | **General** (scope-limited, added Oct 18) | none | Only: the preventive screening schedule from the record, how the app works, preparing for an appointment, wellness questions the record already answers. Everything else (a rash, an injury, a new symptom) gets "let's bring this to your clinician" with what to raise | Answer anything off its approved list; diagnose; name a condition |
 
@@ -20,6 +22,13 @@ The roster follows Adam's Oct 14 build spec, section 3, plus General (Oct 18) an
 - **Safety:** the Fact-Checker. It runs as code before and after the model, plus a model check.
 - **Client pass:** sorts what goes up front and what goes below.
 - These are steps in the pipeline, not agents the member sees.
+
+## Everything the app recommends comes from here (Oct 21 2026)
+
+- `POST /chat`: chat questions, including photos (the service describes the photo first, then the team answers) and the onboarding welcome.
+- `POST /review` (`lib/review.mjs`): the team reads the whole record with no question. `insights` writes the Home, Records and Labs cards (`briefs/advocate-cards`); `discussion` writes the visit-prep page (`briefs/advocate-visit`). Every specialist with data to read takes part, then huddle, compose, the fact-checker, the code rules on every card, one revision, and anything still failing is dropped.
+- The browser care team, the template insight cards and the template check-in reply were removed. When the service can't answer, the screen says so and offers a retry.
+- Every agent except the router runs under the shared rules (including rules 12–14: GLP-1, Oct 18 answers, no purchase from a finding), Dr. Locker's clinical analysis rules and his forbidden-output list (`lib/config.mjs`).
 
 ## How a question runs
 

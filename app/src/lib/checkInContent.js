@@ -136,37 +136,6 @@ const lastDays = (checkIns, today, n) => {
 
 const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 
-/**
- * The deterministic one-sentence reply: used when the AI reply doesn't arrive inside
- * the 3-second budget or fails the forbidden-output check. Calm by design — it notes
- * patterns, never alarms, never diagnoses.
- */
-export function fallbackReply(answers, checkIns = [], today = localDay()) {
-  // Today's answers aren't saved yet when the reply is written; count them in.
-  const withToday = [{ day: today, skipped: false, answers }, ...checkIns.filter((c) => c.day !== today)];
-  const week = lastDays(withToday, today, 7);
-  const poorSleep = week.filter((c) => Number(c.answers?.rested) > 0 && Number(c.answers.rested) <= 2).length;
-  const lowEnergyRun = (() => {
-    let n = 0;
-    for (const c of week) { if (Number(c.answers?.energy) <= 2) n += 1; else break; }
-    return n;
-  })();
-  const rested7 = avg(week.slice(1).map((c) => Number(c.answers?.rested)).filter(Boolean));
-
-  if (lowEnergyRun >= 3) return `This is the ${ordinal(lowEnergyRun)} morning in a row with low energy. Keep logging it; if it continues, it's worth raising with your provider alongside your next blood panel.`;
-  if (poorSleep >= 3) return `You've reported poor sleep ${poorSleep} times this week. That pattern is worth tracking before your next blood draw.`;
-  if (Number(answers.rested) >= 4 && rested7 != null && Number(answers.rested) > rested7) return `Strong start: today's sleep score is above your recent average of ${rested7.toFixed(1)} out of 5.`;
-  if (Number(answers.stress) >= 4) return "Logged. A high-stress morning is useful context for your health team. Be easy on yourself today.";
-  const days = week.length;
-  return days > 1
-    ? `Logged. That's ${days} check-ins this week, and each one sharpens the picture before your next blood draw.`
-    : "Logged. Each morning you check in builds the picture your bloodwork alone can't show.";
-}
-
-function ordinal(n) {
-  return ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh"][n] || `${n}th`;
-}
-
 /** Plain-text summary of answers for the AI prompt and the health context. */
 export function answerSummary(answers = {}, note = "") {
   const parts = [

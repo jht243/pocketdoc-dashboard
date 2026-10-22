@@ -5,14 +5,13 @@ import { buildPreventiveCareSchedule } from "../lib/preventiveCare";
 import { isScreeningDone } from "../lib/screeningDates";
 import { applyIntakeScreenings, screeningStatus } from "../lib/screeningLogic";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { callAI, firstText } from "../lib/api";
-import { violatesForbiddenOutput } from "../lib/clinicalRules";
-import { untracedNumbers } from "../lib/numberTrace";
 import { scrollPhoneToTop } from "../lib/scroll";
 import { useAuth } from "../lib/AuthContext";
 import { uploadDocument, saveDocumentText } from "../lib/profileStore";
 import { extractDocumentText, nameStoredDocument } from "../lib/documentText";
 import { SectionedIntake } from "../components/SectionedIntake";
+import { RichReply } from "../components/RichReply";
+import { runAgentTeam } from "../lib/agentsClient";
 import { IntakeForm } from "../components/IntakeForm";
 import { BodyMetrics } from "../components/BodyMetrics";
 import { hasHeightAndWeight } from "../lib/bodyMetrics";
@@ -41,6 +40,9 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
   const [storeError, setStoreError] = useState(null);
   const [storedDoc, setStoredDoc] = useState(null);
   const [insight, setInsight] = useState("");
+  // The uploaded bloodwork as text, for the care team's first review. A promise, so
+  // the review can wait for a transcription still in flight.
+  const docText = useRef(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
 
   // Advance and persist in one call, so a drop-off mid-onboarding can be resumed
@@ -169,52 +171,41 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
       // the sentence "They have uploaded bloodwork for analysis" — and was invisible
       // to every later conversation.
       if (uploaded?.id) {
-        extractDocumentText(base64, mediaType)
+        docText.current = extractDocumentText(base64, mediaType)
           .then(async ({ text, error }) => {
             await saveDocumentText(uploaded.id, text, error);
             const named = await nameStoredDocument(uploaded, text);
             if (named) setUploadedFileName(named.name);
+            return { name: named?.name || file.name, type: "lab", text: text || "", textError: error || null };
           })
-          .catch((err) => console.error("onboarding transcription", err));
+          .catch((err) => { console.error("onboarding transcription", err); return null; });
       }
     };
     reader.readAsDataURL(file);
   };
 
+  // The first review is the care team's, like every other recommendation in the app:
+  // the specialists read what the member just shared (and the bloodwork, once it is
+  // transcribed) and My Advocate writes the welcome under the same rules and checks.
   const generateInsight = async () => {
     goToStep(5);
     setLoadingInsight(true);
     try {
-      // Never-recorded screenings are "not on file", not overdue — the insight must
-      // not tell someone they're behind on something we have no record of.
-      const notOnFile = schedule.filter(i => screeningStatus(i, completedItems[i.id]) === "not_on_file").map(i => i.name);
-      const concernText = intake.primaryConcern ? `Their primary health concern is: "${intake.primaryConcern}".` : "";
-      const conditionText = intake.conditions.length > 0 ? `Current conditions: ${intake.conditions.join(", ")}.` : "";
-      const medText = intake.medications.length > 0 ? `Current medications/supplements: ${intake.medications.join(", ")}.` : "";
-      const familyText = intake.familyHistory.length > 0 ? `Family history of: ${intake.familyHistory.join(", ")}.` : "";
-      const uploadText = uploadedFile ? "They have uploaded bloodwork for analysis." : "";
-
-      const messages = [{
-        role: "user",
-        content: uploadedFile ? [
-          { type: "document", source: { type: "base64", media_type: "application/pdf", data: uploadedFile.base64 } },
-          { type: "text", text: `This is ${profile.name}'s bloodwork PDF. ${conditionText} ${medText} ${familyText} ${concernText} Analyze the bloodwork and write a warm, specific 3-paragraph health advocate message addressing their primary concern and the most important findings. Reference actual values from the bloodwork where possible. End with one sentence about what having this complete picture will let them do. Never diagnose. Never prescribe.` }
-        ] : [{ type: "text", text: `${profile.name} is a ${(() => { const b = new Date(profile.dob); const t = new Date(); return t.getFullYear() - b.getFullYear() - (t < new Date(t.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0); })()}-year-old ${profile.sex}. ${conditionText} ${medText} ${familyText} Recommended screenings with no record on file yet (not known to be overdue — they may simply not have told us): ${notOnFile.length > 0 ? notOnFile.join(", ") : "none"}. ${concernText} Write a warm, specific 3-paragraph health advocate message addressing their primary concern and the 1-2 most important things to focus on given their age and profile. Reference specific details they shared. End with one sentence about what having this complete picture will let them do. Never diagnose. Never prescribe.` }]
-      }];
-
-      const data = await callAI({
-        system: "You are a personal health advocate. Be warm, direct, and specific. Write in 3 short conversational paragraphs. Never use bullet points. Never diagnose. Never prescribe. Always frame recommendations as advocacy — helping someone have better conversations with their doctors.",
-        messages,
-        pdf: true,
+      const doc = docText.current ? await docText.current : null;
+      const question = doc?.text
+        ? "I just signed up and uploaded my bloodwork. Looking at everything I've shared, what are the one or two most important things for me to focus on first?"
+        : "I just signed up. Looking at everything I've shared, what are the one or two most important things for me to focus on first?";
+      const out = await runAgentTeam({
+        question,
+        history: [],
+        userProfile: { profile, intake, schedule, completedItems },
+        healthData: { records: doc ? [doc] : [] },
+        healthHistory: intake,
       });
-      const text = firstText(data);
-      // Without a PDF, every number in the welcome must come from what we sent it
-      // (a PDF's numbers are read by the model from the file, and checked on import).
-      const sent = messages[0].content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
-      if (!text || violatesForbiddenOutput(text) || (!uploadedFile && untracedNumbers(text, sent).length)) throw new Error("unsafe welcome");
-      setInsight(text);
+      setInsight(out.reply);
     } catch {
-      setInsight(`Welcome, ${profile.name}. Based on what you've shared, your advocate now has a picture of your health to work from. The most important next step is uploading your most recent bloodwork — that's where the real personalization begins.`);
+      // Not advice, so not a stand-in for the team's: just where the review will be.
+      setInsight("");
     }
     setLoadingInsight(false);
   };
@@ -477,10 +468,10 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
               <Sparkles size={32} color={COLORS.tealLight} style={{ marginBottom: 16 }} />
               <div style={{ fontSize: 14, color: COLORS.textSecondary, marginBottom: 6 }}>
-                {uploadedFile ? "Reading your bloodwork..." : "Building your health picture..."}
+                {uploadedFile ? "Your care team is reading your bloodwork..." : "Your care team is building your health picture..."}
               </div>
               <div style={{ fontSize: 11, color: COLORS.textMuted }}>
-                Your advocate is reviewing everything you shared.
+                Each specialist is reviewing what you shared. This takes about a minute.
               </div>
             </div>
           ) : (
@@ -491,7 +482,9 @@ function OnboardingScreen({ onComplete, onStepComplete, initial }) {
                   <Sparkles size={16} color={COLORS.tealLight} />
                   <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.tealLight, letterSpacing: 0.5 }}>YOUR HEALTH ADVOCATE</span>
                 </div>
-                <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{insight}</div>
+                {insight
+                  ? <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.7 }}><RichReply text={insight} /></div>
+                  : <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.7 }}>Your care team couldn't finish your first review just now. It will be on your Home screen once it's ready.</div>}
               </Card>
               <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
                 Your preventive care schedule, health history, and any uploaded bloodwork are now saved. Your advocate gets smarter as you add more over time.

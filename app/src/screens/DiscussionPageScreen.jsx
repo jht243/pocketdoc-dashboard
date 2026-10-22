@@ -3,57 +3,20 @@ import { CheckCircle2, ChevronRight, Copy, FileText, Share2, Sparkles } from "lu
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { callAI, firstText } from "../lib/api";
 import { track } from "../lib/analytics";
 import { getDocumentUrl } from "../lib/profileStore";
-import { buildHealthContext } from "../lib/healthContext";
 import { violatesForbiddenOutput } from "../lib/clinicalRules";
-import { untracedNumbers } from "../lib/numberTrace";
+import { runAgentReview } from "../lib/agentsClient";
 
 // ---- DISCUSSION PAGE (for next doctor appointment) ----
-// The Summary and Suggested questions are generated from the user's real profile,
-// labs, and device data via the OpenAI gateway. Symptom pattern and device signals
-// are read from healthData where present, with a graceful fallback when the app is
-// running without a populated snapshot.
+// The Summary and Suggested questions are written by the care team
+// (agents/lib/review.mjs, briefs/advocate-visit): every specialist with data to read
+// says what the member should raise, and My Advocate writes the page in the member's
+// own voice under Dr. Locker's rules and the escalation lanes. When the team can't
+// answer, the page says so and offers a retry; no generic text stands in.
 
-// Neutral fallback for the AI-generated fields only — used if the model call fails.
-// It invents no specifics (no fake labs, symptoms, or trends) so nothing here can be
-// mistaken for the user's real data.
-const FALLBACK = {
-  summary:
-    "Your visit summary will appear here once your latest data has been reviewed. Bring any recent lab results, symptoms, and questions to your appointment.",
-  questions: [
-    "Are there any results in my recent labs that need follow-up?",
-    "Given my history, is there anything you'd recommend monitoring more closely?",
-    "Are there screenings or tests I'm due for?",
-  ],
-};
-
-// The page is the member's own prep sheet, and they may hand it across the desk. So
-// the summary is written as them, speaking to their clinician ("I'm 54…"): the old
-// prompt produced "Test Member is a 54-year-old male…" on the member's own screen.
-// And every question is one a clinician can act on from the record — a live page
-// asked "Can we discuss any potential reasons for the lack of recent lab results?",
-// which no doctor can answer; the useful version asks for the test.
-const VISIT_PREP_SYSTEM = `You write a one-page visit-prep sheet for a member of a health app, in the member's own voice. They read it before an appointment and may show it to their clinician, so it must work for both. You are not a clinician: never diagnose, never guess at a cause, never give a dose, and never suggest starting, stopping or changing a medication.
-
-SUMMARY: one paragraph, 4 to 6 short sentences, in the first person, the member speaking to their clinician. Example opening: "I'm 54 and I've been tired most afternoons for about two months."
-- Never use the member's name, and never "he", "she", "they", "the patient" or "the member" for them. It is always "I" and "my".
-- Plain and specific: age, and sex where it matters; what has been bothering them and for how long; the measured results that matter, each with its value, unit and date; medications that bear on it; what they want from this visit.
-- Take values from the most recent LAB RESULTS. A number typed at intake from memory is not a measurement: if you use one, say "I reported" it.
-- If there are no lab results on file, say so plainly ("I don't have recent bloodwork"). Never mention the app, and never comment on why data is missing.
-- Call a screening overdue only if the schedule says "overdue". "Not on file" or no record means "I don't have a record of my last …".
-
-QUESTIONS: 3 or 4, in the first person, each under 25 words, each something the clinician can act on in this visit from this record:
-- Ask for a specific test, interpret a specific result (name its value and date), recheck a marker, or confirm which screening is due.
-- For missing data, ask for the test itself: "Could we run a CBC and a metabolic panel?" A symptom with nothing measured behind it gets the tests that investigate it (fatigue: CBC, ferritin, TSH, metabolic panel).
-- Never ask about the app, about why results are missing, or to "discuss potential reasons". Never a question the clinician cannot answer from the visit.
-
-Respond with ONLY a JSON object, no markdown or backticks, of the exact shape: {"summary": "...", "questions": ["...", "...", "..."]}`;
-
-// Belt and braces for the rule above: a question about the app or about why data is
-// missing is dropped rather than shown. If nothing usable is left, the neutral
-// fallback questions stand in.
+// Belt and braces for the visit brief: a question about the app or about why data is
+// missing is dropped rather than shown.
 const UNACTIONABLE = /\b(?:the app|this app|thumbprint|this platform)\b|\b(?:why|reasons?)\b[^?]*\b(?:lack|missing|absence|no recent|haven'?t|have not|don'?t have)\b/i;
 
 function actionableQuestions(list) {
@@ -61,15 +24,17 @@ function actionableQuestions(list) {
     .map((q) => String(q || "").trim())
     .filter((q) => q && !UNACTIONABLE.test(q))
     .slice(0, 4);
-  return kept.length ? kept : FALLBACK.questions;
+  return kept;
 }
 
 function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healthData, healthHistory }) {
   // "copied" | "copy-failed" | null — what the copy button last did, said in words.
   const [shareStatus, setShareStatus] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState(FALLBACK.summary);
-  const [questions, setQuestions] = useState(FALLBACK.questions);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [summary, setSummary] = useState(null);
+  const [questions, setQuestions] = useState([]);
 
   const hasRealData = Boolean(userProfile?.profile || healthData?.today || healthData?.labs?.length);
 
@@ -132,29 +97,19 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
 
     (async () => {
       setLoading(true);
+      setFailed(false);
       try {
-        // The same full picture the chat gets — intake answers, genetics, every
-        // synced wearable metric and the preventive-care schedule included. Visit
-        // prep built off four fields missed most of what the user had told us.
-        const context = buildHealthContext({ userProfile, healthData, healthHistory });
-        const data = await callAI({
-          system: VISIT_PREP_SYSTEM,
-          messages: [{ role: "user", content: [{ type: "text", text: context }] }],
-          maxTokens: 700,
-        });
-        const raw = firstText(data, "").replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(raw);
-        // The page is printed and handed to a clinician, so it holds only what the
-        // member's record says: a number not in the record, or a diagnosis or dose,
-        // keeps the plain fallback page instead.
-        const written = [parsed?.summary, ...(parsed?.questions || [])].filter(Boolean).join("\n");
-        const unsafe = violatesForbiddenOutput(written) || untracedNumbers(written, context).length;
-        if (!cancelled && !unsafe && parsed?.summary && Array.isArray(parsed?.questions)) {
-          setSummary(String(parsed.summary).trim());
-          setQuestions(actionableQuestions(parsed.questions));
-        }
+        const page = await runAgentReview({ task: "discussion", userProfile, healthData, healthHistory });
+        // The service has checked every line against the record and the rules; the
+        // forbidden list runs once more here because this page is handed across a desk.
+        const kept = actionableQuestions(page?.questions);
+        const written = [page?.summary, ...kept].filter(Boolean).join("\n");
+        if (cancelled) return;
+        if (!page?.summary || violatesForbiddenOutput(written)) { setFailed(true); return; }
+        setSummary(String(page.summary).trim());
+        setQuestions(kept);
       } catch {
-        // Keep the fallback content on any failure — the page still renders.
+        if (!cancelled) setFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -167,7 +122,9 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
       cancelled = true;
       setLoading(false);
     };
-  }, [hasRealData, userProfile, healthData]);
+  }, [hasRealData, userProfile, healthData, attempt]);
+
+  const ready = Boolean(summary) && !loading;
 
   // The text Copy and Share hand over: the summary and the suggested questions, as
   // plain text that reads correctly when pasted into an email, a text or a note.
@@ -243,10 +200,20 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <Sparkles size={18} color={COLORS.accent} style={{ marginTop: 2, flexShrink: 0 }} />
           <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6 }}>
-            {loading ? "Preparing your summary from your latest data…" : summary}
+            {loading
+              ? "Your care team is preparing your summary from your latest data. This takes about a minute…"
+              : failed || !summary
+                ? (hasRealData ? "Your care team couldn't prepare your summary just now." : "Add your health history or a lab result, and your care team will prepare this page for your visit.")
+                : summary}
+            {failed && !loading && (
+              <button onClick={() => setAttempt((n) => n + 1)} style={{
+                display: "block", marginTop: 8, background: "none", border: "none", padding: 0,
+                color: COLORS.accent, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}>Try again</button>
+            )}
             {/* The generated summary speaks as the member; say so, so it reads as
                 theirs to use rather than as the app describing them. */}
-            {!loading && summary !== FALLBACK.summary && (
+            {ready && (
               <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 8 }}>
                 Written in your words, to read or show your clinician.
               </div>
@@ -288,9 +255,9 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
         </Card>
       </>)}
 
-      <SectionLabel>Suggested questions to raise</SectionLabel>
-      <Card>
-        {(loading ? FALLBACK.questions : questions).map((q, i, arr) => (
+      {ready && questions.length > 0 && <SectionLabel>Suggested questions to raise</SectionLabel>}
+      {ready && questions.length > 0 && <Card>
+        {questions.map((q, i, arr) => (
           <div key={i} style={{
             display: "flex", gap: 8, padding: "9px 0",
             borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : "none"
@@ -299,7 +266,7 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
             <span style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5 }}>{q}</span>
           </div>
         ))}
-      </Card>
+      </Card>}
 
       {privateLabFiles.length > 0 && (<>
         <SectionLabel>Lab files to share</SectionLabel>
@@ -331,20 +298,20 @@ function DiscussionPageScreen({ setActive, goBack, backLabel, userProfile, healt
           wherever they like. Both wait until the real summary has loaded, so the
           placeholder text can't be what gets shared. */}
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={copySummary} disabled={loading} style={{
+        <button onClick={copySummary} disabled={!ready} style={{
           flex: 1, background: COLORS.teal, border: "none", color: COLORS.onAccent,
           fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
-          cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1,
+          cursor: !ready ? "default" : "pointer", opacity: !ready ? 0.6 : 1,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8
         }}>
           {shareStatus === "copied" ? <CheckCircle2 size={16} /> : <Copy size={16} />}
           {shareStatus === "copied" ? "Copied" : "Copy summary"}
         </button>
         {canShare && (
-          <button onClick={shareSummary} disabled={loading} style={{
+          <button onClick={shareSummary} disabled={!ready} style={{
             flex: 1, background: COLORS.bgCardAlt, border: `1px solid ${COLORS.tealLight}`, color: COLORS.tealLight,
             fontSize: 14, fontWeight: 700, padding: "14px", borderRadius: 12,
-            cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1,
+            cursor: !ready ? "default" : "pointer", opacity: !ready ? 0.6 : 1,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8
           }}>
             <Share2 size={16} /> Share

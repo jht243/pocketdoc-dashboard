@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Brain, Check, ChevronDown, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse,
-  Moon, Pill, Salad, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound, Users,
+  Activity, Brain, Check, ChevronDown, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse,
+  Moon, Pill, Salad, Scale, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound, Users,
 } from "lucide-react";
 import { COLORS } from "../theme/tokens";
 import { member, readTeam, photoUrl, ADVOCATE, SAFETY } from "../lib/careTeam";
 
 const ICONS = {
-  Brain, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse, Moon, Pill, Salad,
-  ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound,
+  Activity, Brain, Compass, Dna, Ear, Eye, Flame, Flower2, HeartHandshake, HeartPulse, Moon, Pill, Salad,
+  Scale, ShieldCheck, Soup, Sparkles, Stethoscope, TestTubeDiagonal, UserRound,
 };
 
 const REDUCED = typeof window !== "undefined"

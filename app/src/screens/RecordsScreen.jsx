@@ -6,15 +6,13 @@ import { SectionLabel } from "../components/SectionLabel";
 import { UrgentBanner } from "../components/UrgentBanner";
 import { EvidenceBox } from "../components/EvidenceBox";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { getRecordInsight } from "../lib/deterministicInsights";
 import DocumentList from "../components/DocumentList";
 
 function RecordsScreen({ setActive, healthData, aiInsights, onRecordsChange }) {
   const records = healthData?.records || [];
-  // AI insight once loaded; deterministic fallback until it resolves, if the AI is
-  // unavailable, or if the AI found nothing — an insight that was already on screen
-  // must never collapse into the locked "import more" card.
-  const insight = aiInsights?.record || getRecordInsight(healthData);
+  // Written by the care team (lib/aiInsights.js). No template stands in while it
+  // works or when it can't answer: every recommendation comes from the team.
+  const insight = aiInsights?.record || null;
   const urgent = aiInsights?.urgent || [];
   return (
     <div style={{ padding: "24px 18px" }}>

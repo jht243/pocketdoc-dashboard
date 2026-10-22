@@ -21,6 +21,7 @@ import {
 } from "./lib/profileStore";
 import { loadWearableSnapshot, readOuraCallbackResult } from "./lib/wearableStore";
 import { generateAIInsights } from "./lib/aiInsights";
+import { openFollowUps } from "./lib/followUpStore";
 import { loadMessages } from "./lib/chatStore";
 import { loadCheckIns } from "./lib/checkInStore";
 import { buildBaseItems, useScoreModel } from "./lib/scoring";
@@ -276,8 +277,16 @@ function App() {
     loadMessages(user.id, 200, { thread: "all" })
       .catch(() => [])
       // Test-mode-era messages were about the demo profile, not this member.
-      .then((messages) => generateAIInsights(healthData, userProfile, healthHistory, messages.filter((m) => !m.fromTestMode)))
-      .then((res) => { if (!cancelled) setAiInsights(res); });
+      .then((messages) => generateAIInsights(healthData, userProfile, healthHistory, messages.filter((m) => !m.fromTestMode), user.id))
+      .then((res) => {
+        if (cancelled) return;
+        setAiInsights(res);
+        // A member who meets the GLP-1 label is flagged for the clinician whether or
+        // not they ever ask about weight (Dr. Locker, Oct 21 2026): the review's lane
+        // card opens the provider follow-up the check-in asks about.
+        const glp1 = (res?.lanes || []).filter((c) => c.marker === "glp1_review");
+        if (glp1.length) openFollowUps(user.id, glp1).catch((err) => console.warn("openFollowUps", err));
+      });
     return () => { cancelled = true; };
     // userProfile included: a medication or screening change alters what the cards
     // should say, not just new device/lab data.

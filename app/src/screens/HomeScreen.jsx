@@ -10,7 +10,6 @@ import { CheckInCard } from "../components/CheckInCard";
 import { BioAgeHero } from "../components/BioAgeCard";
 import { PreventiveCareCard } from "../components/PreventiveCareCard";
 import { queueChatQuestion } from "../lib/chatHandoff";
-import { getDailyRecommendation } from "../lib/recommendations";
 import { insightActionLabel, liveInsightAction, runInsightAction } from "../lib/insightActions";
 import { formatHoursMinutes } from "../lib/wearableShape";
 import { BrandMark } from "../components/BrandMark";
@@ -21,9 +20,6 @@ import { COLORS, DISPLAY } from "../theme/tokens";
 function HomeScreen({
   setActive, userProfile, healthHistory, healthData, aiInsights,
 }) {
-  // Once the AI insights have loaded (aiInsights !== null) they govern this card —
-  // including deliberately showing nothing. Until then (or if the AI is unavailable)
-  // fall back to the deterministic recommendation so the card is never empty.
   // Section 7 of the clinical spec: an urgent pattern stops the standard workflow.
   // When one is present it is the only signal on this card slot — burying it under,
   // or beside, a card about sleep is exactly what the rule forbids.
@@ -31,7 +27,8 @@ function HomeScreen({
   // A "worth repeating" note is not an emergency, so it sits in the same banner but
   // does not clear the rest of the screen the way a real escalation does.
   const recheck = aiInsights?.recheck || [];
-  const rec = urgent.length ? null : (aiInsights ? aiInsights.daily : getDailyRecommendation(healthData));
+  // Written by the care team (lib/aiInsights.js); no template stands in for it.
+  const rec = urgent.length ? null : (aiInsights?.daily || null);
   const hasHealthData = Boolean(
     healthData?.labs?.length || healthData?.records?.length || healthData?.vitals?.length || healthData?.today || healthData?.score
   );

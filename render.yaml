@@ -25,8 +25,8 @@ services:
         sync: false
       - key: VITE_AI_ENDPOINT
         sync: false
-      # The agents service's URL (below). Unset, the chat runs the care team in the
-      # browser as before; set, it runs on the service and falls back to the browser.
+      # The agents service's URL (below). Every recommendation in the app comes from
+      # it; unset, the app shows none.
       - key: VITE_AGENTS_URL
         sync: false
     # SPA fallback: every route serves index.html so client-side navigation works
@@ -45,9 +45,8 @@ services:
         name: Cache-Control
         value: no-cache
 
-  # My Advocate and the four specialist advocates (app/agents). Not yet created on
-  # Render: create it from this blueprint, set the env vars, then set VITE_AGENTS_URL
-  # on the static site above to this service's URL.
+  # My Advocate and the specialist advocates (app/agents): every chat answer, insight
+  # card and visit-prep page. Live at https://thumbprint-agents.onrender.com.
   - type: web
     name: thumbprint-agents
     runtime: node

@@ -4,6 +4,7 @@ import { Card } from "../components/Card";
 import { LockedDataSection } from "../components/LockedDataSection";
 import { OrderComingSoon } from "../components/OrderComingSoon";
 import { COLORS, DISPLAY } from "../theme/tokens";
+import { queueChatQuestion } from "../lib/chatHandoff";
 
 // The two genetic panels a member can't yet order in the app, each with a placeholder
 // Order button. Shown only while no genetic data is on file.
@@ -38,6 +39,13 @@ function OrderGeneticTests() {
 // 2. Pharmacogenomic markers (medication metabolism, higher stakes, physician-discussion framing)
 // Each marker shows what it means for this specific user, not a generic description.
 function GeneticProfileScreen({ setActive, goBack, backLabel, healthData }) {
+  // The question goes to the chat, where the Genetics specialist and whoever else it
+  // touches answer it from the whole record.
+  const askTeam = (m) => {
+    const name = [m.gene, m.variant, m.genotype ? `(${m.genotype})` : null].filter(Boolean).join(" ") || m.title || "this result";
+    queueChatQuestion(`What does my ${name} result mean for me?`);
+    setActive("aichat");
+  };
   const [activeSection, setActiveSection] = useState("lifestyle"); // lifestyle | pharma
 
   // Only the member's own imported genome is ever shown: rich objects from
@@ -98,26 +106,19 @@ function GeneticProfileScreen({ setActive, goBack, backLabel, healthData }) {
                 <div style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.6 }}>{m.notes}</div>
               </div>
             )}
-            {(m.forYou || []).length > 0 && (
-              <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, marginBottom: 8, letterSpacing: 0.5 }}>
-                WHAT THIS MEANS FOR YOU
-              </div>
-            )}
-            {(m.forYou || []).map((point, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 7 }}>
-                <span style={{ color: COLORS.tealLight, flexShrink: 0, marginTop: 1 }}>·</span>
-                <span style={{ fontSize: 12, color: COLORS.textSecondary, lineHeight: 1.5 }}>{point}</span>
-              </div>
-            ))}
-            <div style={{
-              marginTop: 12, padding: "8px 10px", background: COLORS.bgCard,
-              borderRadius: 8, display: "flex", gap: 6, alignItems: "flex-start"
+            {/* What a variant means for this member is the care team's to say (the
+                Genetics specialist reads it against their labs and medications), not
+                a line written when the report was imported with no rules applied. */}
+            <button onClick={() => askTeam(m)} style={{
+              marginTop: 4, width: "100%", padding: "10px 12px", background: COLORS.bgCard,
+              border: `1px solid ${COLORS.border}`, borderRadius: 8, cursor: "pointer",
+              display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between",
             }}>
-              <Sparkles size={12} color={COLORS.tealLight} style={{ marginTop: 1, flexShrink: 0 }} />
-              <div style={{ fontSize: 11, color: COLORS.textMuted, lineHeight: 1.5 }}>
-                Your AI advocate uses this when you ask about supplements, nutrition, or lifestyle recommendations.
-              </div>
-            </div>
+              <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, fontWeight: 600, color: COLORS.accent }}>
+                <Sparkles size={13} color={COLORS.tealLight} /> Ask your care team what this means for you
+              </span>
+              <ChevronRight size={14} color={COLORS.textMuted} />
+            </button>
           </div>
         )}
       </Card>

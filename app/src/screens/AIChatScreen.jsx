@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Archive, Camera, ExternalLink, Mic, Send, Trash2, X } from "lucide-react";
 import { COLORS, DISPLAY } from "../theme/tokens";
-import { callAI, firstText, firstCitations } from "../lib/api";
-import { buildHealthContext } from "../lib/healthContext";
 import { useAuth } from "../lib/AuthContext";
 import { rankCitations, sourceCaveat } from "../lib/sourceQuality";
 import {
@@ -11,20 +9,11 @@ import {
 } from "../lib/chatStore";
 import { ArchivedChats } from "../components/ArchivedChats";
 import { startingPrompts } from "../lib/chatPrompts";
-import { runCareTeam, safetyReview } from "../lib/careTeam";
 import { openFollowUps } from "../lib/followUpStore";
-import { agentsEnabled, runAgentTeam } from "../lib/agentsClient";
-import { FORBIDDEN_OUTPUT_RULES } from "../lib/clinicalRules";
+import { runAgentTeam } from "../lib/agentsClient";
 import { CareTeamCard, AdvocateByline, CARE_TEAM_CSS } from "../components/CareTeam";
 import { RichReply } from "../components/RichReply";
 import { takeQueuedChatQuestion } from "../lib/chatHandoff";
-
-// Live research now comes from the hosted web-search tool in the gateway, not from
-// a special model id: the old `gpt-4o-search-preview` chat models were deprecated by
-// OpenAI and started returning 404, which broke every text message in this screen.
-// The vision model handles image messages (a photo can't be answered by a search).
-const CHAT_MODEL = import.meta.env.VITE_AI_CHAT_MODEL || "gpt-4.1";
-const VISION_MODEL = import.meta.env.VITE_AI_VISION_MODEL || "gpt-4o";
 
 // Replaying the thread on every turn is what gives the conversation its memory,
 // but the thread is now permanent, so an unbounded replay would grow the request
@@ -33,25 +22,6 @@ const VISION_MODEL = import.meta.env.VITE_AI_VISION_MODEL || "gpt-4o";
 // old photo is rarely what the current question is about.
 const MAX_CONTEXT_MESSAGES = 30;
 const MAX_CONTEXT_IMAGES = 2;
-
-// The persona: a whole-person health advocate who reads the member's own record
-// against established clinical guidelines. No live web search for health answers
-// (Adam Locker, Oct 19 2026: approved reference sources only), and guideline-based
-// ranges, not functional or optimal ones.
-const PERSONA = `You are Thumbprint Health — the member's own personal Healthcare Advocate (they know you as "My Advocate"), a knowledgeable health companion who works for them and coordinates a team of specialist advocates on their behalf. Speak as their advocate: on their side, in the first person. You look at the whole person: you connect labs, symptoms, lifestyle, medications, and genetics into a clear picture, then give specific, guideline-based, actionable guidance tailored to THIS person's data.
-
-How you answer:
-- Be genuinely useful and direct. Describe what the data shows and the next steps: lifestyle and nutrition changes, which supplements are worth discussing with their provider and what each is for (never an amount or dose, and never that a supplement or treatment "is necessary" — that is the provider's call), which labs to run next, and how to read a result. Do NOT deflect with a vague "ask your doctor"; give the substance.
-- Answer from the member's record and established clinical guidelines (USPSTF, ADA, ACC/AHA, KDIGO, the Endocrine Society, NIH). You do not search the web. Read results against the lab's reference range and guideline-based targets, never "functional" or "optimal" ranges.
-- Name a guideline in the sentence itself when you rely on one ("the ADA Standards of Care"). Never write bare footnote markers like [1] or [2], and never invent a study, a statistic or a citation. If no guideline covers the question, say so plainly.
-- Always ground answers in the user's actual data below (labs and their trends, medications, conditions, genetics, goals). Generic advice that ignores their profile is a failure.
-- Be concise and structured: lead with the answer, then the reasoning, then next steps.
-- Formatting: the reply is shown on a phone. Use short "## " headings, **bold** for key values, and "- " bullet lists. Use a markdown table only for genuinely tabular data (e.g. tests, how often, why), with at most 4 columns and short cells. Never wrap the reply in a code block.
-
-Safety — keep it light and never let it stop you from being useful:
-- This is educational information personalized to the user's data, not a formal diagnosis or a prescription.
-- For anything urgent or severe (chest pain, stroke signs, severe symptoms, suicidal thoughts, etc.), tell them to seek in-person or emergency care.
-- Never give a supplement or medication dose, and never tell them to start, stop or change a medication. Give them the substance instead: what the option is for, what the evidence says, and the specific questions to bring to their prescriber.`;
 
 // The web-search model writes markdown. Headings, bold, lists and tables are kept
 // for RichReply to render; what is stripped is the inline citation noise
@@ -100,24 +70,6 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
     const datePattern = /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}\/\d{1,2}|next week|tomorrow|\d{1,2}(?:st|nd|rd|th)?)/i;
     return apptPattern.test(text) && datePattern.test(text);
   };
-
-  // Every input the app holds — intake answers, labs and their trends, all synced
-  // wearable metrics, genetics, preventive-care schedule, records — is assembled in
-  // one place so a newly collected field can never reach a screen but miss the chat.
-  const healthContext = buildHealthContext({ userProfile, healthData, healthHistory });
-  const healthProfile = [
-    PERSONA,
-    // Dr. Locker's member-facing rules govern the chat too, not just the insight
-    // cards. The safety review enforces them in code; saying them up front is what
-    // keeps the first draft from needing that rewrite.
-    FORBIDDEN_OUTPUT_RULES,
-    // Before onboarding there is nothing to ground an answer in, so say so rather
-    // than handing the model a page of "(none recorded)" and hoping it notices.
-    userProfile?.profile
-      ? null
-      : "The user hasn't completed their health profile yet. Ask a couple of concise questions to get their goals and current situation, and still answer what they ask usefully with current research.",
-    healthContext,
-  ].filter(Boolean).join("\n\n");
 
   const suggestions = startingPrompts(healthData, userProfile);
 
@@ -332,11 +284,6 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
     }
     setLoading(true);
 
-    // Text questions go through the care team: the Advocate consults specialist
-    // advocates, they compare notes, and a safety review runs before the reply.
-    // Decided by THIS message only. Checking the whole window meant one photo sent
-    // weeks ago routed every later question down the photo path, so the team never ran.
-    const teamTurn = !image;
     const localId = `team-${Date.now()}`;
     const live = [];
     // Upsert rather than map: if anything replaces the message list mid-round,
@@ -347,7 +294,7 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
         : [...prev, { role: "assistant", localId, pending: true, animate: true, text: "", team: [], ...patch }]
     ));
     // Up before the database write, so the card is there the moment they hit send.
-    if (teamTurn) patchLive({ team: [{ type: "route_start", t: 0 }] });
+    patchLive({ team: [{ type: "route_start", t: 0 }] });
 
     // Store the photo before the row that points at it, so a message can never
     // reference an object whose upload failed.
@@ -370,109 +317,43 @@ function AIChatScreen({ setActive, userProfile, healthData, healthHistory, onMem
 
     const apiMessages = await buildApiMessages(thread);
 
-    // Image conversations go to the vision model; everything else goes to the team.
-    const hasImage = apiMessages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === "image"));
-
-    // Photo questions skip the team, since the vision model answers from the image.
-    if (teamTurn) {
-      // An older photo still in the window is dropped from the team's copy of the
-      // thread: the question being asked is text, and the research model reads text.
-      const textThread = apiMessages
-        .map(m => (Array.isArray(m.content)
-          ? { ...m, content: m.content.filter(c => c.type === "text").map(c => c.text).join("\n") }
-          : m))
-        .filter(m => m.content);
-      const onEvent = (e) => {
-        live.push(e);
-        patchLive({ team: [...live] });
-      };
-      // The browser team: the fallback when the agents service is off or unreachable.
-      const inBrowser = () => runCareTeam({
+    // Every question goes to the care team, photos included: the service describes a
+    // photo first and the team answers under the same rules as any other question.
+    // An older photo still in the window is dropped from the team's copy of the thread.
+    const textThread = apiMessages
+      .map(m => (Array.isArray(m.content)
+        ? { ...m, content: m.content.filter(c => c.type === "text").map(c => c.text).join("\n") }
+        : m))
+      .filter(m => m.content);
+    const onEvent = (e) => {
+      live.push(e);
+      patchLive({ team: [...live] });
+    };
+    try {
+      // No browser fallback (Oct 21 2026): an answer the team didn't write, under
+      // rules it didn't run, is not shown. A failure says so and the member retries.
+      const out = await runAgentTeam({
         question: userText,
-        apiMessages: textThread,
-        systemPrompt: healthProfile,
-        healthContext,
+        history: textThread.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
         userProfile,
         healthData,
-        chatModel: CHAT_MODEL,
-        cleanReply,
+        healthHistory,
         onEvent,
         messageId,
+        image: image || null,
       });
-      // My Advocate and the four specialists on the agents service, when it is set
-      // up. A failure there restarts the round in the browser rather than failing
-      // the member's question.
-      const onServer = async () => {
-        try {
-          const out = await runAgentTeam({
-            question: userText,
-            history: textThread.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
-            userProfile,
-            healthData,
-            healthHistory,
-            onEvent,
-            messageId,
-          });
-          return { ...out, reply: cleanReply(out.reply) };
-        } catch (err) {
-          console.warn("Agents service failed; running the care team in the browser", err);
-          live.length = 0;
-          patchLive({ team: [{ type: "route_start", t: 0 }] });
-          return inBrowser();
-        }
-      };
-      try {
-        const { reply, citations, events, lanes } = await (agentsEnabled() ? onServer() : inBrowser());
-        const ranked = rankCitations(citations);
-        patchLive({ pending: false, text: reply, citations: ranked, team: events });
-        if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations: ranked, team: events });
-        // A marker the answer put in "Bring this to your provider" becomes an open
-        // follow-up the morning check-in asks about at 30 and 60 days. After the
-        // reply is on screen and stored, and never in its way.
-        if (user && lanes?.length) openFollowUps(user.id, lanes).catch((err) => console.warn("openFollowUps", err));
-      } catch (err) {
-        console.error("Care team request failed", err);
-        const text = `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`;
-        patchLive({ pending: false, animate: false, team: [], text, error: true });
-        if (user) await appendMessage(user.id, { role: "assistant", text, error: true });
-      }
-      setImage(null);
-      setLoading(false);
-      refreshInsights();
-      return;
-    }
-
-    try {
-      const data = await callAI({
-        system: healthProfile,
-        messages: apiMessages,
-        model: hasImage ? VISION_MODEL : CHAT_MODEL,
-        maxTokens: 1200,
-        // No live web search for health answers (Adam Locker, Oct 19 2026).
-        webSearch: false,
-      });
-      // Photo replies skip the care team but not the safety review: the same
-      // clinical rules apply to an answer about a picture of a supplement label.
-      const { reply } = await safetyReview({
-        reply: cleanReply(firstText(data, "I couldn't generate a response.")),
-        question: userText,
-        healthData,
-        cleanReply,
-        messageId,
-      });
-      // Ranked before it is rendered or stored, so the member sees the best source
-      // first and a stored reply keeps the same ordering when the thread reloads.
-      const citations = rankCitations(firstCitations(data));
-      setMessages(prev => [...prev, { role: "assistant", text: reply, citations, fresh: true }]);
-      if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations });
+      const reply = cleanReply(out.reply);
+      const ranked = rankCitations(out.citations);
+      patchLive({ pending: false, text: reply, citations: ranked, team: out.events });
+      if (user) await appendMessage(user.id, { role: "assistant", text: reply, citations: ranked, team: out.events });
+      // A marker the answer put in "Bring this to your provider" becomes an open
+      // follow-up the morning check-in asks about at 30 and 60 days. After the
+      // reply is on screen and stored, and never in its way.
+      if (user && out.lanes?.length) openFollowUps(user.id, out.lanes).catch((err) => console.warn("openFollowUps", err));
     } catch (err) {
-      // Show what actually failed. A bare "something went wrong" is how a
-      // deprecated model id went unnoticed while every message silently 404'd.
-      console.error("AI chat request failed", err);
-      const text = `Something went wrong. Please try again.\n\n(${err?.message || "Unknown error"})`;
-      setMessages(prev => [...prev, { role: "assistant", text, error: true }]);
-      // Stored so the transcript stays honest about what the member saw, and
-      // flagged so it is never replayed to the model as something the AI said.
+      console.error("Care team request failed", err);
+      const text = `Your care team couldn't answer just now. Please try again in a moment.\n\n(${err?.message || "Unknown error"})`;
+      patchLive({ pending: false, animate: false, team: [], text, error: true });
       if (user) await appendMessage(user.id, { role: "assistant", text, error: true });
     }
     setImage(null);

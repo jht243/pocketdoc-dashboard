@@ -35,6 +35,9 @@
  * `showIf(a)` — question/section is only rendered when it returns true (`a` = answers).
  */
 
+import { bmiFromIntake } from "./screeningLogic.js";
+import { GLP1_BMI_WITH_CONDITION } from "./glp1.js";
+
 // ---- Section 1 — demographics & basic profile (beyond name/DOB/sex) ----
 // Top level is deliberately Man / Woman / Other / Prefer not to say. Listing every
 // identity up front reads as taking a stance and is presumptive for the majority of
@@ -476,6 +479,20 @@ export const INTAKE_SECTIONS = [
       { id: "substancesOther", type: "text", label: "Other substance — specify", showIf: (a) => has(a, "substances", "Other") },
     ],
   },
+  // Dr. Locker's BMI email, Oct 21 2026: before anyone is flagged as a possible
+  // candidate for a GLP-1, screen for the main safety exclusions. Asked only once the
+  // BMI reaches the lowest label threshold, where the answer can matter (glp1.js).
+  {
+    id: "glp1Safety",
+    title: "Weight-loss medication safety",
+    intro: "Three quick questions. If weight-loss medication ever comes up with your clinician, these are the first things they check.",
+    showIf: (a) => (bmiFromIntake(a) ?? 0) >= GLP1_BMI_WITH_CONDITION,
+    questions: [
+      { id: "mtcHistory", type: "single", label: "Have you or anyone in your family had medullary thyroid cancer or MEN2 (multiple endocrine neoplasia type 2)?", options: ["No", "Yes", "Not sure"] },
+      { id: "pancreatitisHistory", type: "single", label: "Have you ever had pancreatitis?", options: ["No", "Yes", "Not sure"] },
+      { id: "tryingToConceive", type: "single", label: "Are you pregnant or trying to conceive?", options: ["No", "Yes"], showIf: (a, p) => sexIs(p, "female") },
+    ],
+  },
   {
     id: "mental",
     title: "Stress & mental health",
@@ -593,7 +610,7 @@ export const INTAKE_GROUPS = [
   {
     id: "history",
     title: "Medical history",
-    sections: ["conditions", "surgical", "allergies", "mental", "preventive"],
+    sections: ["conditions", "glp1Safety", "surgical", "allergies", "mental", "preventive"],
     prep: "Have the approximate year of any diagnoses, surgeries, or hospital stays, and roughly when you last had a physical, a blood panel, and routine screenings. Your latest blood pressure reading helps too, if you have it.",
   },
   {

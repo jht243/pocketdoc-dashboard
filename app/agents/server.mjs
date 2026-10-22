@@ -1,6 +1,8 @@
 // The agents service: My Advocate and the specialist advocates behind the chat.
 //
-//   POST /chat    { question, history, facts, healthData, messageId? }  → text/event-stream
+//   POST /chat    { question, history, facts, healthData, image?, messageId? }  → text/event-stream
+//   POST /review  { task: "insights" | "discussion", facts, healthData, extras? }  → JSON
+//                 the team reads the whole record and writes a screen (lib/review.mjs)
 //   GET  /health  → { ok, model, cheap, via }
 //
 // WHY A SERVER. One question is about a dozen model calls (route, four reads in
@@ -25,13 +27,14 @@ import http from 'node:http';
 import { env } from './lib/env.mjs';
 import { providerInfo, costOf } from './lib/llm.mjs';
 import { runQuestion } from './lib/team.mjs';
+import { runReview } from './lib/review.mjs';
 import { writeRoundLogs } from './lib/logs.mjs';
 
 const PORT = process.env.PORT || env('AGENTS_PORT', 5190);
 const SUPABASE_URL = env('SUPABASE_URL') || env('VITE_SUPABASE_URL');
 const ANON = env('SUPABASE_ANON_KEY') || env('VITE_SUPABASE_ANON_KEY');
 const ORIGINS = (env('ALLOWED_ORIGINS', '*') || '*').split(',').map((s) => s.trim()).filter(Boolean);
-const MAX_BODY = 4e6; // the record carries transcribed documents (capped at 20k chars in healthContext)
+const MAX_BODY = 12e6; // the record carries transcribed documents (capped at 20k chars in healthContext), and a chat photo
 
 function cors(req, res) {
   const origin = req.headers.origin || '';
@@ -73,7 +76,8 @@ const server = http.createServer(async (req, res) => {
     try { body = await readBody(req); } catch { return json(res, 400, { error: 'Body must be JSON, under 4 MB.' }); }
     const who = await caller(req);
     if (!who) return json(res, 401, { error: 'Not signed in.' });
-    const question = String(body.question ?? '').trim();
+    const image = typeof body.image === 'string' && body.image.length < 11e6 ? body.image : null;
+    const question = String(body.question ?? '').trim() || (image ? 'What can you tell me about this photo?' : '');
     if (!question) return json(res, 400, { error: 'Ask something.' });
     if (!Array.isArray(body.facts?.sections)) return json(res, 400, { error: 'The record (facts.sections) is missing.' });
 
@@ -97,6 +101,7 @@ const server = http.createServer(async (req, res) => {
         history: Array.isArray(body.history) ? body.history : [],
         facts: body.facts,
         healthData: body.healthData || {},
+        image,
         run,
       }, send);
       send({ type: 'reply', text: reply, sources, lanes });
@@ -116,6 +121,35 @@ const server = http.createServer(async (req, res) => {
         question, messageId, answered,
         seconds: Math.round((Date.now() - started) / 1000),
         usd: costOf(run.ledger),
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  if (u.pathname === '/review' && req.method === 'POST') {
+    let body;
+    try { body = await readBody(req); } catch { return json(res, 400, { error: 'Body must be JSON, under 12 MB.' }); }
+    const who = await caller(req);
+    if (!who) return json(res, 401, { error: 'Not signed in.' });
+    const task = String(body.task || '');
+    if (!['insights', 'discussion'].includes(task)) return json(res, 400, { error: 'Unknown review.' });
+    if (!Array.isArray(body.facts?.sections)) return json(res, 400, { error: 'The record (facts.sections) is missing.' });
+    const run = { auth: who.auth, ledger: [], safety: [] };
+    const started = Date.now();
+    let answered = false;
+    try {
+      const out = await runReview({ task, facts: body.facts, healthData: body.healthData || {}, extras: body.extras || {}, run });
+      answered = true;
+      const usd = costOf(run.ledger);
+      console.log(`[$${usd.toFixed(3)}] ${who.user.id.slice(0, 8)} ${run.ledger.length} calls: review ${task}`);
+      json(res, 200, { ...out, cost: { calls: run.ledger.length, usd: +usd.toFixed(4) } });
+    } catch (e) {
+      console.error(e);
+      json(res, 502, { error: String(e.message || e) });
+    } finally {
+      writeRoundLogs(run, {
+        question: `[record review: ${task}]`, messageId: null, answered,
+        seconds: Math.round((Date.now() - started) / 1000), usd: costOf(run.ledger),
       }).catch(() => {});
     }
     return;

@@ -20,6 +20,7 @@ import { questionnaireLines } from "./screeningQuestionnaires";
 import { describeLabAge, labDay, compareLabsNewestFirst } from "./clinicalRules";
 import { bioAgeFromLabs } from "./phenoAge";
 import { bodyMetrics } from "./bodyMetrics";
+import { glp1Eligibility, glp1Lines } from "./glp1";
 
 /* ---------------- value formatting ---------------- */
 
@@ -421,7 +422,6 @@ export function geneticLine(g) {
     g.impact ? `impact: ${g.impact}` : null,
     g.aiContext || g.what,
     g.notes,
-    g.forYou?.length ? `suggested: ${g.forYou.join("; ")}` : null,
     g.medications?.length ? `medication relevance: ${g.medications.join("; ")}` : null,
     g.source ? `source: ${g.source}` : null,
   ].filter(Boolean);
@@ -514,8 +514,26 @@ function bodyMetricLines(intake, sex) {
   return [
     m.rfm != null ? `- Relative fat mass (RFM, estimated body fat % from height, waist and sex; calculated by the app): ${m.rfm}%` : null,
     m.waistToHeight != null ? `- Waist-to-height ratio (calculated by the app; under 0.5 is the usual healthy target): ${m.waistToHeight.toFixed(2)}` : null,
-    m.bmi != null ? `- BMI (calculated by the app, BACKGROUND ONLY for eligibility rules — the member is shown RFM and waist-to-height instead; don't lead with BMI): ${m.bmi}` : null,
   ];
+}
+
+/**
+ * The weight picture the Weight and Metabolism specialists read: measurements, the
+ * measures worked out from them, the weight-related conditions on file and the GLP-1
+ * result, all decided in code (bodyMetrics.js, glp1.js).
+ */
+function weightLines(intake, sex) {
+  const m = bodyMetrics(intake, sex);
+  const glp1 = glp1Eligibility(intake, sex);
+  return [
+    bullet("Height", intake.height),
+    bullet("Current weight", intake.weight),
+    bullet("Waist", intake.waist),
+    ...bodyMetricLines(intake, sex),
+    m.bmi != null ? `- BMI (calculated by the app, BACKGROUND ONLY for eligibility rules — the member is shown RFM and waist-to-height instead; never lead with BMI or call them by a BMI category): ${m.bmi}` : null,
+    glp1.conditions.length ? `- Weight-related conditions they reported: ${glp1.conditions.join(", ")}` : null,
+    glp1Lines(glp1),
+  ].filter(Boolean).join("\n");
 }
 
 export function buildFactSections({ userProfile, healthData, healthHistory }) {
@@ -623,6 +641,7 @@ Numbers the member self-reported at intake are only worth citing when no lab res
       { key: "geneticDocuments", title: "GENETIC REPORTS (the member's uploaded DNA reports, transcribed — the source the GENETICS markers above were read from)", body: geneticRecords },
       { key: "preventive", title: "PREVENTIVE CARE SCHEDULE", body: scheduleLines(userProfile?.schedule, userProfile?.completedItems) },
       { key: "body", title: "BODY COMPOSITION", body },
+      { key: "weight", title: "WEIGHT, BODY SIZE & WEIGHT-LOSS MEDICATION ELIGIBILITY (measurements SELF-REPORTED; every measure and the eligibility result calculated by the app in code — quote them, never recompute them)", body: weightLines(intake, profile.sex) },
       { key: "documents", title: "UPLOADED RECORDS & DOCUMENTS (the member's own files, transcribed — read these, they are primary source material)", body: records },
       { key: "dailyScore", title: "DAILY SCORE INPUTS", body: scoreLines },
       { key: "questionnaires", title: "SCREENING QUESTIONNAIRES (taken in the app, SELF-REPORTED, newest first — a screen, not a diagnosis; a positive one means it is worth raising with their clinician)", body: questionnaireLines(healthData?.questionnaires || []) },
