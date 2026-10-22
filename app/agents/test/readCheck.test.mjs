@@ -158,3 +158,9 @@ test("rows pair up by rsID or name even when one read adds the report's descript
   assert.equal(bad.disputed.length, 1);
   assert.deepEqual(applyTieBreak('MTHFR  rs1801133  C/C', bad, 'MTHFR rs1801133: UNREADABLE').unclear, ['MTHFR rs1801133']);
 });
+
+test('a lab range is never read as a date', async () => {
+  const { datesOf, checkDates } = await import('../../src/lib/readCheck.js');
+  assert.deepEqual(datesOf('Creatinine: 1.05 mg/dL (0.76-1.27)\nhs-CRP: 3.4 mg/L (0.00-3.00)\nTSH (0.450-4.500)'), []);
+  assert.equal(checkDates('Creatinine: 1.05 mg/dL (0.76-1.27)', 'nothing').text, 'Creatinine: 1.05 mg/dL (0.76-1.27)');
+});

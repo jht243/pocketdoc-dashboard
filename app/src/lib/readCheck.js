@@ -52,7 +52,8 @@ export function labelOf(line) {
 
 // Dates and clock times are not results: a header line carrying a collection and a
 // report date is checked by `checkDates`, not compared row by row as a result.
-const DATE = /\b\d{4}-\d{1,2}-\d{1,2}\b|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b/g;
+// One separator used twice, never part of a decimal: "0.76-1.27" is a range, not a date.
+const DATE = /(?<![\d.])\d{4}-\d{1,2}-\d{1,2}(?![\d.])|(?<![\d.])\d{1,2}([/.-])\d{1,2}\1\d{2,4}(?![\d.])/g;
 const TIME = /\b\d{1,2}:\d{2}(?::\d{2})?(?:\s?[ap]\.?m\.?)?\b/gi;
 const withoutDates = (line) => String(line || "").replace(DATE, " ").replace(TIME, " ");
 
@@ -90,7 +91,8 @@ export function checkDates(primary, second) {
   const seen = new Set(datesOf(second));
   const unclear = [];
   const text = String(primary || "").replace(DATE, (d) => {
-    if (seen.has(dateKey(d))) return d;
+    const key = dateKey(d);
+    if (!key || seen.has(key)) return d; // not a calendar date, or both reads have it
     unclear.push(d);
     return DATE_UNCLEAR;
   });
